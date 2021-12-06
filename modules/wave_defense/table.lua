@@ -19,6 +19,7 @@ function Public.debug_module()
 end
 
 function Public.reset_wave_defense()
+    
     this.boss_wave = false
     this.boss_wave_warning = false
     this.active_biters = {}

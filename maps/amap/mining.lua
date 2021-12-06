@@ -111,11 +111,21 @@ local function on_entity_died(event)
   local name = event.entity.name
   local force = event.entity.force
   if force.index == game.forces.player.index then
+
+
+    if name =="artillery-wagon" or name =="artillery-turret" then
+          local unit_number=event.entity.unit_number
+      if this.water_arty[unit_number] then
+         this.water_arty[unit_number] =nil
+      end
+    end
+
     if name == 'flamethrower-turret' then
       this.flame = this.flame - 1
       if this.flame <= 0 then
         this.flame = 0
       end
+      return
     end
 
     if name == 'land-mine' then
@@ -123,7 +133,9 @@ local function on_entity_died(event)
       if this.now_mine <= 0 then
         this.now_mine = 0
       end
+        return
     end
+
   end
 
 end

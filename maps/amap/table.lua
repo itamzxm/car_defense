@@ -17,6 +17,10 @@ end
 function Public.reset_table()
   -- @star
   -- these 3 are in case of stop/start/reloading the finstance
+  this.gain={}
+  this.gain_time=0
+  this.water_arty={}
+  this.nest_wegiht={}
   this.player_flame={}
   this.car_die_number = 0
   this.enable_wild_factorio=true

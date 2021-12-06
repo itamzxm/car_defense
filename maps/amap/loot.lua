@@ -55,7 +55,7 @@ function Public.add(surface, position, chest)
     for _, item_stack in pairs(item_stacks) do
         container.insert(item_stack)
     end
-    container.destructible=false
+
 
     if random(1, 8) == 1 then
         container.insert({name = 'coin', count = random(1, 32)})
@@ -153,7 +153,6 @@ function Public.cool(surface, position, chest, magic)
         end
     end
 
-    container.minable=true
     return container
 end
 return Public

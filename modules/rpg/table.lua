@@ -540,6 +540,7 @@ function Public.tweaked_crafting_items(tbl)
     return this.tweaked_crafting_items
 end
 
+Public.get_itam_spell = Spells.itam_spell
 Public.get_projectiles = Spells.projectile_types
 Public.settings_frame_name = settings_frame_name
 Public.save_button_name = save_button_name

@@ -11,6 +11,7 @@ local Factories = require 'maps.amap.production'
 local diff=require 'maps.amap.diff'
 local round = math.round
 local List = require 'maps.amap.production_list'
+local MT = require "maps.amap.basic_markets"
 
 local function protect(entity, operable)
   entity.minable = false
@@ -91,17 +92,36 @@ local market_items = {
   {price = {{"coin", 128}}, offer = {type = 'give-item', item = 'loader', count = 1}},
   {price = {{"coin", 512}}, offer = {type = 'give-item', item = 'fast-loader', count = 1}},
   {price = {{"coin", 4096}}, offer = {type = 'give-item', item = 'express-loader', count = 1}},
-  {price = {{"coin", 15}}, offer = {type = 'give-item', item = 'crude-oil-barrel', count = 1}},
-  {price = {{"coin", 8}}, offer = {type = 'give-item', item = 'firearm-magazine', count = 1}},
-  {price = {{"coin", 40}}, offer = {type = 'give-item', item = 'grenade', count = 1}},
-  {price = {{"coin", 60}}, offer = {type = 'give-item', item = 'slowdown-capsule', count = 1}},
-  {price = {{"coin", 10}}, offer = {type = 'give-item', item = 'landfill', count = 1}},
-
 
 }
 if is_mod_loaded('Krastorio2') then
   market_items[#market_items+1]={price = {{"coin", 40000}}, offer = {type = 'give-item', item = 'kr-advanced-tank', count = 1}
 }
+end
+
+local function get_rand_item()
+  local rand_item={}
+  local rarity=math.floor(game.forces.enemy.evolution_factor*10)+2
+
+  if rarity>=10 then rarity=10 end
+  rand_item =MT.get_random_item(rarity,false,false)
+  return rand_item
+end
+
+function Public.refresh_shop(market)
+  market.clear_market_items()
+  urgrade_item(market)
+  for _, item in pairs(market_items) do
+    market.add_market_item(item)
+  end
+
+local rand_item=get_rand_item()
+
+  for _, item in pairs(rand_item) do
+    item.price[1][2]=item.price[1][2]*2
+    market.add_market_item(item)
+  end
+  game.print({'amap.refresh_shop'})
 end
 
 function Public.ft(surface)
@@ -129,17 +149,10 @@ end
 function Public.market(surface)
   local this = WPT.get()
   local market = surface.create_entity{name = "market", position = {x=0, y=-5}, force=game.forces.player}
+
   this.shop=market
-  market.last_user = nil
-  if market ~= nil then
-    market.destructible = false
-    if market ~= nil then
-      urgrade_item(market)
-      for _, item in pairs(market_items) do
-        market.add_market_item(item)
-      end
-    end
-  end
+  market.destructible = false
+  Public.refresh_shop(market)
 end
 
 
@@ -314,11 +327,9 @@ local function on_market_item_purchased(event)
   end
 
   market.force.play_sound({path = 'utility/new_objective', volume_modifier = 0.75})
-  market.clear_market_items()
-  urgrade_item(market)
-  for k, item in pairs(market_items) do
-    market.add_market_item(item)
-  end
+
+
+  Public.refresh_shop(market)
 end
 
 

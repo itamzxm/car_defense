@@ -617,7 +617,8 @@ local function on_robot_built_entity(event)
 end
 
 
-Event.on_nth_tick(72000, get_new_arty)
+
+Event.on_nth_tick(90000, get_new_arty)
 Event.on_nth_tick(2000, gun_bullet)
 Event.on_nth_tick(120, add_bullet)
 Event.on_nth_tick(10, energy)

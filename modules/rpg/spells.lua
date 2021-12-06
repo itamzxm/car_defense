@@ -21,7 +21,7 @@ function Public.conjure_items()
         type = 'item',
         mana_cost = 20,
         tick = 100,
-        enabled = true,
+        enabled = false,
         sprite = 'recipe/wooden-chest'
     }
     spells[#spells + 1] = {
@@ -31,7 +31,7 @@ function Public.conjure_items()
         type = 'item',
         mana_cost = 100,
         tick = 200,
-        enabled = true,
+        enabled = false,
         sprite = 'recipe/iron-chest'
     }
     spells[#spells + 1] = {
@@ -41,7 +41,7 @@ function Public.conjure_items()
         type = 'item',
         mana_cost = 140,
         tick = 300,
-        enabled = true,
+        enabled = false,
         sprite = 'recipe/steel-chest'
     }
     spells[#spells + 1] = {
@@ -51,7 +51,7 @@ function Public.conjure_items()
         type = 'item',
         mana_cost = 80,
         tick = 100,
-        enabled = true,
+        enabled = false,
         sprite = 'recipe/transport-belt'
     }
     spells[#spells + 1] = {
@@ -61,7 +61,7 @@ function Public.conjure_items()
         type = 'item',
         mana_cost = 110,
         tick = 200,
-        enabled = true,
+        enabled = false,
         sprite = 'recipe/fast-transport-belt'
     }
     spells[#spells + 1] = {
@@ -81,7 +81,7 @@ function Public.conjure_items()
         type = 'item',
         mana_cost = 60,
         tick = 100,
-        enabled = true,
+        enabled = false,
         sprite = 'recipe/underground-belt'
     }
     spells[#spells + 1] = {
@@ -91,7 +91,7 @@ function Public.conjure_items()
         type = 'item',
         mana_cost = 150,
         tick = 200,
-        enabled = true,
+        enabled = false,
         sprite = 'recipe/fast-underground-belt'
     }
     spells[#spells + 1] = {
@@ -232,12 +232,26 @@ function Public.conjure_items()
         amount = 1,
         damage = true,
         force = 'player',
-        level = 10,
+        level = 25,
         type = 'item',
-        mana_cost = 30,
+        mana_cost = 50,
         tick = 150,
         enabled = true,
         sprite = 'recipe/shotgun-shell'
+    }
+    spells[#spells + 1] = {
+        name = {'item-name.slowdown-capsule'},
+        entityName = 'slowdown-capsule',
+        target = true,
+        amount = 1,
+        damage = true,
+        force = 'player',
+        level = 35,
+        type = 'item',
+        mana_cost = 70,
+        tick = 150,
+        enabled = true,
+        sprite = 'recipe/slowdown-capsule'
     }
     spells[#spells + 1] = {
         name = {'item-name.grenade'},
@@ -246,7 +260,7 @@ function Public.conjure_items()
         amount = 1,
         damage = true,
         force = 'player',
-        level = 20,
+        level = 30,
         type = 'item',
         mana_cost = 70,
         tick = 150,
@@ -274,7 +288,7 @@ function Public.conjure_items()
         amount = 1,
         damage = true,
         force = 'player',
-        level = 30,
+        level = 50,
         type = 'item',
         mana_cost = 100,
         tick = 150,
@@ -288,9 +302,9 @@ function Public.conjure_items()
         amount = 2,
         damage = true,
         force = 'player',
-        level = 50,
+        level = 70,
         type = 'item',
-        mana_cost = 125,
+        mana_cost = 175,
         tick = 200,
         enabled = true,
         sprite = 'recipe/explosive-cannon-shell'
@@ -302,9 +316,9 @@ function Public.conjure_items()
         amount = 2,
         damage = true,
         force = 'player',
-        level = 70,
+        level = 100,
         type = 'item',
-        mana_cost = 175,
+        mana_cost = 200,
         tick = 200,
         enabled = true,
         sprite = 'recipe/uranium-cannon-shell'
@@ -469,8 +483,40 @@ function Public.conjure_items()
         enabled = true,
         sprite = 'virtual-signal/signal-W'
     }
+    spells[#spells + 1] = {
+        name = {'spells.wudi_turret'},
+        itam_code=true,
+        entityName = 'wudi_turret',
+        insert='firearm-magazine',
+        target = true,
+        force = 'player',
+        level = 40,
+        type = 'special',
+        mana_cost = 150,
+        tick = 2000,
+        enabled = true,
+        sprite = 'recipe/gun-turret'
+    }
+    spells[#spells + 1] = {
+        name = {'spells.lightning_chain'},
+        itam_code=true,
+        entityName = 'lightning_chain',
+        target = true,
+        force = 'player',
+        level = 55,
+        type = 'special',
+        mana_cost = 150,
+        tick = 2000,
+        enabled = true,
+        sprite = 'virtual-signal/signal-L'
+    }
     return spells
 end
+
+Public.itam_spell = {
+      ['wudi_turret'] = {max_range = 28, tick_speed = 1},
+      ['lightning_chain'] = {max_range = 16, tick_speed = 1},
+}
 
 Public.projectile_types = {
     ['explosives'] = {name = 'grenade', count = 0.5, max_range = 32, tick_speed = 1},

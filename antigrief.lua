@@ -541,9 +541,7 @@ local function on_player_mined_entity(event)
 end
 
 local function on_gui_opened(event)
-    if not this.enabled then
-        return
-    end
+
     if not event.entity then
         return
     end
@@ -589,9 +587,7 @@ local function on_gui_opened(event)
 end
 
 local function on_pre_player_mined_item(event)
-    if not this.enabled then
-        return
-    end
+
     local player = game.get_player(event.player_index)
 
     if not player or not player.valid then

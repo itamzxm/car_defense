@@ -63,12 +63,12 @@ function Public.create_surface()
 
   }
   local all_tree_autoplace_controls={
-    ["coal"] = {frequency = "1.4", size = "1", richness = "0.7"},
-    ["stone"] = {frequency = "1.4", size = "1", richness = "0.7"},
-    ["copper-ore"] = {frequency = "1.4", size = "1",richness = "0.7"},
-    ["iron-ore"] = {frequency ="1.4", size = "1", richness = "0.7"},
-    ["uranium-ore"] = {frequency ="1.4", size = "2", richness = "0.7"},
-    ["crude-oil"] = {frequency = "2", size = "2", richness = "1.2"},
+    ["coal"] = {frequency = "2", size = "1", richness = "0.7"},
+    ["stone"] = {frequency = "2", size = "1", richness = "0.7"},
+    ["copper-ore"] = {frequency = "2", size = "2",richness = "0.7"},
+    ["iron-ore"] = {frequency ="2", size = "2", richness = "0.7"},
+    ["uranium-ore"] = {frequency ="2", size = "2", richness = "0.7"},
+    ["crude-oil"] = {frequency = "3", size = "2", richness = "1.2"},
     ["trees"] = {frequency = "2", size = "2", richness = "1"},
     ["enemy-base"] = {frequency = "3", size = "3", richness = "2"},
 
@@ -85,16 +85,16 @@ function Public.create_surface()
   --   ["enemy-base"] = {frequency = "10", size = "10", richness = "2"},
   --
   -- }
-  -- local winter_autoplace_controls={
-  --   ["coal"] = {frequency = "6", size = "1", richness = "1"},
-  --   ["stone"] = {frequency = "6", size = "1", richness = "1"},
-  --   ["copper-ore"] = {frequency = "6", size = "2",richness = "1"},
-  --   ["iron-ore"] = {frequency ="6", size = "2", richness = "1"},
-  --   ["uranium-ore"] = {frequency ="1.7", size = "2", richness = "0.7"},
-  --   ["crude-oil"] = {frequency = "2", size = "2", richness = "1.2"},
-  --   ["trees"] = {frequency = "1", size = "0.7", richness = "0.7"},
-  -- 	["enemy-base"] = {frequency = "3", size = "2", richness = "1"},
-  -- }
+  local winter_autoplace_controls={
+    ["coal"] = {frequency = "2", size = "1", richness = "0.7"},
+    ["stone"] = {frequency = "2", size = "1", richness = "0.7"},
+    ["copper-ore"] = {frequency = "2", size = "2",richness = "0.7"},
+    ["iron-ore"] = {frequency ="2", size = "2", richness = "0.7"},
+    ["uranium-ore"] = {frequency ="2", size = "2", richness = "0.7"},
+    ["crude-oil"] = {frequency = "3", size = "2", richness = "1.2"},
+    ["trees"] = {frequency = "1", size = "0.7", richness = "0.7"},
+  	["enemy-base"] = {frequency = "3", size = "2", richness = "1"},
+  }
 
   local no_ore_autoplace_controls={
     ["coal"] = {frequency = "0", size = "0", richness = "1"},
@@ -111,7 +111,7 @@ function Public.create_surface()
      [2]=quarter_autoplace_controls,
      [3]=water_autoplace_controls,
      [4]=all_tree_autoplace_controls,
-     [5]=no_ore_autoplace_controls,
+     [5]=winter_autoplace_controls,
      --[6]=winter_autoplace_controls,
   }
 
