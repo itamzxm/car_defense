@@ -17,6 +17,9 @@ end
 function Public.reset_table()
   -- @star
   -- these 3 are in case of stop/start/reloading the finstance
+  this.editor=false
+  this.upgrade_spell={}
+  this.turret_rpg={}
   this.gain={}
   this.gain_time=0
   this.water_arty={}

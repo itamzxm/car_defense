@@ -182,7 +182,7 @@ function Public.reset_table()
 
   map.diff=1
 
-  map.pay_coin=5
+  map.pay_coin=8
   map.pay_xp=2
 
   map.world=1
@@ -326,18 +326,7 @@ local function on_player_joined_game(event)
   changer_color()
 end
 
--- local function on_pre_player_left_game(event)
---   local player = game.players[event.player_index]
---   for k, p in pairs(map.color) do
---     if player.name == p.name then
---       map.color[k]=nil
---     end
---   end
--- end
 
--- local function on_player_respawned(event)
---    changer_color()
--- end
 
 local Event = require 'utils.event'
 Event.on_init(on_init)
@@ -346,4 +335,5 @@ Event.on_nth_tick(600, changer_color)
 --Event.add(defines.events.on_player_respawned, on_player_respawned)
 Event.add(defines.events.on_player_joined_game, on_player_joined_game)
 Event.add(defines.events.on_pre_player_left_game, on_pre_player_left_game)
+
 return Public

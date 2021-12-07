@@ -174,8 +174,8 @@ local function get_car_index()
         this.nest_wegiht[player.index]=0
       end
 
-      local rpg_weight = rpg_t[player.index].level
-      local nest_wegiht= this.nest_wegiht[player.index]
+      local rpg_weight = rpg_t[player.index].level*2
+      local nest_wegiht= this.nest_wegiht[player.index]*2
       local all_weight = base_weight+time_weight+rpg_weight+nest_wegiht
       --   game.print("总权重为: " .. all_weight .. '')
 
@@ -267,6 +267,14 @@ function Public.on_player_joined_game(event)
     local rpg_t = RPG.get('rpg_t')
     local wave_number = WD.get('wave_number')
     local this = WPT.get()
+
+    for i=1,this.science do
+      local point = math.random(1,5)
+      local coin = math.random(1,100)
+
+      rpg_t[player.index].points_left = rpg_t[player.index].points_left+point
+      player.insert{name='coin', count = coin}
+    end
     this.nest_wegiht[player.index]=0
     rpg_t[player.index].xp = rpg_t[player.index].xp + wave_number*10
     player_data.first_join = true
@@ -347,17 +355,34 @@ local function clean_flame_table ()
 end
 
 local function kill_turret (index,player)
-
   local this = WPT.get()
-  local number_player=#this.player_flame
+  local number_player=0
+
+  local max_number = 0
+  for k,v in pairs(this.player_flame) do
+    if v then
+      if v.number > 0 then
+        number_player=number_player+1
+        if v.number >max_number then
+          max_number=v.number
+        end
+      end
+    end
+  end
+
   local average=this.max_flame/number_player
   if this.player_flame[index] then
-    if average <= this.player_flame[index].number then
+    if average <= this.player_flame[index].number and this.player_flame[index].number >=max_number then
       player.print({'amap.limit_flame'})
       return false
     end
   end
-  if average <2 then
+
+  if max_number>average then
+     average=max_number-1
+  end
+
+  if average <=1 then
     player.print({'amap.limit_flame'})
     return false
   end
@@ -440,12 +465,13 @@ local function build_flame (player,turret)
 end
 
 local on_player_or_robot_built_entity = function(event)
-  local name = event.created_entity.name
-  local force = event.created_entity.force
+
   local entity = event.created_entity
   local this = WPT.get()
 
   if	not(entity.surface.index == game.surfaces[this.active_surface_index].index) then return end
+  local name = event.created_entity.name
+  local force = event.created_entity.force
   if force.index ~= game.forces.player.index then return end
   for i,v in ipairs(steal_oil) do
     if name == v  then
@@ -504,6 +530,7 @@ end
 
 local disable_recipes = function()
   local force = game.forces.player
+  force.recipes['car'].enabled = false
   force.recipes['tank'].enabled = false
   force.recipes['pistol'].enabled = false
   force.recipes['spidertron-remote'].enabled = false
@@ -531,18 +558,63 @@ function Public.on_research_finished(event)
   local this = WPT.get()
   this.science=this.science+1
   local rpg_t = RPG.get('rpg_t')
-  for k, player in pairs(game.connected_players) do
-    local point = math.floor(math.random(1,5))
-    local money = math.floor(math.random(1,100))
-    rpg_t[player.index].points_left = rpg_t[player.index].points_left+point
-    player.insert{name='coin', count = money}
-    --player.print({'amap.science',point,money}, {r = 0.22, g = 0.88, b = 0.22})
-    Alert.alert_player(player, 5, {'amap.science',point,money})
-    k=k+1
+
+  local pay_player={}
+  local gain_player={}
+  local should_reward={}
+  local all_reward={}
+  all_reward.point=0
+  all_reward.coin=0
+  for index, player in pairs(game.connected_players) do
+    local point = math.random(1,5)
+    local coin = math.random(1,100)
+
+    if  this.tank[index] and this.tank[index].valid then
+        gain_player[#gain_player+1]=player
+        should_reward[index]={}
+        should_reward[index].point=point
+        should_reward[index].coin=coin
+    else
+      all_reward.point=all_reward.point+point
+      all_reward.coin=all_reward.coin+coin
+      pay_player[#pay_player+1]=player
+    end
   end
 
+  local average_point=math.floor(all_reward.point/#gain_player)
+  local average_coin=math.floor(all_reward.coin/#gain_player)
+
+  for k, player in pairs(gain_player) do
+    local index=player.index
+    if should_reward[index] then
+      local get_coin=should_reward[index].coin+average_coin
+      local get_point=should_reward[index].point+average_point
+      rpg_t[player.index].points_left = rpg_t[player.index].points_left+get_point
+      player.insert{name='coin', count = get_coin}
+      Alert.alert_player(player, 5, {'amap.science',get_point,get_coin})
+    end
+  end
+
+
+  for k, player in pairs(pay_player) do
+    Alert.alert_player(player, 5, {'amap.no_car_science'})
+  end
   disable_recipes()
   refresh_shop(this.shop)
+end
+
+local function on_console_command()
+  local cmd = event.command
+  if not event.player_index then
+      return
+  end
+  local player = game.players[event.player_index]
+  local param = event.parameters
+
+  if amd~="editor" then return end
+  local this=WPT.get()
+  this.editor=true
+
 end
 
 local disable_tech = Public.disable_tech
@@ -552,6 +624,7 @@ local on_player_joined_game = Public.on_player_joined_game
 
 
 Event.on_nth_tick(60, count_down)
+Event.add(defines.events.on_console_command, on_console_command)
 Event.add(defines.events.on_built_entity, on_player_or_robot_built_entity)
 Event.add(defines.events.on_robot_built_entity, on_player_or_robot_built_entity)
 Event.add(defines.events.on_research_finished, on_research_finished)

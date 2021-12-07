@@ -4,6 +4,7 @@ local Gui = require 'utils.gui'
 local Color = require 'utils.color_presets'
 local Token = require 'utils.token'
 local Alert = require 'utils.alert'
+local WPT = require 'maps.amap.table'
 
 local level_up_floating_text_color = {0, 205, 0}
 local visuals_delay = Public.visuals_delay
@@ -67,6 +68,7 @@ function(data)
   if biter and biter.valid then
     local damage=20+game.forces.player.get_ammo_damage_modifier("laser")*20
     local name = biter.name
+    biter.surface.create_entity({name = 'medium-explosion', position = biter.position})
     biter.damage(damage, 'player', 'laser')
     if not biter or not biter.valid then
     local rpg_extra = Public.get('rpg_extra')
@@ -78,7 +80,7 @@ function(data)
 end
 )
 
-function Public.lightning_chain(position, surface,player)
+function Public.lightning_chain(position, surface,player,times)
 
   local biters = surface.find_entities_filtered{position = position, radius = 15, type='unit' , force = game.forces.enemy,limit =1}
   if #biters == 0 then
@@ -101,6 +103,7 @@ function Public.lightning_chain(position, surface,player)
     end
     local damage=20+game.forces.player.get_ammo_damage_modifier("laser")*20
     local name=biters[1].name
+    biters[1].surface.create_entity({name = 'medium-explosion', position = biters[1].position})
     biters[1].damage(damage, 'player', 'laser')
     if not biter or not biter.valid then
     local rpg_extra = Public.get('rpg_extra')
@@ -129,9 +132,11 @@ function Public.lightning_chain(position, surface,player)
   		return (a.dist < b.dist) --此处千万不能用小于等于（小于升序，大于降序）
   	end
   end)
+  local count =#paixu
+  if count >= times then count =times end
 --table.sort(paixu,)
 
-  for i = 1, 9 do
+  for i = 1, count do
     local biter = paixu[i].biter
     if biter and biter.valid then
       local data = {biter = biter,source=temp_pos,player=player}
@@ -155,20 +160,10 @@ function(data)
 end
 )
 
-function Public.wudi_turret(position, surface,object_insert,player)
+function Public.wudi_turret(position, surface,ammo_name,player)
 
- local count_all = surface.count_entities_filtered{type=player_loader,position = position, radius = 5, force = "player"}
- local enemy_count = surface.count_entities_filtered{position = position, radius = 18, force = game.forces.enemy}
 
-  if count_all ~=0 then
-    return false
-  end
-  if enemy_count== 0 then
-   return false
- end
  if not surface.can_place_entity{name = "gun-turret", position = {x=position.x,y=position.y}, force=game.forces.player} then return false end
-
-
   local turret = surface.create_entity{
     name = 'gun-turret',
     position = {x=position.x,y=position.y},
@@ -178,17 +173,20 @@ function Public.wudi_turret(position, surface,object_insert,player)
   if not turret then
     return false
   else
-    turret.insert{name=object_insert, count = 200}
+    turret.insert{name=ammo_name, count = 25}
     turret.destructible=false
     turret.minable=false
     turret.operable=false
     turret.last_user=player
   end
 
+  local this=WPT.get()
+  this.turret_rpg[#this.turret_rpg+1]=turret
+
   local data = {
     entity = turret,
   }
-  Task.set_timeout_in_ticks(600, kill_turret, data)
+  Task.set_timeout_in_ticks(900, kill_turret, data)
   return true
 end
 

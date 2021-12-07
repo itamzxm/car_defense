@@ -12,6 +12,11 @@ local WD = require 'modules.wave_defense.table'
 local Math2D = require 'math2d'
 local pet= require 'maps.amap.biter_pets'
 
+local player_loader = {
+  'loader',
+  'inserter'
+}
+
 --RPG Settings
 local enemy_types = Public.enemy_types
 local die_cause = Public.die_cause
@@ -1128,6 +1133,95 @@ local function floaty_hearts(entity, c)
 end
 
 
+local function upgrade_lianxu(player,object_entityName,print_name,up)
+  local itam_spell = Public.get_itam_spell
+  local spell_name=object_entityName
+  local upgrade
+  local this = WPT.get()
+  local index=player.index
+
+  if not this.upgrade_spell[index] then
+    this.upgrade_spell[index]={}
+  end
+
+  if not this.upgrade_spell[index][spell_name] then
+    this.upgrade_spell[index][spell_name]=0
+  end
+
+  if up then
+  this.upgrade_spell[index][spell_name]=this.upgrade_spell[index][spell_name]+1
+  end
+
+  local times=this.upgrade_spell[index][spell_name]
+  local base =itam_spell[spell_name].base
+  local need_times=itam_spell[spell_name].need_times
+  local bonus =itam_spell[spell_name].bonus
+
+  local bonus_time=0
+  while times>need_times do
+    bonus_time=bonus_time+1
+    times=times-need_times
+  end
+  upgrade=base+bonus_time*bonus
+
+  if up then
+  game.print({'itam_spells.rpg_lianxu',print_name,times,need_times,bonus_time*bonus})
+  end
+
+  return upgrade
+end
+
+local function upgrade_spell(player,object_entityName,print_name,up)
+local itam_spell = Public.get_itam_spell
+  local spell_name=object_entityName
+  local upgrade
+
+  if itam_spell[spell_name].lianxu then
+    upgrade=upgrade_lianxu(player,object_entityName,print_name,up)
+    return upgrade
+  end
+
+  local this = WPT.get()
+  local index=player.index
+
+  local get_upgrade_list=itam_spell[spell_name].upgrade_list
+  local need_upgrade_list=itam_spell[spell_name].need_list
+
+  if not this.upgrade_spell[index] then
+    this.upgrade_spell[index]={}
+  end
+
+  if not this.upgrade_spell[index][spell_name] then
+    this.upgrade_spell[index][spell_name]=0
+  end
+  if up then
+  this.upgrade_spell[index][spell_name]=this.upgrade_spell[index][spell_name]+1
+end
+
+  local times=this.upgrade_spell[index][spell_name]
+  local need_times
+  local spell_index=1
+
+  for k,v in pairs(need_upgrade_list) do
+    if times> v then
+      spell_index=k
+      if need_upgrade_list[k+1] then
+        need_times=need_upgrade_list[k+1]
+      else
+        need_times=need_upgrade_list[k]
+      end
+    end
+  end
+
+  upgrade=get_upgrade_list[spell_index]
+  if up then
+  game.print({'itam_spells.rpg_upgread',print_name,times,need_times,spell_index})
+end
+
+
+  return upgrade
+end
+
 
 local function on_player_used_capsule(event)
   local enable_mana = Public.get('rpg_extra').enable_mana
@@ -1262,24 +1356,29 @@ local function on_player_used_capsule(event)
 
 
   if object.itam_code then
+    local spell_success=false
+    local spell_daoju=upgrade_spell(player,object.entityName,object.name,false)
+
     if object.entityName=='wudi_turret' then
-      if Public.wudi_turret(position, surface,object.insert,player) then
-        Public.remove_mana(player, object.mana_cost)
-          p(({'rpg_main.object_spawned', object.name}), Color.success)
-      else
-        p(({'itam_spells.fail'}), Color.fail)
+      if Public.wudi_turret(position, surface,spell_daoju,player) then
+        spell_success=true
       end
     end
 
     if object.entityName=='lightning_chain' then
-      if Public.lightning_chain(position, surface,player) then
-        Public.remove_mana(player, object.mana_cost)
-          p(({'rpg_main.object_spawned', object.name}), Color.success)
-      else
-        p(({'itam_spells.fail'}), Color.fail)
+      if Public.lightning_chain(position, surface,player,spell_daoju) then
+        spell_success=true
       end
     end
- return
+
+    if spell_success then
+      Public.remove_mana(player, object.mana_cost)
+      p(({'rpg_main.object_spawned', object.name}), Color.success)
+      upgrade_spell(player,object.entityName,object.name,true)
+    else
+      p(({'itam_spells.fail'}), Color.fail)
+    end
+    return
   end
 
   if object.entityName == 'suicidal_comfylatron' then
@@ -1414,6 +1513,34 @@ local function on_player_removed(event)
   Public.remove_player(event.player_index)
 end
 
+local function add_bullet()
+  local this=WPT.get()
+
+  for index,turret in pairs(this.turret_rpg) do
+    if not turret.valid then
+      this.turret_rpg[index]=nil
+      break
+    end
+
+    local position=turret.position
+    local count_all = turret.surface.count_entities_filtered{type=player_loader,position = position, radius = 5, force = "player"}
+
+    if count_all ~=0 then
+      turret.destroy()
+      this.turret_rpg[index]=nil
+    else
+      local something = turret.get_inventory(defines.inventory.chest)
+      local ammo_name
+      for name, v in pairs(something.get_contents()) do
+        ammo_name=name
+      end
+      turret.insert{name=ammo_name, count = 25}
+
+    end
+
+  end
+end
+
 local function tick()
   local ticker = game.tick
   local players = game.connected_players
@@ -1433,6 +1560,10 @@ local function tick()
     if enable_flameboots then
       give_player_flameboots(players)
     end
+  end
+
+  if ticker % 60 == 0 then
+    add_bullet()
   end
 end
 

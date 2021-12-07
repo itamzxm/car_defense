@@ -14,7 +14,7 @@ local world_time = {
   [2]=7200* 15,
   [3]=7200* 10*2,
   [4]=7200* 10*2,
-  [5]=7200* 15*3,
+  [5]=7200* 10*2,
   [6]=7200* 15*2,
 }
 local car_name={
@@ -180,7 +180,7 @@ local function on_player_build_entity(event)
     end
     --如果没有放过坦克
   end
-  if entity.name~=car_name[entity.name]  and this.have_been_put_tank[index]==false then
+  if this.have_been_put_tank[index]==false then
     if entity.type~='entity-ghost' and entity.name~='tile-ghost' then
       local health = entity.health
       local name = entity.name
@@ -193,10 +193,9 @@ local function on_player_build_entity(event)
     end
     entity.destroy()
     player.print({'amap.no_put_tank'})
+    return
   end
   --如果试图放蜘蛛
-  if not entity.valid then return end
-
   if entity.name=="spidertron"  and this.tank[index].name=="tank" then
     local entities = surface.find_entities_filtered{position=player.position, radius = 7 ,name = "tank", force = game.forces.player}
     local old_car_is_hear=false
@@ -383,56 +382,20 @@ end
 
 local choois_target = function()
   local this = WPT.get()
-  local wave_number = WD.get('wave_number')
+  if this.start_game~=2 then return end
 
-  if   this.start_game==1 then
-    for k, player in pairs(game.connected_players) do
-      local rpg_t = RPG.get('rpg_t')
-      rpg_t[player.index].xp = 0
-
-      local something = player.get_inventory(defines.inventory.chest)
-      if something ~= nil then
-        for n, v in pairs(something.get_contents()) do
-          if not car_name[n] then
-            player.remove_item{name=n, count = v}
-          end
-        end
-      end
-    end
-
-    game.print({'amap.no_start_game'})
-    return
-  end
-
-  local player_count = calc_players()
-  local car_number =  get_car_number()
-  if car_number == 0  then
-    if this.reset_time== 0 and this.start_game==2 then
-      this.reset_time=600
-      this.start_game=3
-      game.print({'amap.ready_to_reset'})
+  for i,v in ipairs(this.car_wudi) do
+    if v and v.valid then
+      v.destructible = false
+      this.car_wudi[i]=nil
+    else
+      this.car_wudi[i]=nil
     end
   end
-  if wave_number ==1 and this.frist_target==false then
-    local wave_defense_table = WD.get_table()
-    wave_defense_table.target =get_random_car(true)
-    this.frist_target=true
-  end
-  local last = this.target_last
-  if last < wave_number then
-    if wave_number % 35 == 0 then
-      local wave_defense_table = WD.get_table()
-      wave_defense_table.target =get_random_car(true)
-      this.target_last=wave_number
-      for i,v in ipairs(this.car_wudi) do
-        if v and v.valid then
-          v.destructible = false
-          this.car_wudi[i]=nil
-        end
-      end
-    end
+  local wave_defense_table = WD.get_table()
+  wave_defense_table.target =get_random_car(true)
 
-  end
+
 end
 
 
@@ -482,8 +445,10 @@ local function tax ()
       car_number=car_number+1
       gain_player[#gain_player+1]=player
     else
-      no_car_number=no_car_number+1
-      pay_player[#pay_player+1]=player
+      if player.afk_time < 36000 then
+        no_car_number=no_car_number+1
+        pay_player[#pay_player+1]=player
+      end
     end
   end
 
@@ -557,12 +522,13 @@ local function tax ()
       local msg = {'amap.gain_tax',gain_table.xp,gain_table.coin}
       Alert.alert_player(player, 25, msg)
     end
+    this.gain={}
   end
 end
 
 local function clean_invalid_car()
   get_car_number()
-  tax()
+  --tax()
 end
 
 local function on_entity_damaged(event)
@@ -593,6 +559,43 @@ end
 
 local function car_pollute()
   local this=WPT.get()
+  local wave_number = WD.get('wave_number')
+
+  if   this.start_game==1 then
+    for k, player in pairs(game.connected_players) do
+      local rpg_t = RPG.get('rpg_t')
+      rpg_t[player.index].xp = 0
+      local something = player.get_inventory(defines.inventory.chest)
+      if something ~= nil then
+        for n, v in pairs(something.get_contents()) do
+          if not car_name[n] then
+            player.remove_item{name=n, count = v}
+          end
+        end
+      end
+    end
+
+    game.print({'amap.no_start_game'})
+    return
+  end
+
+  local car_number =  get_car_number()
+  if car_number == 0  then
+    if this.reset_time== 0 and this.start_game==2 then
+      this.reset_time=600
+      this.start_game=3
+      game.print({'amap.ready_to_reset'})
+      return
+    end
+  end
+
+  if wave_number ==1 and this.frist_target==false then
+    local wave_defense_table = WD.get_table()
+    wave_defense_table.target =get_random_car(true)
+    this.frist_target=true
+  end
+
+
   local ic = IC.get()
 
   for k, player in pairs(game.connected_players) do
@@ -608,10 +611,8 @@ local function car_pollute()
         local surface = game.surfaces[surface_index]
         local pollution = surface.get_total_pollution() *2
         mian_surface.pollute(entity.position, pollution)
-        --game.pollution_statistics.on_flow('locomotive', pollution - total_interior_pollution)
         surface.clear_pollution()
       end
-
     end
 
   end
@@ -700,7 +701,7 @@ local function on_player_changed_position(event)
   end
 
 
-  Event.on_nth_tick(1200, choois_target)
+  Event.on_nth_tick(72000, choois_target)
   Event.on_nth_tick(1200, car_pollute)
   Event.on_nth_tick(900, clean_invalid_car)
   Event.on_nth_tick(60, daojishi)

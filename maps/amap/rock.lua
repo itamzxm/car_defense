@@ -84,7 +84,7 @@ local market_items = {
 
   {price = {{"coin", 5}}, offer = {type = 'give-item', item = "raw-fish", count = 1}},
   {price = {{"raw-fish", 1}}, offer = {type = 'give-item', item = 'coin', count = 5}},
-  {price = {{"coin", 1000}}, offer = {type = 'give-item', item = 'car', count = 1}},
+  {price = {{"coin", 500}}, offer = {type = 'give-item', item = 'car', count = 1}},
   {price = {{"coin", 8000}}, offer = {type = 'give-item', item = 'tank', count = 1}},
   {price = {{"coin", 60000}}, offer = {type = 'give-item', item = 'spidertron', count = 1}},
   {price = {{"coin", 500}}, offer = {type = 'give-item', item = 'spidertron-remote', count = 1}},

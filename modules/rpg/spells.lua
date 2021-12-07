@@ -514,8 +514,8 @@ function Public.conjure_items()
 end
 
 Public.itam_spell = {
-      ['wudi_turret'] = {max_range = 28, tick_speed = 1},
-      ['lightning_chain'] = {max_range = 16, tick_speed = 1},
+      ['wudi_turret'] = {max_range = 28, tick_speed = 1,need_list={1,200,1400},upgrade_list={"firearm-magazine","piercing-rounds-magazine","uranium-rounds-magazine"}},
+      ['lightning_chain'] = {max_range = 16, tick_speed = 1,lianxu=true,bonus=1,need_times=100,base=9},
 }
 
 Public.projectile_types = {

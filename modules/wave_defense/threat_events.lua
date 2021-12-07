@@ -322,7 +322,7 @@ local function kill_master(entity)
   unit_group.set_command(
   {
     type = defines.command.attack_area,
-    destination = {x = target_position.x, y = target_position.y},
+    destination = target.position,
     radius = 8,
     distraction = defines.distraction.by_anything
   }
@@ -384,7 +384,7 @@ local function on_entity_died(event)
             local unit_number=cause.unit_number
             if not this.water_arty[unit_number] then
               local water_count =entity.surface.count_tiles_filtered{position=cause.position, radius=30, name='water'}
-              game.print(water_count)
+              --game.print(water_count)
               if water_count == 0 then
                 this.water_arty[unit_number]=1
               else
