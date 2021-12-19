@@ -167,7 +167,7 @@ function Public.water(surface,position,seed)
 	local	noise = get_noise("watery_world", position, seed)
 		if is_water(position, noise, seed) then
 			surface.set_tiles({{name = waters[math.floor(noise * 10 % 2 + 1)], position = position}}, true)
-			if math.random(1, 218) == 1 then
+			if math.random(1, 128) == 1 then
 				surface.create_entity({name = global.watery_world_fishes[math.random(1, #global.watery_world_fishes)], position = position})
 			end
 		end

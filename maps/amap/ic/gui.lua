@@ -176,7 +176,7 @@ local function transfer_player_table(player, new_player)
         local new_index = new_player.index
 
         local this = WPT.get()
-        if this.tank[new_index] ==nil and this.tank[old_index] then
+
         this.tank[new_index]=this.tank[old_index]
         this.tank[old_index]=nil
         this.have_been_put_tank[new_index]=true
@@ -203,7 +203,7 @@ local function transfer_player_table(player, new_player)
 
 
 
-      end
+      
 
         trust_system[player.index] = nil
     else

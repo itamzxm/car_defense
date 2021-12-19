@@ -541,9 +541,7 @@ local function on_player_mined_entity(event)
 end
 
 local function on_gui_opened(event)
-    if not this.enabled then
-        return
-    end
+
     if not event.entity then
         return
     end
@@ -589,9 +587,7 @@ local function on_gui_opened(event)
 end
 
 local function on_pre_player_mined_item(event)
-    if not this.enabled then
-        return
-    end
+
     local player = game.get_player(event.player_index)
 
     if not player or not player.valid then
@@ -975,17 +971,17 @@ function Public.get(key)
 end
 
 Event.on_init(on_init)
-Event.add(de.on_player_mined_entity, on_player_mined_entity)
-Event.add(de.on_entity_died, on_entity_died)
+--Event.add(de.on_player_mined_entity, on_player_mined_entity)
+--Event.add(de.on_entity_died, on_entity_died)
 Event.add(de.on_built_entity, on_built_entity)
 Event.add(de.on_gui_opened, on_gui_opened)
 Event.add(de.on_marked_for_deconstruction, on_marked_for_deconstruction)
 Event.add(de.on_player_ammo_inventory_changed, on_player_ammo_inventory_changed)
-Event.add(de.on_player_built_tile, on_player_built_tile)
+--Event.add(de.on_player_built_tile, on_player_built_tile)
 Event.add(de.on_pre_player_mined_item, on_pre_player_mined_item)
-Event.add(de.on_player_used_capsule, on_player_used_capsule)
+--Event.add(de.on_player_used_capsule, on_player_used_capsule)
 Event.add(de.on_player_cursor_stack_changed, on_player_cursor_stack_changed)
-Event.add(de.on_player_cancelled_crafting, on_player_cancelled_crafting)
+--Event.add(de.on_player_cancelled_crafting, on_player_cancelled_crafting)
 Event.add(de.on_player_joined_game, on_player_joined_game)
 Event.add(de.on_permission_group_added, on_permission_group_added)
 Event.add(de.on_permission_group_deleted, on_permission_group_deleted)

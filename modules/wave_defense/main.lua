@@ -324,10 +324,7 @@ local function get_random_character()
             end
         end
     end
-    if not characters[1] then
-        return
-    end
-    return characters[math_random(1, #characters)]
+    return characters[math.random(1,#characters)]
 end
 
 local function get_car_number()
@@ -337,11 +334,7 @@ local function get_car_number()
   for k, player in pairs(game.connected_players) do
     if  this.tank[player.index] and this.tank[player.index].valid then
     car_number=car_number+1
-  else
-    this.tank[player.index]=nil
-    this.whos_tank[player.index]=nil
-    this.have_been_put_tank[player.index]=false
-  end
+    end
   end
   return car_number
 end

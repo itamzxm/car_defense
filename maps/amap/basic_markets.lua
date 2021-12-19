@@ -54,7 +54,7 @@ market.caspules = {
     ['destroyer-capsule'] = {value = 60, rarity = 5},
     ['discharge-defense-remote'] = {value = 300, rarity = 8},
     ['artillery-targeting-remote'] = {value = 32, rarity = 7},
-  --  ['raw-fish'] = {value = 10, rarity = 1},
+    ['raw-fish'] = {value = 7, rarity = 1},
     ['cliff-explosives'] = {value = 70, rarity = 5}
 }
 
@@ -62,8 +62,8 @@ market.armor = {
     ['light-armor'] = {value = 25, rarity = 1},
     ['heavy-armor'] = {value = 250, rarity = 4},
     ['modular-armor'] = {value = 750, rarity = 5},
-    ['power-armor'] = {value = 3000, rarity = 6},
-    ['power-armor-mk2'] = {value = 22000, rarity = 10}
+    ['power-armor'] = {value = 5000, rarity = 6},
+    ['power-armor-mk2'] = {value = 35000, rarity = 10}
 }
 
 market.equipment = {
@@ -72,12 +72,12 @@ market.equipment = {
     ['energy-shield-equipment'] = {value = 400, rarity = 6},
     ['energy-shield-mk2-equipment'] = {value = 4000, rarity = 8},
     ['battery-equipment'] = {value = 160, rarity = 2},
-    ['battery-mk2-equipment'] = {value = 2000, rarity = 8},
-    ['personal-laser-defense-equipment'] = {value = 2500, rarity = 7},
+    ['battery-mk2-equipment'] = {value = 5000, rarity = 8},
+    ['personal-laser-defense-equipment'] = {value = 4000, rarity = 7},
     ['discharge-defense-equipment'] = {value = 5000, rarity = 7},
     ['belt-immunity-equipment'] = {value = 200, rarity = 1},
-    ['exoskeleton-equipment'] = {value = 800, rarity = 3},
-    ['personal-roboport-equipment'] = {value = 500, rarity = 3},
+    ['exoskeleton-equipment'] = {value = 1000, rarity = 3},
+    ['personal-roboport-equipment'] = {value = 1000, rarity = 3},
     ['personal-roboport-mk2-equipment'] = {value = 5000, rarity = 8},
     ['night-vision-equipment'] = {value = 250, rarity = 1}
 }
@@ -89,7 +89,7 @@ market.defense = {
     ['gun-turret'] = {value = 64, rarity = 1},
     ['laser-turret'] = {value = 1024, rarity = 6},
     --['flamethrower-turret'] = {value = 2048, rarity = 6},
-    ['artillery-turret'] = {value = 8192, rarity = 8},
+    ['artillery-turret'] = {value = 15192, rarity = 8},
     ['rocket-silo'] = {value = 64000, rarity = 10}
 }
 

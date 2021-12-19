@@ -130,8 +130,7 @@ local set_diff = function()
     if allow_car_number>4 then allow_car_number=4 end
 
   if this.car_die_number>=allow_die_number and car_number <=allow_car_number then
-
-    diff_k=this.car_die_number*0.2+diff_k
+  --  diff_k=allow_die_number*0.05+diff_k
     local k =game.forces.enemy.evolution_factor*1000
     if k >wave_number then
       wave_number=k
@@ -183,9 +182,12 @@ function Public.reset_table()
 
   map.diff=1
 
+  map.pay_coin=8
+  map.pay_xp=2
+
   map.world=1
-  map.max_world=1
-  map.world_number=4
+  map.max_world=5
+  map.world_number=5
 
   map.record_number=2
   map.record={}
@@ -200,7 +202,7 @@ function Public.reset_table()
   map.record[2]={}
   map.record[2].name="noneofone"
   map.record[2].pass_number=1217
-  map.record[2].wave_number=2605
+  map.record[2].wave_number=3000
   --
   -- map.record[3]={}
   --   map.record[3].name="itam"
@@ -279,31 +281,36 @@ end
 
 local function changer_color()
   for k,player in pairs(map.color) do
-    if  player.character and  player.character.valid then
-      if not map.text[player.index] then
-        map.text[player.index] =
-        rendering.draw_text {
-          text = '[ 单通玩家 ]',
-          surface = player.surface,
-          target = player.character,
-          target_offset = {0, -3.65},
-          color = {
-            r = player.color.r * 0.6 + 0.25,
-            g = player.color.g * 0.6 + 0.25,
-            b = player.color.b * 0.6 + 0.25,
-            a = 1
-          },
-          players = players,
-          scale = 1.00,
-          font = 'default-large-semibold',
-          alignment = 'center',
-          scale_with_zoom = false
-        }
+    if player.connected then
+      if  player.character and  player.character.valid then
+        if not map.text[player.index] then
+          map.text[player.index] =
+          rendering.draw_text {
+            text = '[ 单通玩家 ]',
+            surface = player.surface,
+            target = player.character,
+            target_offset = {0, -3.65},
+            color = {
+              r = player.color.r * 0.6 + 0.25,
+              g = player.color.g * 0.6 + 0.25,
+              b = player.color.b * 0.6 + 0.25,
+              a = 1
+            },
+            players = players,
+            scale = 1.00,
+            font = 'default-large-semibold',
+            alignment = 'center',
+            scale_with_zoom = false
+          }
+        end
+        if not rendering.is_valid(map.text[player.index]) then
+          rendering.destroy(map.text[player.index])
+          map.text[player.index]=nil
+        end
       end
-      if not rendering.is_valid(map.text[player.index]) then
-        rendering.destroy(map.text[player.index])
-        map.text[player.index]=nil
-      end
+    else
+      player=nil
+      map.color[k]=nil
     end
   end
 end
@@ -319,18 +326,7 @@ local function on_player_joined_game(event)
   changer_color()
 end
 
-local function on_pre_player_left_game(event)
-  local player = game.players[event.player_index]
-  for k, p in pairs(map.color) do
-    if player.name == p.name then
-      map.color[k]=nil
-    end
-  end
-end
 
--- local function on_player_respawned(event)
---    changer_color()
--- end
 
 local Event = require 'utils.event'
 Event.on_init(on_init)
@@ -339,4 +335,5 @@ Event.on_nth_tick(600, changer_color)
 --Event.add(defines.events.on_player_respawned, on_player_respawned)
 Event.add(defines.events.on_player_joined_game, on_player_joined_game)
 Event.add(defines.events.on_pre_player_left_game, on_pre_player_left_game)
+
 return Public

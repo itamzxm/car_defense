@@ -130,7 +130,9 @@ function Public.check_activity()
       goto continue
     end
     local surface = entity.surface
-    local count = surface.count_entities_filtered{position = entity.position, radius = 10, force = "player"}
+    local count_ghost = surface.count_entities_filtered{type="entity-ghost",position = entity.position, radius = 5, force = "player"}
+    local count_all = surface.count_entities_filtered{position = entity.position, radius = 5, force = "player"}
+    local count = count_all-count_ghost
     --local entities = surface.find_entities_filtered{position = entity.position, radius = 10, type="entity" , force = game.forces.player,limit =10}
 
     if count > 10 then

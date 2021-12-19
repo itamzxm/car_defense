@@ -146,9 +146,9 @@ local function on_chunk_generated(event)
 
         world_water_dungle(surface,position,seed)
         end
-        -- if map.world == 5 then
-        --
-        -- end
+      --   if map.world == 5 then
+     --   winter(surface,event,seed)
+      --   end
         if map.world ~= 4 then
         world_cave(surface,position,seed,get_tile,set_tiles,event)
       end
@@ -156,7 +156,7 @@ local function on_chunk_generated(event)
 
     end
   end
-  if map.world == 6 then
+  if map.world == 5 then
     world_winter(surface,event,seed)
   end
 end

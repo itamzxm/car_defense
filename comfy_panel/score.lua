@@ -461,14 +461,14 @@ local function on_built_entity(event)
     score.built_entities = 1 + (score.built_entities or 0)
 end
 
-Tabs.add_tab_to_gui({name = module_name, id = show_score_token, admin = false})
+--Tabs.add_tab_to_gui({name = module_name, id = show_score_token, admin = false})
 
-Event.add(defines.events.on_player_mined_entity, on_player_mined_entity)
-Event.add(defines.events.on_player_died, on_player_died)
-Event.add(defines.events.on_built_entity, on_built_entity)
-Event.add(defines.events.on_entity_died, on_entity_died)
-Event.add(defines.events.on_gui_click, on_gui_click)
-Event.add(defines.events.on_player_joined_game, on_player_joined_game)
-Event.add(defines.events.on_rocket_launched, on_rocket_launched)
+--Event.add(defines.events.on_player_mined_entity, on_player_mined_entity)
+--Event.add(defines.events.on_player_died, on_player_died)
+--Event.add(defines.events.on_built_entity, on_built_entity)
+--Event.add(defines.events.on_entity_died, on_entity_died)
+--Event.add(defines.events.on_gui_click, on_gui_click)
+--Event.add(defines.events.on_player_joined_game, on_player_joined_game)
+--Event.add(defines.events.on_rocket_launched, on_rocket_launched)
 
 return Public

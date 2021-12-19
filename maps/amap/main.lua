@@ -1,7 +1,7 @@
 local Public = {}
 
 local floor = math.floor
-
+--hi guy!
 local reset_pos=require'stronghold_generation_algorithm_v2'.reset_table
 local Factories = require 'maps.amap.production'
 local RPG = require 'modules.rpg.main'
@@ -71,6 +71,7 @@ end
 
 local setting = function()
   AntiGrief.enabled=false
+  game.forces.enemy.ghost_time_to_live = 5 * 60 * 60
   game.map_settings.enemy_evolution.destroy_factor = 0.002
   game.forces.enemy.technologies['construction-robotics'].researched = true
   game.forces.enemy.worker_robots_speed_modifier=3
@@ -114,7 +115,7 @@ function Public.reset_map()
   RPG.enable_wave_defense(false)
   RPG.enable_mana(true)
   RPG.enable_flame_boots(true)
-  RPG.personal_tax_rate(0.6)
+  RPG.personal_tax_rate(0.4)
   RPG.enable_stone_path(true)
   RPG.enable_one_punch(true)
   RPG.enable_one_punch_globally(false)
@@ -173,6 +174,7 @@ function Public.reset_map()
   Balance.init_enemy_weapon_damage()
   Functions.disable_tech()
 
+  init_new_force()
   setting()
 
   local world_number=require 'maps.amap.diff'.get("world")
@@ -183,8 +185,8 @@ end
 
 local on_init = function()
   Public.reset_map()
-  init_new_force()
-game.forces.player.ghost_time_to_live = 5 * 60 * 60
+
+
   local tooltip = {
     [1] = ({'amap.easy'}),
     [2] = ({'amap.med'}),
@@ -199,51 +201,79 @@ game.forces.player.ghost_time_to_live = 5 * 60 * 60
   T.sub_caption_color = {r = 0, g = 150, b = 0}
 end
 
+local function no_point(player,k)
+
+  local money = 1000+1000*k
+  local can_remove=false
+  local something = player.get_inventory(defines.inventory.chest)
+  for k, v in pairs(something.get_contents()) do
+    if k=='coin' and v >= money then
+      can_remove=true
+    end
+  end
+  if can_remove then
+    player.print({'amap.nopoint',money})
+    player.remove_item{name='coin', count = money}
+
+  else
+    local rpg_t = RPG.get('rpg_t')
+    local get_xp = 100+k*50
+    rpg_t[player.index].xp = rpg_t[player.index].xp -get_xp
+    player.print({'amap.lost_xp',get_xp})
+  end
+end
+
 local wheel = function(player,many)
   if not player.character or not player.character.valid then return end
   if many >= 500 then
     many = 500
   end
   local rpg_t = RPG.get('rpg_t')
-  local q = math.random(0,19)
+  local q = math.random(1,18)
   local k = math.floor(many/100)
   local get_point = k*5+5
   if get_point >= 25 then
     get_point = 25
   end
-  if q == 16 then
+  if q ==18 then
+    local get_xp = 100+k*50
+    rpg_t[player.index].xp = rpg_t[player.index].xp -get_xp
+    player.print({'amap.lost_xp',get_xp})
+    return
+  end
+  if q == 17 then
     if rpg_t[player.index].magicka < (get_point+10) then
-      q = 17
+      no_point(player,k)
+      return
     else
-
       rpg_t[player.index].magicka =rpg_t[player.index].magicka -get_point
       player.print({'amap.nb16',get_point+10})
       return
     end
   end
-  if q == 17 then
+  if q == 16 then
     if rpg_t[player.index].dexterity < (get_point+10) then
-      q = 18
+      no_point(player,k)
+      return
     else
       rpg_t[player.index].dexterity = rpg_t[player.index].dexterity - get_point
       player.print({'amap.nb17',get_point})
       return
     end
   end
-  if q == 18 then
+  if q == 15 then
     if rpg_t[player.index].vitality < (get_point+10) then
-      q = 15
+      no_point(player,k)
+      return
     else
       rpg_t[player.index].vitality = rpg_t[player.index].vitality -get_point
       player.print({'amap.nb18',get_point})
       return
     end
   end
-  if q == 15 then
+  if q == 14 then
     if rpg_t[player.index].strength < (get_point+10) then
-      local money = 1000+1000*k
-      player.print({'amap.nopoint',money})
-      player.remove_item{name='coin', count = money}
+      no_point(player,k)
       return
     else
       rpg_t[player.index].strength = rpg_t[player.index].strength -get_point
@@ -251,18 +281,13 @@ local wheel = function(player,many)
       return
     end
   end
-  if q == 14 then
+  if q == 13 then
     local luck = 50*k+50
     if luck >= 400 then
       luck = 400
     end
     Loot.cool(player.surface, player.surface.find_non_colliding_position("steel-chest", player.position, 20, 1, true) or player.position, 'steel-chest', luck)
     player.print({'amap.nb14',luck})
-    return
-  elseif q == 13 then
-    local money = 10000+1000*k
-    player.insert{name='coin', count =money}
-    player.print({'amap.nb13',money})
     return
   elseif q == 12 then
     local get_xp = 100+k*50
@@ -284,51 +309,39 @@ local wheel = function(player,many)
     player.print({'amap.nb9'})
     return
   elseif q == 8 then
-    local lost_xp = 2000+k*200
-    if rpg_t[player.index].xp < lost_xp then
-      rpg_t[player.index].xp = 0
-      return
-    else
-      rpg_t[player.index].xp = rpg_t[player.index].xp - lost_xp
-      player.print({'amap.nb8',lost_xp})
-      return
-    end
-  elseif q == 7 then
-    player.print({'amap.nb7'})
-    return
-  elseif q == 6 then
     rpg_t[player.index].strength = rpg_t[player.index].strength + get_point
     player.print({'amap.nb6',get_point})
     return
-  elseif q == 5 then
+  elseif q == 7 then
     player.print({'amap.nb5',get_point})
     rpg_t[player.index].magicka =rpg_t[player.index].magicka +get_point
     return
-  elseif q == 4 then
+  elseif q == 6 then
     player.print({'amap.nb4',get_point})
     rpg_t[player.index].dexterity = rpg_t[player.index].dexterity+get_point
     return
-  elseif q == 3 then
+  elseif q == 5 then
     player.print({'amap.nb3',get_point})
     rpg_t[player.index].vitality = rpg_t[player.index].vitality+get_point
     return
-  elseif q == 2 then
+  elseif q == 4 then
     player.print({'amap.nb2',get_point})
     rpg_t[player.index].points_left = rpg_t[player.index].points_left+get_point
     return
-  elseif q == 1 then
+  elseif q == 3 then
     local money = 1000+1000*k
     player.print({'amap.nbone',money})
     player.insert{name='coin', count = money}
     return
-  elseif q == 0 then
+  elseif q == 2 then
     local money = 1000+1000*k
     player.print({'amap.sorry',money})
     player.remove_item{name='coin', count = money}
     return
-  elseif q == 19 then
+  elseif q == 1 then
     player.print({'amap.what'})
     return
+
   end
 end
 
@@ -363,7 +376,7 @@ end
 
 local function get_biter_point ()
   local this = WPT.get()
-  if this.start_game ~= 2 then return end
+ 
   local wave_defense_table = WD.get_table()
   if this.roll >= 5 then
     this.roll = 1
@@ -417,9 +430,9 @@ local on_tick = function()
   if tick % 60 == 0 then
     Factories.produce_assemblers()
     if this.start_game ==2 then
-    wheel_destiny()
-    gain_xp()
-  end
+      wheel_destiny()
+      gain_xp()
+    end
   end
 
   if tick % 600 == 0 then
