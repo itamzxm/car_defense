@@ -151,6 +151,7 @@ function Public.jump_procedure()
   for _, factory in pairs(production.assemblers) do
     if not production.experience[factory.id] then production.experience[factory.id] = 0 end
     production.experience[factory.id] = production.experience[factory.id] + factory.produced
+    factory.produced=0
     levelup_train_factory(factory.id)
   end
  end

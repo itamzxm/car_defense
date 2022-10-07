@@ -81,6 +81,13 @@ local function on_entity_died(event)
     if cause.valid then
       if (cause and cause.name == 'character' and cause.player) then
         p = cause.player
+        if game.forces.enemy.evolution_factor >= 0.2 then
+          local index = cause.player.index
+          local this=WPT.get()
+          if not this.tank[index] or not this.tank[index].valid then
+            return
+          end
+        end
       end
 
       if cause.name == 'character' then

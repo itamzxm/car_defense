@@ -15,7 +15,14 @@ local function floaty_hearts(entity, c)
         entity.surface.create_entity({name = 'flying-text', position = p, text = '♥', color = {random(150, 255), 0, 255}})
     end
 end
+local function can_move(entity, player)
 
+  local square_distance = (player.position.x - entity.position.x) ^ 2 + (player.position.y - entity.position.y) ^ 2
+  if square_distance < 64 or square_distance > 25600 then
+    return false
+  end
+  return true
+end
 local function tame_unit_effects(player, entity)
     floaty_hearts(entity, 7)
 
@@ -55,30 +62,56 @@ end
 function Public.biter_pets_tame_unit(player, unit)
   local this=WPT.get()
   local index=player.index
+
+  if unit.name =='biter-spawner' or unit.name =='spitter-spawner' then 
+    tame_unit_effects(player, unit)
+    return
+  end
   if not this.biter_pets[index] then
      this.biter_pets[index]={}
   end
     local biter_pets = this.biter_pets[index]
-
-
-    if not this.biter_number[index] then
-        this.biter_number[index]=0
-      --  game.print("设置成0 了")
+    local temp_biters_pet={}
+    for _,v in pairs(biter_pets) do 
+      if v and v.valid then 
+        temp_biters_pet[#temp_biters_pet+1]=v
+      end
     end
 
-    if this.biter_number[index] >this.biter_max then
+    biter_pets=temp_biters_pet
+    this.biter_pets[index]=biter_pets
+
+    if #biter_pets >this.biter_max then
       player.print({'amap.too_many_biter'})
       unit.die()
       return false
     end
 
-    unit.ai_settings.allow_destroy_when_commands_fail = false
+    unit.ai_settings.allow_destroy_when_commands_fail = true
     unit.ai_settings.allow_try_return_to_spawner = false
-    unit.set_command({type = defines.command.wander, distraction = defines.distraction.by_enemy})
-    biter_pets[#biter_pets+1] =  unit
+  
+    biter_pets[#biter_pets+1] = unit
     tame_unit_effects(player, unit)
-  this.biter_number[index]=this.biter_number[index]+1
 
+    --重新编组
+    local unit_group = player.surface.create_unit_group({position = unit.position, force = 'player'})
+    local follow_number = this.biter_follow_number
+    local biter_arty=0
+    for _,v in pairs(biter_pets) do 
+      if biter_arty<follow_number then 
+        if v and v.valid and can_move(v, player) then 
+          unit_group.add_member(v)
+          biter_arty=biter_arty+1
+        end
+      end
+    end
+    unit_group.set_command(
+      {
+        type = defines.command.wander,
+        destination = unit.position,
+        distraction = defines.distraction.by_enemy
+      }
+    )
     return true
 end
 
@@ -99,14 +132,7 @@ function Public.tame_unit_for_closest_player(unit)
 end
 
 
-local function can_move(entity, player)
 
-  local square_distance = (player.position.x - entity.position.x) ^ 2 + (player.position.y - entity.position.y) ^ 2
-  if square_distance < 64 or square_distance > 25600 then
-    return false
-  end
-  return true
-end
 
 local function command_unit(entity, player)
         entity.set_command(
@@ -144,30 +170,28 @@ local function on_player_changed_position(event)
   if this.biter_command[index] + 600 > game.tick then
       return
   end
-this.biter_command[index]= game.tick
+
+  this.biter_command[index]= game.tick
 
 
-for k,v in pairs(biter_pets) do
-  if not v or not v.valid then
-    biter_pets[k]=nil
-    this.biter_number[index]= this.biter_number[index]-1
+  local unit_group = player.surface.create_unit_group({position = player.position, force = 'player'})
+  local follow_number = this.biter_follow_number
+  local biter_arty=0
+  for _,v in pairs(biter_pets) do 
+    if biter_arty<follow_number then 
+      if v and v.valid and can_move(v, player) then 
+        unit_group.add_member(v)
+        biter_arty=biter_arty+1
+      end
+    end
   end
-end
-
-local biter_arty=0
-local follow_number = this.biter_follow_number
-  --game.print("跟随！")
-for k,v in pairs(biter_pets) do
-  if can_move(v, player) then
-    biter_arty=biter_arty+1
-    command_unit(v, player)
-  end
-  if biter_arty>= follow_number then
-    return
-  end
-
-end
-
+  unit_group.set_command(
+    {
+      type = defines.command.wander,
+      destination = player.position,
+      distraction = defines.distraction.by_enemy
+    }
+  )
 end
 
 

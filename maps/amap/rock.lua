@@ -69,6 +69,7 @@ local urgrade_item = function(market)
   local urgrade_mine={price = {{"coin", pirce_mine}}, offer = {type = 'nothing', effect_description = {'amap.urgrade_mine',this.urgrad_mine*200+400}}}
 
   local buy_cap={price = {{"coin", 50000}}, offer = {type = 'nothing', effect_description = {'amap.buy_cap'}}}
+  local unlock_redtu = {price = {{"coin", 30000}}, offer = {type = 'nothing', effect_description = {'amap.unlock_redtu'}}}
   market.add_market_item(health_wall)
   market.add_market_item(buy_car_health)
   market.add_market_item(arty_dam)
@@ -77,17 +78,21 @@ local urgrade_item = function(market)
   market.add_market_item(buy_urgrade_rock_dam)
   market.add_market_item(urgrade_mine)
   market.add_market_item(buy_cap)
+  if this.allow_deconst_list["tree"]==flase then 
+    market.add_market_item(unlock_redtu)
+  end
 
 end
 
 local market_items = {
 
-  {price = {{"coin", 5}}, offer = {type = 'give-item', item = "raw-fish", count = 1}},
-  {price = {{"raw-fish", 1}}, offer = {type = 'give-item', item = 'coin', count = 5}},
+  {price = {{"coin", 4}}, offer = {type = 'give-item', item = "raw-fish", count = 1}},
+  {price = {{"raw-fish", 1}}, offer = {type = 'give-item', item = 'coin', count = 4}},
+  {price = {{"empty-barrel", 100}}, offer = {type = 'give-item', item = 'coin', count = 1}},
   {price = {{"coin", 500}}, offer = {type = 'give-item', item = 'car', count = 1}},
   {price = {{"coin", 8000}}, offer = {type = 'give-item', item = 'tank', count = 1}},
   {price = {{"coin", 60000}}, offer = {type = 'give-item', item = 'spidertron', count = 1}},
-  {price = {{"coin", 500}}, offer = {type = 'give-item', item = 'spidertron-remote', count = 1}},
+  --{price = {{"coin", 500}}, offer = {type = 'give-item', item = 'spidertron-remote', count = 1}},
   {price = {{"coin", 25000}}, offer = {type = 'give-item', item = 'tank-cannon', count = 1}},
   {price = {{"coin", 128}}, offer = {type = 'give-item', item = 'loader', count = 1}},
   {price = {{"coin", 512}}, offer = {type = 'give-item', item = 'fast-loader', count = 1}},
@@ -118,7 +123,10 @@ function Public.refresh_shop(market)
 local rand_item=get_rand_item()
 
   for _, item in pairs(rand_item) do
-    item.price[1][2]=item.price[1][2]*2
+    item.price[1][2]= math.floor(item.price[1][2]*1.3)
+    if item.price[1][2] >= 50000 then
+item.price[1][2] = 50000
+    end
     market.add_market_item(item)
   end
   game.print({'amap.refresh_shop'})
@@ -175,7 +183,7 @@ local function on_rocket_launched()
     game.print {'amap.goal_1'}
   end
   for k, player in pairs(game.connected_players) do
-    rpg_t[player.index].points_to_distribute = rpg_t[player.index].points_to_distribute+point
+    rpg_t[player.index].points_left = rpg_t[player.index].points_left+point
     player.insert{name='coin', count = money}
     player.print({'amap.reward',this.times,point,money}, {r = 0.22, g = 0.88, b = 0.22})
 
@@ -206,7 +214,13 @@ local function on_market_item_purchased(event)
   local offer_index = event.offer_index
   local offers = market.get_market_items()
   local bought_offer = offers[offer_index].offer
-
+  
+  local spider_index = 15
+  if this.allow_deconst_list["tree"] then spider_index=14 end 
+  if offer_index == spider_index then
+    player.insert{name='spidertron-remote', count = 1}
+  end
+  
 
   if bought_offer.type ~= "nothing" then return end
   local health_boost =HealthBooster.get()
@@ -319,6 +333,20 @@ local function on_market_item_purchased(event)
     this.cap=this.cap+1
     game.print({'amap.buy_cap_over',player.name,this.cap})
   end
+  market.force.play_sound({path = 'utility/new_objective', volume_modifier = 0.75})
+  market.clear_market_items()
+  urgrade_item(market)
+  for k, item in pairs(market_items) do
+    market.add_market_item(item)
+  end
+
+  if offer_index == 9 and not this.allow_deconst_list["tree"] then
+    this.allow_deconst_list["tree"] = true
+    this.allow_deconst_list["simple-entity"] = true
+    game.print({'amap.already_unlock',player.name})
+  end
+
+
   market.force.play_sound({path = 'utility/new_objective', volume_modifier = 0.75})
   market.clear_market_items()
   urgrade_item(market)

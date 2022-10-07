@@ -14,17 +14,6 @@ function(tbl)
 end
 )
 
-local function get_car_number()
-  local this=WPT.get()
-  local car_number=0
-
-  for k, player in pairs(game.connected_players) do
-    if  this.tank[player.index] and this.tank[player.index].valid then
-      car_number=car_number+1
-    end
-  end
-  return car_number
-end
 
 local function calc_players()
   local players = game.connected_players
@@ -75,23 +64,59 @@ local final_wave = function()
   wave_defense_table.wave_interval = 1200
 end
 
+local function make_game_mode()
+
+  local diff= Difficulty.get()
+    if diff.difficulty_vote_index~=1 then return end
+
+    local wave_defense_table = WD.get_table()
+
+    wave_defense_table.wave_number=math.floor(game.forces.enemy.evolution_factor*1000)
+
+    if game.forces.enemy.evolution_factor >0.9 then
+
+      diff.difficulty_vote_index=2
+      wave_defense_table.game_lost = false
+      wave_defense_table.wave_number=900
+
+      local this = WPT.get()
+      this.stop_time=60
+
+      game.map_settings.enemy_expansion.max_expansion_cooldown=216000
+      game.map_settings.enemy_expansion.min_expansion_cooldown=14400
+      game.map_settings.enemy_expansion.max_expansion_distance = 20
+      game.map_settings.enemy_expansion.settler_group_min_size = 5
+      game.map_settings.enemy_expansion.settler_group_max_size = 50
+
+    end
+
+  if game.tick < diff.difficulty_poll_closing_timeout then return end
+  if diff.difficulty_vote_index~=1 then return end
+    wave_defense_table.game_lost = true
+
+    game.map_settings.enemy_expansion.max_expansion_cooldown=14400
+    game.map_settings.enemy_expansion.min_expansion_cooldown=14400
+    game.map_settings.enemy_expansion.max_expansion_distance = 20
+    game.map_settings.enemy_expansion.settler_group_min_size = 20
+    game.map_settings.enemy_expansion.settler_group_max_size = 50
+
+  end
+
+
+
 local set_diff = function()
 
   local this = WPT.get()
-  if this.start_game~=2 then
-    return
-  end
+
+  --make_game_mode()
 
   local enemy = game.forces.enemy
-  if  enemy.evolution_factor >= 0.5 and this.max_flame == 28 then
+  if  enemy.evolution_factor >= 0.5 and this.max_flame == 32 then
+    this.max_flame=28
+  end
+  if  enemy.evolution_factor >= 0.9 and this.max_flame == 28 then
     this.max_flame=24
   end
-  if  enemy.evolution_factor >= 0.9 and this.max_flame == 24 then
-    this.max_flame=18
-  end
-
-
-
 
   local diff_k=1
   local diff= Difficulty.get()
@@ -99,12 +124,14 @@ local set_diff = function()
     diff_k=1
   end
   if diff.difficulty_vote_index == 2 then
-    diff_k=1.2
+    diff_k=1.3
   end
   if diff.difficulty_vote_index == 3 then
-    diff_k=1.5
+    diff_k=1.6
   end
-  diff_k=diff_k+map.diff-1
+
+ --if not this.player_diff[this.car_index] then return  end
+ -- diff_k=diff_k+this.player_diff[this.car_index]
 
   local wave_number = WD.get('wave_number')
 
@@ -123,19 +150,6 @@ local set_diff = function()
     game.print({"amap.biter_kill_factorio"})
   end
 
-  local car_number=get_car_number()
-  local allow_car_number = math.floor(#game.connected_players/3)+1
-  local allow_die_number = math.floor(wave_number*0.03)+3
-
-    if allow_car_number>4 then allow_car_number=4 end
-
-  if this.car_die_number>=allow_die_number and car_number <=allow_car_number then
-  --  diff_k=allow_die_number*0.05+diff_k
-    local k =game.forces.enemy.evolution_factor*1000
-    if k >wave_number then
-      wave_number=k
-    end
-  end
 
   if wave_number>=2000 and map.rocket_diff then
     diff_k=diff_k+this.times*0.015
@@ -147,8 +161,8 @@ local set_diff = function()
 
   wave_defense_table.max_active_biters = 768 + player_count * 180*diff_k
 
-  if wave_defense_table.max_active_biters >= 4000*diff_k then
-    wave_defense_table.max_active_biters = 4000*diff_k
+  if wave_defense_table.max_active_biters >= 6000*diff_k then
+    wave_defense_table.max_active_biters = 6000*diff_k
   end
 
   local max_threat = 1 + player_count * 0.1*diff_k
@@ -156,12 +170,14 @@ local set_diff = function()
     max_threat = 4*diff_k
   end
 
-  max_threat = max_threat + wave_number * 0.0013*diff_k
+--限制总最大值
+  if wave_number>5000 then wave_number = 5000 end
 
+  max_threat = max_threat + wave_number * 0.0013*diff_k
   WD.set_biter_health_boost(wave_number * 0.002*diff_k+1*diff_k)
   wave_defense_table.threat_gain_multiplier =  max_threat
 
-  wave_defense_table.wave_interval = 4200/diff_k - player_count * 50*diff_k
+  wave_defense_table.wave_interval = 4200/diff_k - player_count * 60
   if wave_defense_table.wave_interval < 1800/diff_k or wave_defense_table.threat <= 0 then
     wave_defense_table.wave_interval = 1800/diff_k
   end
@@ -202,7 +218,7 @@ function Public.reset_table()
   map.record[2]={}
   map.record[2].name="noneofone"
   map.record[2].pass_number=1217
-  map.record[2].wave_number=2605
+  map.record[2].wave_number=3000
   --
   -- map.record[3]={}
   --   map.record[3].name="itam"
@@ -334,6 +350,5 @@ Event.on_nth_tick(600, set_diff)
 Event.on_nth_tick(600, changer_color)
 --Event.add(defines.events.on_player_respawned, on_player_respawned)
 Event.add(defines.events.on_player_joined_game, on_player_joined_game)
-Event.add(defines.events.on_pre_player_left_game, on_pre_player_left_game)
 
 return Public

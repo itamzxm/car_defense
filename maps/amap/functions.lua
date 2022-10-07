@@ -12,7 +12,7 @@ local refresh_shop=require 'maps.amap.rock'.refresh_shop
 local car_weiht={
   ["car"]=10,
   ["tank"]=60,
-  ["spidertron"]=360
+  ["spidertron"]=300
 }
 
 
@@ -43,6 +43,20 @@ local steal_oil = {
   'pump',
   'storage-tank',
   'flamethrower-turret',
+}
+
+local player_build = {
+  ['steam-turbine']=true,
+  ['assembling-machine-1']=true,
+  ['assembling-machine-2']=true,
+  ['assembling-machine-3']=true,
+  ['oil-refinery']=true,
+  ['chemical-plant']=true,
+  ['gun-turret']=true,
+  ['electric-mining-drill']=true,
+  ['laser-turret']=true,
+  ['steam-engine']=true,
+  ['roboport']=true,
 }
 
 function Public.get_player_data(player, remove_user_data)
@@ -195,7 +209,7 @@ local function get_car_index()
   if #spider_cars~=0 then
     local k_rand
     k_rand=math.random(1, 3)
-    if k_rand ~=1 then
+    if k_rand ==1 then
       all_cars=spider_cars
     end
 
@@ -211,6 +225,7 @@ local function get_car_index()
 end
 
 
+
 function Public.get_random_car(print)
 
   local this=WPT.get()
@@ -220,6 +235,8 @@ function Public.get_random_car(print)
     local name=game.players[index].name
     game.print(({'amap.car_will_attack',name}),{r=255,b=100,g=100})
     this.car_index=index
+    this.diff_change=0
+    this.diff_roll=0
     if this.last_sipder then
       if this.tank[this.last_sipder] then
         if this.tank[this.last_sipder].name  =="spidertron" then
@@ -231,7 +248,7 @@ function Public.get_random_car(print)
     else
       this.last_sipder =nil
     end
-    if this.tank[index].name=="spidertron" then
+    if this.tank[index].name=="spidertron" and get_car_number()<=3 then
 
       this.tank[index].grid.inhibit_movement_bonus=true
       this.last_sipder=index
@@ -241,6 +258,98 @@ function Public.get_random_car(print)
   return this.tank[index]
 end
 
+
+function Public.protect_car(index)
+  local this=WPT.get()
+  local name=game.players[index].name
+  if not this.protect_car_time[index] then this.protect_car_time[index] =0 end
+
+  local tick = game.tick
+
+  if tick - this.protect_car_time[index]  > 108000*2 then
+
+
+    local wave_defense_table = WD.get_table()
+    wave_defense_table.game_lost = true
+
+    this.stop_time=this.stop_time+108000*0.5
+    game.print({'amap.buy_stop_wave',name,this.stop_time/3600})
+
+    if not wave_defense_table.target  then return end
+    if not wave_defense_table.target.valid  then return end
+
+    local target= wave_defense_table.target
+    local surface=target.surface
+
+    for i=1,20 do
+      surface.create_entity(
+      {
+        name ='destroyer-capsule' ,
+        position = target.position,
+        force = 'player',
+        source = target,
+        target = target,
+        speed = 1
+      }
+)
+    end
+
+    game.print(({'amap.protect_car',name}),{r=255,b=100,g=100})
+    this.protect_car_time[index]=tick
+  end
+end
+
+
+
+function Public.get_player_diff()
+  local this=WPT.get()
+  local wave_number = WD.get('wave_number')
+  
+  if this.start_game~=2 then return end
+  if not this.player_diff[this.car_index] then
+    this.player_diff[this.car_index]=0
+  end
+
+  local allow_desy
+
+  if wave_number <10 then
+    allow_desy = 200
+  else
+    allow_desy=math.floor(wave_number)
+  end
+
+  if allow_desy>1000 then
+    allow_desy=1000
+  end
+
+  --game.print("允许破坏zhi为"..allow_desy)
+
+
+  if this.diff_wave<wave_number then
+
+  if this.diff_roll==3 then
+     this.diff_change=0
+  end
+
+  this.diff_roll=this.diff_roll+1
+  this.diff_wave=wave_number
+  this.player_diff[this.car_index]=  this.player_diff[this.car_index]+0.0015
+
+  if  this.player_diff[this.car_index] >=2.5 then
+    this.player_diff[this.car_index]=2.5
+  end
+  end
+
+  --game.print("破坏zhi为".. this.diff_change )
+  if this.diff_change > allow_desy then
+    this.player_diff[this.car_index]=this.player_diff[this.car_index]-0.3
+    Public.protect_car(this.car_index)
+    Public.get_random_car(true)
+    this.diff_change=0
+      this.diff_roll=0
+
+  end
+end
 
 local function get_base_biter()
   local this=WPT.get()
@@ -379,7 +488,7 @@ local function kill_turret (index,player)
   end
 
   if max_number>average then
-     average=max_number-1
+    average=max_number-1
   end
 
   if average <=1 then
@@ -484,6 +593,7 @@ local on_player_or_robot_built_entity = function(event)
   end
 
   local player=event.created_entity.last_user
+  if not player then return  end
   local index=player.index
 
 
@@ -556,6 +666,8 @@ end
 function Public.on_research_finished(event)
   if event.research.force.index~=game.forces.player.index then return end
   local this = WPT.get()
+  local research=event.research
+
   this.science=this.science+1
   local rpg_t = RPG.get('rpg_t')
 
@@ -565,24 +677,28 @@ function Public.on_research_finished(event)
   local all_reward={}
   all_reward.point=0
   all_reward.coin=0
-  for index, player in pairs(game.connected_players) do
+  for k, player in pairs(game.connected_players) do
     local point = math.random(1,5)
     local coin = math.random(1,100)
-
-    if  this.tank[index] and this.tank[index].valid then
-        gain_player[#gain_player+1]=player
-        should_reward[index]={}
-        should_reward[index].point=point
-        should_reward[index].coin=coin
+    local index = player.index
+    if  this.tank[index]  then
+      gain_player[#gain_player+1]=player
+      should_reward[index]={}
+      should_reward[index].point=point
+      should_reward[index].coin=coin
     else
       all_reward.point=all_reward.point+point
       all_reward.coin=all_reward.coin+coin
       pay_player[#pay_player+1]=player
     end
   end
+  if all_reward.point<=10 then all_reward.point = 10 end 
 
   local average_point=math.floor(all_reward.point/#gain_player)
   local average_coin=math.floor(all_reward.coin/#gain_player)
+
+  if average_point<2 then average_point=1 end
+  if average_coin<2 then average_coin=1 end
 
   for k, player in pairs(gain_player) do
     local index=player.index
@@ -601,19 +717,107 @@ function Public.on_research_finished(event)
   end
   disable_recipes()
   refresh_shop(this.shop)
+  if "utility-science-pack"==research.name and not this.allow_deconst_list["tree"] then
+    this.allow_deconst_list["tree"] = true
+    this.allow_deconst_list["simple-entity"] = true
+    game.print({'amap.already_unlock_by_research'}) 
+  end
+
 end
 
-local function on_console_command()
+local turret_tpye={
+  ['ammo-turret']=true,
+  ['fluid-turret']=true,
+  ['electric-turretradar']=true,
+  ['artillery-turret']=true,
+  ['artillery-wagon']=true
+}
+
+local function on_entity_died (event)
+
+  local entity = event.entity
+  if not (entity and entity.valid) then
+
+      --game.print("无效实体")
+    return
+  end
+  if entity.force.index ~= game.forces.player.index then
+
+    --  game.print("不是玩家阵营")
+    return
+  end
+
+  local cause = event.cause
+  if not cause then return end
+  if  cause.force == game.forces.player then
+--  game.print("玩家击杀的")
+     return
+   end
+
+  local this= WPT.get()
+local main_surface= game.surfaces[this.active_surface_index]
+  if entity.surface.index ~=main_surface.index then
+--  game.print("图层不一致")
+     return
+
+   end
+  local wave_number = WD.get('wave_number')
+  if wave_number<=10 then return end
+
+  if not player_build[entity.name] then
+  --  game.print("无效建筑物")
+    return
+  end
+
+--  game.print("一个有效建筑物被摧毁")
+  local ok = false
+  if not entity.valid then return end
+  if entity.status ==1 or entity.status==2 then
+    ok = true
+  --    game.print("有效状态")
+   end
+   if not turret_tpye[entity.type]  then  return end
+  if entity.kills then
+    if entity.kills >1000 then
+    ok =true
+    --  game.print("杀敌达标")
+  end
+end
+
+--game.print(entity.status)
+
+if not ok then return end
+
+  if wave_number > 500 then
+      local wave_defense_table = WD.get_table()
+      local car=  wave_defense_table.target
+
+        local pos_car =car.position
+        local position=entity.position
+
+        local dist_x = math.abs(position.x)-math.abs(pos_car.x)
+        local dist_y = math.abs(position.y)-math.abs(pos_car.y)
+        local sum = math.abs(dist_x)+math.abs(dist_y)
+
+        if sum <450 then
+          this.diff_change=this.diff_change+8
+        end
+
+  else
+    this.diff_change=this.diff_change+8
+  end
+
+end
+
+local function on_console_command(event)
   local cmd = event.command
   if not event.player_index then
-      return
+    return
   end
-  local player = game.players[event.player_index]
-  local param = event.parameters
-
-  if amd~="editor" then return end
-  local this=WPT.get()
-  this.editor=true
+  local this = WPT.get()
+  if cmd~= "debug" then
+    this.editor=true
+  end
 
 end
 
@@ -624,6 +828,9 @@ local on_player_joined_game = Public.on_player_joined_game
 
 
 Event.on_nth_tick(60, count_down)
+Event.on_nth_tick(600, Public.get_player_diff)
+
+Event.add(defines.events.on_entity_died, on_entity_died)
 Event.add(defines.events.on_console_command, on_console_command)
 Event.add(defines.events.on_built_entity, on_player_or_robot_built_entity)
 Event.add(defines.events.on_robot_built_entity, on_player_or_robot_built_entity)

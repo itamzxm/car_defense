@@ -44,11 +44,13 @@ local player_build = {
   'roboport',
 }
 
+require 'maps.amap.mining'
 require 'maps.amap.auto_put_turret'
 require 'maps.amap.world.world_main'
 require 'maps.amap.gui'
 require 'maps.amap.biter_die'
-require 'maps.amap.mining'
+
+
 require 'maps.amap.ic.main'
 require 'maps.amap.biters_yield_coins'
 require 'maps.amap.tank'
@@ -71,22 +73,22 @@ end
 
 local setting = function()
   AntiGrief.enabled=false
-  --  game.forces.player.ghost_time_to_live = 5 * 60 * 60
-  game.map_settings.enemy_evolution.destroy_factor = 0.002
+  game.forces.enemy.ghost_time_to_live = 5 * 60 * 60
+  -- game.map_settings.enemy_evolution.destroy_factor = 0.002
   game.forces.enemy.technologies['construction-robotics'].researched = true
   game.forces.enemy.worker_robots_speed_modifier=3
   game.forces.enemy.stack_inserter_capacity_bonus=100
   game.map_settings.enemy_expansion.enabled = true
-  game.map_settings.enemy_expansion.max_expansion_cooldown=216000
-  game.map_settings.enemy_expansion.min_expansion_cooldown=14400
-  game.map_settings.enemy_expansion.max_expansion_distance = 20
-  game.map_settings.enemy_expansion.settler_group_min_size = 5
-  game.map_settings.enemy_expansion.settler_group_max_size = 50
+  -- game.map_settings.enemy_expansion.max_expansion_cooldown=216000
+  -- game.map_settings.enemy_expansion.min_expansion_cooldown=14400
+  -- game.map_settings.enemy_expansion.max_expansion_distance = 20
+  -- game.map_settings.enemy_expansion.settler_group_min_size = 5
+  -- game.map_settings.enemy_expansion.settler_group_max_size = 50
   game.forces.enemy.friendly_fire = false
-  game.forces.player.set_ammo_damage_modifier("artillery-shell", 0)
-  game.forces.player.set_ammo_damage_modifier("melee", 0)
-  game.forces.player.set_ammo_damage_modifier("biological", 0)
-  game.forces.player.set_ammo_damage_modifier("rocket", 0)
+--  game.forces.player.set_ammo_damage_modifier("artillery-shell", 0)
+  --game.forces.player.set_ammo_damage_modifier("melee", 0)
+--  game.forces.player.set_ammo_damage_modifier("biological", 0)
+--game.forces.player.set_ammo_damage_modifier("rocket", 0)
 
 end
 
@@ -186,14 +188,18 @@ end
 local on_init = function()
   Public.reset_map()
 
-
   local tooltip = {
     [1] = ({'amap.easy'}),
     [2] = ({'amap.med'}),
     [3] = ({'amap.hard'})
   }
-
   Difficulty.set_tooltip(tooltip)
+
+  -- local Diff = Difficulty.get()
+  -- Diff.difficulties[1].name="宝宝模式-baby_mode"
+  -- Diff.difficulties[2].name="简单模式_easy_mode"
+  -- Diff.difficulties[3].name="团队合作_norml_mode"
+
   game.forces.player.research_queue_enabled = true
   local T = Map.Pop_info()
   T.localised_category = 'amap'
@@ -376,7 +382,7 @@ end
 
 local function get_biter_point ()
   local this = WPT.get()
-  if this.start_game ~= 2 then return end
+
   local wave_defense_table = WD.get_table()
   if this.roll >= 5 then
     this.roll = 1

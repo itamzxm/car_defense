@@ -256,18 +256,18 @@ end
 local enemy_turret={
   --  [1]={name='stone-wall',worth=1,wave_number=0},
   [2]={name='biter-spawner',worth=20,wave_number=200},
-  [3]={name='laser-turret',worth=10,wave_number=100},
+  [3]={name='laser-turret',worth=8,wave_number=100},
   [4]={name='gun-turret',worth=5,wave_number=100},
-  [5]={name='medium-worm-turret',worth=5,wave_number=100},
+  [5]={name='medium-worm-turret',worth=10,wave_number=100},
   [6]={name='flamethrower-turret',worth=10,wave_number=150},
-  [7]={name='big-worm-turret',worth=10,wave_number=150},
-  [8]={name='behemoth-worm-turret',worth=25,wave_number=400},
+  [7]={name='big-worm-turret',worth=20,wave_number=150},
+  [8]={name='behemoth-worm-turret',worth=60,wave_number=700},
   [9]={name='artillery-turret',worth=400,wave_number=1300}
 }
 local function get_new_arty()
 
   local wave_number = WD.get('wave_number')
-  if wave_number <100 then return end
+  if wave_number <425 then return end
   local wave_defense_table = WD.get_table()
   if not wave_defense_table.target  then return end
   if not wave_defense_table.target.valid  then return end
@@ -280,7 +280,7 @@ local function get_new_arty()
   game.print({'amap.biter_build',position.x,position.y,surface.name})
   urgrade_ammo(wave_number)
   local map=diff.get()
-  local all_worth = wave_number*map.diff
+  local all_worth = wave_number*map.diff*0.95
   local fix_function=wave_number-500
   if fix_function<0 then fix_function=0 end
   if fix_function>1000 then fix_function=1000 end
@@ -376,8 +376,8 @@ local function get_new_arty()
 
     local many_baozhang =math.floor(wave_number*0.008)
     if many_baozhang >10 then many_baozhang=10 end
-    local max_luck = wave_number*0.25+100
-    local min_luck = wave_number*0.15+50
+    local max_luck = wave_number*0.2+100
+    local min_luck = wave_number*0.1+50
     if max_luck>=800 then max_luck =800 end
     if min_luck>=500 then min_luck =500 end
 
@@ -574,9 +574,9 @@ local function on_entity_died(event)
   local player = event.cause.player
   local rpg_t = RPG.get('rpg_t')
 
-  player.insert{name="coin",count=wave_number*5}
+  player.insert{name="coin",count=wave_number*5*2.5}
   rpg_t[player.index].xp= rpg_t[player.index].xp +wave_number
-  game.print({'amap.kill_baolei',player.name,wave_number,wave_number*5})
+  game.print({'amap.kill_baolei',player.name,wave_number,wave_number*5*2.5})
 
 end
 

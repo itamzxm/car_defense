@@ -43,6 +43,8 @@ local function item_build_car(player)
 
   for item, amount in pairs(car_items) do
     if item =='firearm-magazine' or item == 'gun-turret' or item == 'stone-wall' then
+      if item =='firearm-magazine' and wave_number>=450 then item="piercing-rounds-magazine"end 
+      if item =='piercing-rounds-magazine' and wave_number>=1000 then item="uranium-rounds-magazine" end 
       local k = wave_number/35-1
       if k <0 then k =1 end
       if k >= 10 then k = 10 end
@@ -118,13 +120,15 @@ local function calc_players()
   return total
 end
 
+
 local function on_player_build_entity(event)
 
   local entity=event.created_entity
+
   if not entity then return end
   if not entity.valid then return end
-  --game.print(entity.type)
-
+--  game.print(entity.type)
+ 
   local this=WPT.get()
   local surface=entity.surface
   if	not(surface.index == game.surfaces[this.active_surface_index].index) then return end
@@ -273,22 +277,16 @@ local function game_over()
 
   map.sum=map.sum+1
   --  map.world=map.world+1
-  map.world=math.random(1, map.max_world)
-
-
+  map.world=math.random(1, 4)
+  if map.world==3 then map.world = 4 end
   if this.pass == true then
     map.win=map.win+1
     if map.max_world<map.world_number and this.times>=2 then
       map.max_world =map.max_world+1
     end
     map.world=map.max_world
-    map.diff=map.diff+0.1
   else
     map.gg=map.gg+1
-    map.diff=map.diff-0.05
-    if  map.diff<1 then
-      map.diff=1
-    end
   end
   if map.world > map.max_world then
     map.world =1
@@ -373,7 +371,7 @@ local function on_entity_died(event)
       game.print({'amap.tank_die',game.players[index].name,car_number})
     end
     if car_number==0 then
-      this.reset_time=600
+      this.reset_time=600*3
       this.start_game=3
       game.print({'amap.ready_to_reset'})
     end
@@ -383,6 +381,12 @@ end
 local choois_target = function()
   local this = WPT.get()
   if this.start_game~=2 then return end
+  if get_car_number()==0 then
+    this.reset_time=600*3
+    this.start_game=3
+    game.print({'amap.ready_to_reset'})
+    return
+  end
 
   for i,v in ipairs(this.car_wudi) do
     if v and v.valid then
@@ -582,19 +586,20 @@ local function car_pollute()
   local car_number =  get_car_number()
   if car_number == 0  then
     if this.reset_time== 0 and this.start_game==2 then
-      this.reset_time=600
+      this.reset_time=600*3
       this.start_game=3
       game.print({'amap.ready_to_reset'})
       return
     end
   end
 
+if   this.start_game==2 then
   if wave_number ==1 and this.frist_target==false then
     local wave_defense_table = WD.get_table()
     wave_defense_table.target =get_random_car(true)
     this.frist_target=true
   end
-
+end
 
   local ic = IC.get()
 

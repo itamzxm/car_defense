@@ -27,7 +27,7 @@ function Public.add(surface, position, chest)
   local x= position.x
   local y = position.y
   local dist = math.sqrt(x*x+y*y)
-    local budget = 48 + dist*1.4
+    local budget = 48 + dist*1.45
     budget = budget * random(25, 175) * 0.01
 
     if random(1, 128) == 1 then

@@ -153,7 +153,7 @@ if  no_tree[entity.name]~=1 then
 
 	entity.destroy()
 
-	if ore_amount > max_spill then
+	if ore_amount > 0 then
 		local k = player.insert({name = ore, count = ore_amount})
 		ore_amount = ore_amount - k
 		if ore_amount > 0 then

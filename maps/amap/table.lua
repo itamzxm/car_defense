@@ -17,7 +17,13 @@ end
 function Public.reset_table()
   -- @star
   -- these 3 are in case of stop/start/reloading the finstance
+  
+  this.diff_roll=0
+  this.protect_car_time={}
   this.editor=false
+  this.diff_wave=0
+  this.diff_change=0
+  this.player_diff={}
   this.upgrade_spell={}
   this.turret_rpg={}
   this.gain={}
@@ -34,7 +40,7 @@ function Public.reset_table()
   this.productionsphere.assemblers = {}
   this.productionsphere.train_assemblers = {}
   this.shop=nil
-  this.biter_follow_number = 25
+  this.biter_follow_number = 100
   this.biter_max=100
   this.biter_command={}
   this.biter_number={}
@@ -47,7 +53,7 @@ function Public.reset_table()
   this.car_index=nil
   this.urgrad_rock_dam=0
   this.urgrad_mine=0
-  this.max_flame=28
+  this.max_flame=32
   this.max_mine=400
   this.now_mine=0
   this.stop_wave=0
@@ -83,7 +89,13 @@ function Public.reset_table()
   this.first = true
   this.times = 1
   this.last = 0
+  this.allow_deconst_list={}
+  this.allow_deconst_list["cliff"] = true
+  this.allow_deconst_list["item-entity"] = true
 
+  this.max_nest_number = 4
+  this.nest={}
+  
   --!reset player tables
   for _, player in pairs(this.players) do
     player.died = false

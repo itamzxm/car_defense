@@ -134,7 +134,7 @@ function Public.create_surface()
 
     if map.world==4 then
       map_gen_settings.water = 0
-     map_gen_settings.cliff_settings = {cliff_elevation_interval = 10, cliff_elevation_0 = 10}
+      map_gen_settings.cliff_settings = {cliff_elevation_interval = 10, cliff_elevation_0 = 10}
       map_gen_settings.moisture = 1
 
     end

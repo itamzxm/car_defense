@@ -5,6 +5,9 @@ local Pets = require 'maps.amap.biter_pets'
 local WPT = require 'maps.amap.table'
 local random = math.random
 local Alert = require 'utils.alert'
+local WD = require 'modules.wave_defense.table'
+local Task = require 'utils.task'
+local Token = require 'utils.token'
 
 local ent_to_create = {'biter-spawner', 'spitter-spawner'}
 if is_mod_loaded('bobenemies') then
@@ -22,10 +25,18 @@ local function unstuck_player(index)
   player.teleport(position, surface)
 end
 
+local do_biter =
+Token.register(
+function(data)
+  local surface=data.surface
+  local name=data.name
+  local pos=data.position
+   surface.create_entity({name = name, position = pos,force=game.forces.enemy})
+end
+)
 local function hidden_biter(entity)
   local pos = entity.position
   local roll = math.random(1, 3)
-  local unit
   local name
   if roll == 1 then
     name = BiterRolls.wave_defense_roll_spitter_name()
@@ -34,9 +45,18 @@ local function hidden_biter(entity)
   else
     name = BiterRolls.wave_defense_roll_worm_name()
   end
-  if name then
-    unit = entity.surface.create_entity({name = name, position = pos,force=game.forces.enemy})
+  if not name then return end
+  local wave_number = WD.get('wave_number')
+  local count = math.floor(wave_number*0.1)+math.random(1,10)
+  if count>= 30 then count=30 end
+  local data={}
+  data.surface=entity.surface
+  data.position=pos
+  data.name=name
+  for i=1,count do
+    Task.set_timeout_in_ticks(i*30, do_biter, data)
   end
+
 end
 
 local function hidden_biter_pet(player, entity)
@@ -76,6 +96,7 @@ local function on_player_mined_entity(event)
     entity.surface.set_tiles({{name = 'stone-path', position = entity.position}}, true)
   end
 
+
   if random(1,1024) < 2 then
     local position = {entity.position.x , entity.position.y }
     surface.create_entity({name = 'car', position = position, force = 'player'})
@@ -99,8 +120,9 @@ local function on_player_mined_entity(event)
   end
   if random(1,100)  < 3 then
     hidden_biter(entity)
-  end
+   end
 end
+
 local function on_entity_died(event)
 
   if not event.entity then return end
@@ -108,9 +130,10 @@ local function on_entity_died(event)
   local this = WPT.get()
   if	not(event.entity.surface.index == game.surfaces[this.active_surface_index].index) then return end
 
-  local name = event.entity.name
+
   local force = event.entity.force
   if force.index == game.forces.player.index then
+    local name = event.entity.name
 
 
     if name =="artillery-wagon" or name =="artillery-turret" then
