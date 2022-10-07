@@ -18,6 +18,7 @@ local sqrt = math.sqrt
 local round = math.round
 local Public = {}
 
+local RPG = require 'modules.rpg.table'
 local this = {
     biter_health_boost = 1,
     car_health_boost=1,
@@ -118,6 +119,7 @@ local function on_entity_damaged(event)
     if not (entity and entity.valid) then
         return
     end
+    
     local health_boost = 1
     local resist=1
     local biter = false
@@ -209,11 +211,25 @@ local function on_entity_damaged(event)
     if biter_build then
      resist= health_pool[2]
     end
-
+  
+    local cause = event.cause
     if biter then
-    health_pool[1] = health_pool[1] - event.final_damage_amount
+       
+        local combat_robot_damge=0
+        if cause and cause.valid then 
+            if cause.name=='destroyer' or cause.name =='defender' then 
+            local player=cause.last_user
+            if player then 
+            local resist_k=event.final_damage_amount/event.original_damage_amount
+            local rpg_t = RPG.get('rpg_t')
+            combat_robot_damge = round((rpg_t[player.index].strength-10)*0.05*resist_k,2)
+           -- game.print(combat_robot_damge)
+            end
+            end
+        end
+    health_pool[1] = health_pool[1] - event.final_damage_amount-combat_robot_damge
     entity.health = health_pool[1] * health_pool[2]
-  else
+      else
       if  entity.health>event.final_damage_amount then
       entity.health=entity.health+event.final_damage_amount
       health_pool[1] =floor(entity.health/resist)-- -event.final_damage_amount*health_pool[2]-health_pool[2]
@@ -227,7 +243,7 @@ local function on_entity_damaged(event)
     if entity.health > 0 then
         return
     end
-   local cause = event.cause
+   
     if cause then
         if cause.valid then
             event.entity.die(cause.force, cause)
