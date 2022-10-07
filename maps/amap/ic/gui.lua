@@ -472,7 +472,7 @@ end
 
 local function add_stop_botton (player)
   local this = WPT.get()
-  local pirce_wave=this.stop_wave*5000+1
+  local pirce_wave=this.stop_wave*2500+1
     local stop_function=true
     if pirce_wave >= 50000 then
        pirce_wave=50000
@@ -698,7 +698,7 @@ Gui.on_click(
     function(event)
         local player = event.player
         local this=WPT.get()
-        local pirce_stop_wave= this.stop_wave*5000+1
+        local pirce_stop_wave= this.stop_wave*2500+1
         local can_buy = false
         local something = player.get_inventory(defines.inventory.chest)
          for k, v in pairs(something.get_contents()) do
