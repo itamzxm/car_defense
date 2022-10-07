@@ -228,12 +228,11 @@ local function spawn_unit_spawner_inhabitants(entity)
     wave_number=k
   end
   local count = 32 + math.floor(wave_number * 0.1)
-  if count > 64 then
-    count = 64
+  if count > 100 then
+    count = 100
   end
 
   BiterRolls.wave_defense_set_unit_raffle(wave_number)
---  local unit_group = entity.surface.create_unit_group({position = entity.position, force = 'enemy'})
   for _ = 1, count, 1 do
     local position = {entity.position.x + (-4 + math.random(0, 8)), entity.position.y + (-4 + math.random(0, 8))}
     local biter
@@ -242,9 +241,6 @@ local function spawn_unit_spawner_inhabitants(entity)
     else
       biter=  entity.surface.create_entity({name = BiterRolls.wave_defense_roll_biter_name(), position = position, force = 'enemy'})
     end
-  --  if biter then
-    --  unit_group.add_member(biter)
-  --  end
   end
 
 end

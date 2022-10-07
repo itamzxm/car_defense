@@ -324,10 +324,8 @@ local function get_random_character()
             end
         end
     end
-    if not characters[1] then
-        return
-    end
-    return characters[math_random(1, #characters)]
+    if #characters== 0 then return nil end
+    return characters[math.random(#characters)]
 end
 
 local function get_car_number()
@@ -337,11 +335,7 @@ local function get_car_number()
   for k, player in pairs(game.connected_players) do
     if  this.tank[player.index] and this.tank[player.index].valid then
     car_number=car_number+1
-  else
-    this.tank[player.index]=nil
-    this.whos_tank[player.index]=nil
-    this.have_been_put_tank[player.index]=false
-  end
+    end
   end
   return car_number
 end
@@ -409,8 +403,7 @@ local function set_enemy_evolution()
      if enemy.evolution_factor == 1 and evolution_factor == 1 then
         return
      end
-    --
-     if evolution_factor <= enemy.evolution_factor then return end
+    -- if evolution_factor <= enemy.evolution_factor then return end
      enemy.evolution_factor = evolution_factor
 end
 
@@ -646,7 +639,7 @@ local function get_main_command(group)
             group.surface.find_entities_filtered {
             position = old_position,
             radius = step_length / 2,
-            type = {'simple-entity', 'tree'},
+            type = {'simple-entity', 'tree',"wall","inserter","loader"},
             limit = 50
         }
         if obstacles then
@@ -661,13 +654,14 @@ local function get_main_command(group)
                 end
             end
         end
+     
     end
 
     commands[#commands + 1] = {
         type = defines.command.attack_area,
         destination = {x = target_position.x, y = target_position.y},
         radius = 8,
-        distraction = defines.distraction.by_anything
+        distraction = defines.distraction.by_enemy
     }
 
     commands[#commands + 1] = {
@@ -678,7 +672,6 @@ local function get_main_command(group)
 
     return commands
 end
-
 local function command_to_main_target(group, bypass)
     if not valid(group) then
         return

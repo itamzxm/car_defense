@@ -1,5 +1,5 @@
 local WD = require 'modules.wave_defense.table'
-
+local Event = require 'utils.event'
 local Public = {}
 
 function Public.wave_defense_roll_biter_name()
@@ -126,5 +126,13 @@ function Public.wave_defense_print_chances(tbl)
         game.print(k .. ' chance = ' .. v)
     end
 end
+
+local on_init = function()
+  Public.wave_defense_set_worm_raffle(100)
+  Public.wave_defense_set_unit_raffle(100)
+
+end
+
+Event.on_init(on_init)
 
 return Public
