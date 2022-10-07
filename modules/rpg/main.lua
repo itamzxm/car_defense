@@ -11,6 +11,7 @@ local WPT = require 'maps.amap.table'
 local WD = require 'modules.wave_defense.table'
 local Math2D = require 'math2d'
 local pet= require 'maps.amap.biter_pets'
+local BiterRolls = require 'modules.wave_defense.biter_rolls'
 
 local player_loader = {
   'loader',
@@ -248,12 +249,48 @@ local get_cause_player = {
   ['fluid-wagon'] = train_type_cause
 }
 
+
+local function spawn_biter(entity)
+
+  if entity.type ~= 'unit-spawner' then
+  
+    return
+  end
+
+  if entity.force ~= game.forces.player then
+
+    return
+  end
+    local wave_number =0
+    local k =game.forces.player.evolution_factor*1000
+    if k >wave_number then
+      wave_number=k
+    end
+    local count = 32 + math.floor(wave_number * 0.1)
+    if count > 64 then
+      count = 64
+    end
+  
+    BiterRolls.wave_defense_set_unit_raffle(wave_number)
+    for _ = 1, count, 1 do
+      local position = {entity.position.x + (-4 + math.random(0, 8)), entity.position.y + (-4 + math.random(0, 8))}
+      local biter
+      if math.random(1, 4) == 1 then
+        biter=entity.surface.create_entity({name = BiterRolls.wave_defense_roll_spitter_name(), position = position, force = 'player'})
+      else
+        biter=  entity.surface.create_entity({name = BiterRolls.wave_defense_roll_biter_name(), position = position, force = 'player'})
+      end
+    end
+  
+end
+
 local function on_entity_died(event)
   if not event.entity or not event.entity.valid then
     return
   end
-
+  
   local entity = event.entity
+  spawn_biter(entity)
 
   --Grant XP for hand placed land mines
   if entity.last_user then
@@ -336,12 +373,21 @@ local function on_entity_died(event)
     return
   end
 
+local this=WPT.get()
   --Grant modified XP for health boosted units
   if biter_health_boost then
     if enemy_types[entity.type] then
       local health_pool = biter_health_boost_units[entity.unit_number]
       if health_pool then
         for _, player in pairs(players) do
+
+          if game.forces.enemy.evolution_factor >= 0.2 then
+          local index = player.index
+          if not this.tank[index] or not this.tank[index].valid then
+             break
+           end
+         end
+
           if entity.unit_number then
             local mana_to_reward = random(1, 5)
             if mana_to_reward > 1 then
@@ -370,6 +416,14 @@ local function on_entity_died(event)
 
   --Grant normal XP
   for _, player in pairs(players) do
+
+    if game.forces.enemy.evolution_factor >= 0.2 then
+    local index = player.index
+    if not this.tank[index] or not this.tank[index].valid then
+       break
+     end
+   end
+
     if entity.unit_number then
       local mana_to_reward = random(1, 5)
       if mana_to_reward > 1 then
@@ -556,7 +610,7 @@ local function set_health_boost(entity, damage, cause)
     if health_pool then
       get_health_pool = health_pool[1]
       --Set entity health relative to health pool
-      local max_health = health_pool[3].max_health
+      local max_health = entity.prototype.max_health*biter_resist
       local m = health_pool[1] / max_health
       local final_health = round(entity.prototype.max_health * m)
 
@@ -1165,7 +1219,7 @@ local function upgrade_lianxu(player,object_entityName,print_name,up)
   upgrade=base+bonus_time*bonus
 
   if up then
-  game.print({'itam_spells.rpg_lianxu',print_name,times,need_times,bonus_time*bonus})
+  player.print({'itam_spells.rpg_lianxu',print_name,times,need_times,bonus_time*bonus})
   end
 
   return upgrade
@@ -1215,7 +1269,7 @@ end
 
   upgrade=get_upgrade_list[spell_index]
   if up then
-  game.print({'itam_spells.rpg_upgread',print_name,times,need_times,spell_index})
+  player.print({'itam_spells.rpg_upgread',print_name,times,need_times,spell_index})
 end
 
 
@@ -1371,6 +1425,12 @@ local function on_player_used_capsule(event)
       end
     end
 
+    if object.entityName=='biter_special_forces' then
+      if Public.biter_special_forces(position, surface,spell_daoju,player) then
+        spell_success=true
+      end
+    end
+
     if spell_success then
       Public.remove_mana(player, object.mana_cost)
       p(({'rpg_main.object_spawned', object.name}), Color.success)
@@ -1461,6 +1521,29 @@ local function on_player_used_capsule(event)
         local unit = surface.create_entity({name = object.entityName, position = position, force = force})
         pet.biter_pets_tame_unit(player, unit)
         Public.remove_mana(player, object.mana_cost)
+        if object.entityName =='biter-spawner' or object.entityName =='spitter-spawner' then 
+          local this=WPT.get()
+          local index = player.index
+          if not this.nest[index] then this.nest[index] ={} end
+
+          --整理生成新的数组
+          local new_nest={}
+          for i ,v in pairs(this.nest[index]) do 
+            if v.valid then 
+              new_nest[#new_nest+1]=v
+            end
+          end
+
+          this.nest[index]=new_nest
+          if #this.nest[index] >= this.max_nest_number then 
+            this.nest[index][1].destroy()
+            this.nest[index][1]=nil
+          end 
+          game.print(#this.nest[index])
+          this.nest[index][#this.nest[index]+1]=unit
+          
+          
+        end
       elseif object.aoe then
         for x = 1, -1, -1 do
           for y = 1, -1, -1 do
@@ -1534,12 +1617,15 @@ local function add_bullet()
       for name, v in pairs(something.get_contents()) do
         ammo_name=name
       end
-      turret.insert{name=ammo_name, count = 25}
+      turret.insert{name=ammo_name, count = 5}
 
     end
 
   end
 end
+
+
+
 
 local function tick()
   local ticker = game.tick
@@ -1562,7 +1648,7 @@ local function tick()
     end
   end
 
-  if ticker % 60 == 0 then
+  if ticker % 10 == 0 then
     add_bullet()
   end
 end

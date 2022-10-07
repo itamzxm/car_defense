@@ -69,6 +69,7 @@ function(data)
     local damage=20+game.forces.player.get_ammo_damage_modifier("laser")*20
     local name = biter.name
     biter.surface.create_entity({name = 'medium-explosion', position = biter.position})
+    biter.surface.create_entity({name = 'fire-flame', position = biter.position,force = game.forces.player})
     biter.damage(damage, 'player', 'laser')
     if not biter or not biter.valid then
     local rpg_extra = Public.get('rpg_extra')
@@ -103,7 +104,9 @@ function Public.lightning_chain(position, surface,player,times)
     end
     local damage=20+game.forces.player.get_ammo_damage_modifier("laser")*20
     local name=biters[1].name
+
     biters[1].surface.create_entity({name = 'medium-explosion', position = biters[1].position})
+    biters[1].surface.create_entity({name = 'fire-flame', position = biters[1].position,force = game.forces.player})
     biters[1].damage(damage, 'player', 'laser')
     if not biter or not biter.valid then
     local rpg_extra = Public.get('rpg_extra')
@@ -147,6 +150,107 @@ function Public.lightning_chain(position, surface,player,times)
   return true
 end
 
+local kill_forces =
+Token.register(
+function(data)
+  for _,v in pairs(data) do
+  if  v and  v.valid then
+    v.destroy()
+  end
+end
+
+end
+)
+
+local biter_list={
+['1']='small-biter',
+['2']='medium-biter',
+['3']='big-biter',
+['4']='behemoth-biter',
+}
+
+local spitter_list={
+['1']='small-spitter',
+['2']='medium-spitter',
+['3']='big-spitter',
+['4']='behemoth-spitter',
+  }
+
+local shachong_list={
+
+  ['1']='small-worm-turret',
+['2']='medium-worm-turret',
+['3']='big-worm-turret',
+['4']='behemoth-worm-turret',
+}
+
+
+local function tame_unit_effects(player, entity)
+  rendering.draw_text {
+      text = '~' .. player.name .. "'s pet~",
+      surface = player.surface,
+      target = entity,
+      target_offset = {0, -2.6},
+      color = {
+          r = player.color.r * 0.6 + 0.25,
+          g = player.color.g * 0.6 + 0.25,
+          b = player.color.b * 0.6 + 0.25,
+          a = 1
+      },
+      scale = 1.05,
+      font = 'default-large-semibold',
+      alignment = 'center',
+      scale_with_zoom = false
+  }
+end
+
+function Public.biter_special_forces(position, surface,index,player)
+
+  local biter_name=biter_list[index]
+  local spitter_name=spitter_list[index]
+  local shachong_name=shachong_list[index]
+  
+
+  if not surface.can_place_entity{name = biter_name, position = {x=position.x,y=position.y}, force=game.forces.player} then return false end
+  local shachong = surface.create_entity{
+    name = shachong_name,
+    position = {x=position.x,y=position.y},
+    force=game.forces.player,
+  }
+  
+  if not shachong then
+    return false
+  end
+  
+  tame_unit_effects(player,shachong)
+  local forces={}
+  forces[#forces+1]=shachong
+
+  for i=1,5 do 
+    local biter = surface.create_entity{
+      name = biter_name,
+      position = {x=position.x+3,y=position.y+3},
+      force=game.forces.player,
+    }
+    forces[#forces+1]=biter
+    tame_unit_effects(player,biter)
+  end
+
+  for i=1,3 do 
+    local spitter = surface.create_entity{
+      name = spitter_name,
+      position = {x=position.x+3,y=position.y+3},
+      force=game.forces.player,
+    }
+    forces[#forces+1]=spitter
+    tame_unit_effects(player,spitter)
+  end
+
+
+  Task.set_timeout_in_ticks(60*30, kill_forces, forces)
+  return true
+
+end
 
 local kill_turret =
 Token.register(
@@ -161,7 +265,6 @@ end
 )
 
 function Public.wudi_turret(position, surface,ammo_name,player)
-
 
  if not surface.can_place_entity{name = "gun-turret", position = {x=position.x,y=position.y}, force=game.forces.player} then return false end
   local turret = surface.create_entity{
@@ -186,7 +289,7 @@ function Public.wudi_turret(position, surface,ammo_name,player)
   local data = {
     entity = turret,
   }
-  Task.set_timeout_in_ticks(900, kill_turret, data)
+  Task.set_timeout_in_ticks(720, kill_turret, data)
   return true
 end
 
@@ -797,7 +900,7 @@ end
 function Public.get_extra_following_robots(player)
   local rpg_t = Public.get_value_from_player(player.index)
   local strength = rpg_t.strength
-  local count = round(strength / 2 * 0.03, 3)
+  local count = round(strength /25, 3)
   return count
 end
 

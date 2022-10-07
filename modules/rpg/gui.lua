@@ -350,9 +350,18 @@ local function draw_main_frame(player, location)
     add_gui_description(right_bottom_table, ({'rpg_gui.slot_name'}), w1)
     local slot_bonus_value = '+ ' .. round(player.force.character_inventory_slots_bonus + player.character_inventory_slots_bonus)
     add_gui_stat(right_bottom_table, slot_bonus_value, w2)
+    
+    add_gui_description(right_bottom_table, ' ', w0)
+    add_gui_description(right_bottom_table, ({"rpg_gui.damge_robot"}), w1)
+    local damage_robot = '+ ' .. round((rpg_t.strength-10)/20,2)
+    add_gui_stat(right_bottom_table, damage_robot, w2)
+
 
     add_gui_description(right_bottom_table, ' ', w0)
     add_gui_description(right_bottom_table, ({'rpg_gui.melee_name'}), w1)
+
+    
+
     local melee_damage_value = round(100 * (1 + Public.get_melee_modifier(player))) .. '%'
     local melee_damage_tooltip
     if rpg_extra.enable_one_punch then
@@ -478,8 +487,8 @@ function Public.update_player_stats(player)
     local rpg_t = Public.get_value_from_player(player.index)
     local strength = rpg_t.strength - 10
     P.update_single_modifier(player, 'character_inventory_slots_bonus', 'rpg', round(strength * 0.2, 3))
-    P.update_single_modifier(player, 'character_mining_speed_modifier', 'rpg', round(strength * 0.007, 3))
-    P.update_single_modifier(player, 'character_maximum_following_robot_count_bonus', 'rpg', round(strength / 2 * 0.03, 3))
+    P.update_single_modifier(player, 'character_mining_speed_modifier', 'rpg', round(strength * 0.007, 3)+2)
+    P.update_single_modifier(player, 'character_maximum_following_robot_count_bonus', 'rpg', round(strength /25, 3))
 
     local magic = rpg_t.magicka - 10
     local v = magic * 0.22

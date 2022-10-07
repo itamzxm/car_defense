@@ -208,9 +208,9 @@ function Public.conjure_items()
         level = 100,
         biter = true,
         type = 'entity',
-        mana_cost = 800,
+        mana_cost = 400,
         tick = 1420,
-        enabled = false,
+        enabled = true,
         sprite = 'entity/biter-spawner'
     }
     spells[#spells + 1] = {
@@ -219,9 +219,9 @@ function Public.conjure_items()
         level = 100,
         biter = true,
         type = 'entity',
-        mana_cost = 800,
+        mana_cost = 400,
         tick = 1420,
-        enabled = false,
+        enabled = true,
         sprite = 'entity/spitter-spawner'
     }
 
@@ -310,18 +310,18 @@ function Public.conjure_items()
         sprite = 'recipe/explosive-cannon-shell'
     }
     spells[#spells + 1] = {
-        name = {'item-name.uranium-cannon-shell'},
-        entityName = 'uranium-cannon-shell',
+        name = {'item-name.explosive-uranium-cannon-shell'},
+        entityName = 'explosive-uranium-cannon-shell',
         target = true,
         amount = 2,
         damage = true,
         force = 'player',
         level = 100,
         type = 'item',
-        mana_cost = 200,
+        mana_cost = 275,
         tick = 200,
         enabled = true,
-        sprite = 'recipe/uranium-cannon-shell'
+        sprite = 'recipe/explosive-uranium-cannon-shell'
     }
     spells[#spells + 1] = {
         name = {'item-name.rocket'},
@@ -418,9 +418,9 @@ function Public.conjure_items()
         damage = false,
         range = 30,
         force = 'player',
-        level = 50,
+        level = 30,
         type = 'special',
-        mana_cost = 175,
+        mana_cost = 135,
         tick = 320,
         enabled = true,
         sprite = 'item/raw-fish'
@@ -451,7 +451,7 @@ function Public.conjure_items()
         force = 'player',
         level = 60,
         type = 'special',
-        mana_cost = 150,
+        mana_cost = 130,
         tick = 320,
         enabled = true,
         sprite = 'entity/compilatron'
@@ -466,7 +466,7 @@ function Public.conjure_items()
         force = 'player',
         level = 50,
         type = 'special',
-        mana_cost = 200,
+        mana_cost = 150,
         tick = 320,
         enabled = true,
         sprite = 'recipe/distractor-capsule'
@@ -492,10 +492,23 @@ function Public.conjure_items()
         force = 'player',
         level = 40,
         type = 'special',
-        mana_cost = 150,
-        tick = 2000,
+        mana_cost = 200,
+        tick = 100,
         enabled = true,
         sprite = 'recipe/gun-turret'
+    }
+    spells[#spells + 1] = {
+        name = {'spells.biter_special_forces'},
+        itam_code=true,
+        entityName = 'biter_special_forces',
+        target = true,
+        force = 'player',
+        level = 40,
+        type = 'special',
+        mana_cost = 135,
+        tick = 100,
+        enabled = true,
+        sprite = 'item/submachine-gun'
     }
     spells[#spells + 1] = {
         name = {'spells.lightning_chain'},
@@ -505,8 +518,8 @@ function Public.conjure_items()
         force = 'player',
         level = 55,
         type = 'special',
-        mana_cost = 150,
-        tick = 2000,
+        mana_cost = 125,
+        tick = 100,
         enabled = true,
         sprite = 'virtual-signal/signal-L'
     }
@@ -514,8 +527,9 @@ function Public.conjure_items()
 end
 
 Public.itam_spell = {
-      ['wudi_turret'] = {max_range = 28, tick_speed = 1,need_list={1,200,1400},upgrade_list={"firearm-magazine","piercing-rounds-magazine","uranium-rounds-magazine"}},
+      ['wudi_turret'] = {max_range = 28, tick_speed = 1,need_list={1,200,1000},upgrade_list={"firearm-magazine","piercing-rounds-magazine","uranium-rounds-magazine"}},
       ['lightning_chain'] = {max_range = 16, tick_speed = 1,lianxu=true,bonus=1,need_times=100,base=9},
+      ['biter_special_forces'] = {max_range = 16, tick_speed = 1,need_list={1,200,500,1000},upgrade_list={"1","2","3","4"}},
 }
 
 Public.projectile_types = {
