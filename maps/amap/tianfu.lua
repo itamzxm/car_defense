@@ -1262,7 +1262,7 @@ local function on_gui_click(event)
     local jiange = 35
     local this = WPT.get()
     local rpg_t = rpgtable.get('rpg_t')
-    if this.jjc == 2 then
+    if this.jjc == 2 or this.world_number == 15 then
         jiange = 15
     end
     -- 检查必要的变量是否存在
@@ -1503,7 +1503,7 @@ local function on_tick_learn_skill()
 
         local frame = player.gui.screen['选择你的天赋']
         local jiange = 35
-        if main_table.jjc == 2 then
+        if main_table.jjc == 2 or main_table.world_number == 15 then
             jiange = 15
         end
         -- 检查必要的变量是否存在
