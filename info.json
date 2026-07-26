@@ -1,0 +1,14 @@
+{
+  "name": "car_defenes",
+  "version": "4.5.4",
+  "title": "Car Defense (载具守卫战)",
+  "author": "itam",
+  "factorio_version": "2.0",
+  "dependencies": [
+    "base >= 2.0.0",
+    "space-age",
+    "quality",
+    "elevated-rails"
+  ],
+  "description": "保护你的载具！这是一款结合了RPG成长、天赋系统和12个异次元挑战的硬核生存场景。你的载具是移动堡垒，也是唯一的生存希望。终极目标：征服全部12个世界，挑战4000波虫潮！"
+}
