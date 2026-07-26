@@ -121,6 +121,18 @@ function Public.reset_table()
       ["trees"] = {frequency = 2, size = 1, richness = 1},
       ["enemy-base"] = {frequency = 5, size = 4, richness = 2}
     },
+    -- 世界15 塔防：无矿石、无树木、无野外虫巢（敌人仅由波次系统生成），地表由 terrain_generator 覆盖为十字
+    world15 = {
+      ["water"] = {frequency = 1, size = 1, richness = 1},
+      ["coal"] = {frequency = 1, size = 0, richness = 1},
+      ["stone"] = {frequency = 1, size = 0, richness = 1},
+      ["copper-ore"] = {frequency = 1, size = 0, richness = 1},
+      ["iron-ore"] = {frequency = 1, size = 0, richness = 1},
+      ["uranium-ore"] = {frequency = 1, size = 0, richness = 1},
+      ["crude-oil"] = {frequency = 1, size = 0, richness = 1},
+      ["trees"] = {frequency = 0, size = 0, richness = 1},
+      ["enemy-base"] = {frequency = 0, size = 0, richness = 0}
+    },
     -- 铁路模式 - 高资源密度，无树木
     rail = {
       ["coal"] = {frequency = 2, size = 1, richness = 1},

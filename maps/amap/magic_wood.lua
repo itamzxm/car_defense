@@ -6,6 +6,7 @@
 local WPT = require 'maps.amap.table'
 local Event = require 'utils.event'
 local Gui = require 'utils.gui'
+local World = require 'maps.amap.world.framework'
 
 local Public = {}
 
@@ -562,6 +563,23 @@ Event.add(defines.events.on_built_entity, function(event)
         -- 超出则替换为普通木箱，不触发传说木箱特殊功能
         local this = G()
         local world_number = this.world_number or 1
+
+        -- 框架内禁用：世界15 不发放传说木箱奖励（def 中 disable_legendary_wood_chest = true）
+        if World.get_field(world_number, 'disable_legendary_wood_chest') then
+            local surface = entity.surface
+            local position = entity.position
+            local force = entity.force
+            entity.destroy()
+            surface.create_entity{
+                name = 'wooden-chest',
+                position = position,
+                force = force,
+                quality = 'normal',
+                fast_replace = true,
+            }
+            return
+        end
+
         if world_number ~= 13 then
             local count = 0
             if this.magic_wood_chests then

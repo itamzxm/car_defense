@@ -17,6 +17,11 @@ require 'maps.amap.world.worlds.world_11_jixianchengshi'
 require 'maps.amap.world.worlds.world_12_beishuiyizhan'
 require 'maps.amap.world.worlds.world_13_train_escape'
 require 'maps.amap.world.worlds.world_14_grass_invasion'
+require 'maps.amap.world.worlds.world_15_tower_defense'
+-- 以下两个独立世界机制文件（粉丝新增，原未接线=孤儿文件）：直接挂在 world/ 下（非 worlds/ 子目录），
+-- 需显式 require 才加载。挂载后 world3 钓鱼机制 / world8 异次元空间机制生效。
+require 'maps.amap.world.word_water_world'
+require 'maps.amap.world.word_yiciyuankongjian'
 
 -- rocks_yield_ore 系列模块（地形生成的依赖）
 require "maps.amap.rocks_yield_ore"
@@ -111,7 +116,7 @@ end
         if map.world == 6 or map.world == 8 then
           Helpers.ywjz(surface, position, 5000, 9999)
         else
-          if map.world ~= 3 and map.world ~= 9 and map.world ~= 10 and map.world ~= 2 and map.world ~= 11 and map.world ~= 12 then
+          if map.world ~= 3 and map.world ~= 9 and map.world ~= 10 and map.world ~= 2 and map.world ~= 11 and map.world ~= 12 and map.world ~= 15 then
             Helpers.ywjz(surface, position, 20000, maxs)
           end
         end

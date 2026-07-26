@@ -2,6 +2,7 @@ local Event = require 'utils.event'
 local insert = table.insert
 local floor = math.floor
 local WPT = require 'maps.amap.table'
+local World = require 'maps.amap.world.framework'
 
 local coin_yield = {
   ['behemoth-biter'] = 6,
@@ -88,6 +89,11 @@ local function on_entity_died(event)
     return
   end
   if entity.force.index ~= 2 then
+    return
+  end
+
+  -- 世界框架：部分世界（如世界15）使用自身奖励表独立给币，此处排除避免双重给币
+  if World.get_field((WPT.get() or {}).world_number, 'custom_enemy_reward') then
     return
   end
 

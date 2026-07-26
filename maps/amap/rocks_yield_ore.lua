@@ -2,6 +2,8 @@
 local max_spill = 60
 local math_floor = math.floor
 local math_sqrt = math.sqrt
+local diff = require 'maps.amap.diff'
+local World = require 'maps.amap.world.framework'
 
 local no_tree={
 	["big-rock"] = 1,
@@ -121,6 +123,9 @@ local function get_amount(entity)
 end
 
 local function on_player_mined_entity(event)
+	-- 世界框架：部分世界（如世界15 纯塔防）禁用矿物生成，挖岩石不掉落任何矿石物品
+	if World.get_field(diff.get().world, 'disable_rock_ore') then return end
+
 	local entity = event.entity
 	if not entity.valid then return end
 	if not rock_yield[entity.name] then return end

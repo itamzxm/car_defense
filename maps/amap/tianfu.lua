@@ -9,6 +9,7 @@ local tianfu_trigger_skill = require 'maps.amap.tianfu_trigger_skill'  -- 新添
 local Public = {}
 local WPT = require 'maps.amap.table'
 local WD = require 'modules.wave_defense.table'
+local World = require 'maps.amap.world.framework'
 local TianfuQuality = require 'maps.amap.tianfu_quality'  -- 天赋品质系统 helper（方案 D）
 
 -- ===== 天赋黑名单 =====
@@ -22,7 +23,16 @@ local tianfu_blacklist = {
     ['wanglingdajun'] = '秽土转生'
 }
 local function is_tianfu_blacklisted(skill_name)
-    return tianfu_blacklist[skill_name] ~= nil
+    if tianfu_blacklist[skill_name] then return true end
+    -- 每个世界可在框架 def 的 disabled_talents 字段声明本世界禁用的天赋
+    local world_number = (WPT.get() or {}).world_number
+    if world_number then
+        local disabled = World.get_field(world_number, 'disabled_talents')
+        if disabled and disabled[skill_name] then
+            return true
+        end
+    end
+    return false
 end
 
 -- 获取已初始化的表引用
@@ -792,8 +802,8 @@ end
     -- 定义第一次选择时的固定天赋
     local fixed_skill = nil
     if is_first_selection then
-        if zhiye == '建造者' then
-            fixed_skill = 'fuzhushou'  -- 辅助手
+        if zhiye == '建造者' and not is_tianfu_blacklisted('fuzhushou') then
+            fixed_skill = 'fuzhushou'  -- 辅助手（世界15 该天赋被禁用，则不再作为固定天赋）
         elseif zhiye == '战士' then
             fixed_skill = 'genben'  -- 小跟班
         elseif zhiye == '法师' then
@@ -897,8 +907,8 @@ end
             table.remove(temp_other, num)
         end
 
-        -- 如果有固定天赋，将其添加到第4个位置
-        if fixed_skill then
+        -- 如果有固定天赋，将其添加到第4个位置（兜底再次校验黑名单）
+        if fixed_skill and not is_tianfu_blacklisted(fixed_skill) then
             skill_options[4] = fixed_skill
         end
     end

@@ -2,6 +2,7 @@ local Event = require 'utils.event'
 local WPT = require 'maps.amap.table'
 local RPG = require 'modules.rpg.table'
 local diff = require 'maps.amap.diff'
+local World = require 'maps.amap.world.framework'
 local reduce_player_damage_over_time = require 'maps.amap.functions'.reduce_player_damage_over_time
 local WD = require 'modules.wave_defense.table'
 local game_info = require'maps.amap.diff'.game_info
@@ -144,30 +145,40 @@ local function item_build_car(player)
       -- 不再 return，继续执行下方通用物资发放
     end
 
-    for item, amount in pairs(car_items) do
-        if item == 'firearm-magazine' or item == 'gun-turret' or item == 'stone-wall' then
-            if item == 'firearm-magazine' and wave_number >= 450 then
-                item = "piercing-rounds-magazine"
-            end
-            if item == 'piercing-rounds-magazine' and wave_number >= 1000 then
-                item = "uranium-rounds-magazine"
-            end
+    -- 车载开局物资钩子：由世界框架按世界提供（如世界15 仅发战斗物资 + 金币）。
+    -- 返回 true 表示已处理，跳过下方通用物资循环；其它世界保持原逻辑不变。
+    local car_hook = World.get_field(map.world, 'on_car_placed')
+    local car_handled = false
+    if car_hook then
+        car_handled = car_hook(player, wave_number, car_items)
+    end
 
-            if k < 0 then
-                k = 1
-            end
-            if k >= 10 then
-                k = 10
+    if not car_handled then
+        for item, amount in pairs(car_items) do
+            if item == 'firearm-magazine' or item == 'gun-turret' or item == 'stone-wall' then
+                if item == 'firearm-magazine' and wave_number >= 450 then
+                    item = "piercing-rounds-magazine"
+                end
+                if item == 'piercing-rounds-magazine' and wave_number >= 1000 then
+                    item = "uranium-rounds-magazine"
+                end
+
+                if k < 0 then
+                    k = 1
+                end
+                if k >= 10 then
+                    k = 10
+                end
+                player.insert({
+                    name = item,
+                    count = math.floor(amount * k)
+                })
             end
             player.insert({
                 name = item,
-                count = math.floor(amount * k)
+                count = math.floor(amount)
             })
         end
-        player.insert({
-            name = item,
-            count = math.floor(amount)
-        })
     end
 
     if map.world == 3 then
@@ -722,8 +733,16 @@ local function game_over()
     if saved_vote_map_number ~= nil then
         map.world = tonumber(saved_vote_map_number)
     else
-        -- 随机选择世界，排除4、5、11
-        local valid_worlds = {1, 2, 3, 6, 7, 8, 9, 10, 13, 14}
+        -- 随机选择世界：从框架已注册世界中筛选（selectable ~= false 即参与，未注册的世界如 4/5 自然排除）
+        local valid_worlds = {}
+        for _, id in ipairs(World.get_registered_worlds()) do
+            if World.get_field(id, 'selectable') ~= false then
+                table.insert(valid_worlds, id)
+            end
+        end
+        if #valid_worlds == 0 then
+            valid_worlds = World.get_registered_worlds()
+        end
         map.world = valid_worlds[math.random(1, #valid_worlds)]
     end
     -- map.world=math.random(1, 9)

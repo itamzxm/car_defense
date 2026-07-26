@@ -1,5 +1,6 @@
 local Event = require("utils.event")
 local WPT = require 'maps.amap.table'
+local World = require 'maps.amap.world.framework'
 
 local ammo={
   [1]={name='firearm-magazine'},
@@ -11,7 +12,9 @@ local on_built_entity = function (event)
   if not event.entity then return end
   if not event.entity.valid then return end
   if event.entity.name ~= "gun-turret" then return  end
+  -- 世界框架：部分世界（如世界15）使用免费弹药系统，禁用此扣背包弹逻辑
   local this=WPT.get()
+  if World.get_field(this.world_number, 'free_turret_ammo') then return end
   local player = game.get_player(event.player_index)
   local index=player.index
   if not this.silo then 

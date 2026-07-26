@@ -174,8 +174,8 @@ function Public.reset_table()
   map.pay_xp=2
 
   map.world=1
-  map.max_world=14
-  map.world_number=14
+  map.max_world=15
+  map.world_number=15
 
   map.record_number=2
   map.record={}
@@ -434,7 +434,8 @@ function Public.apply_world_bonuses()
         laboratory_speed_modifier = function(value) force.laboratory_speed_modifier = force.laboratory_speed_modifier + value end,
         follower_robot_count_modifier = function(value) force.follower_robot_count_modifier = force.follower_robot_count_modifier + value end,
         worker_robot_speed = function(value) force.worker_robots_speed_modifier = force.worker_robots_speed_modifier + value end,
-        turret_attack_bonus = function(value) force.set_turret_attack_modifier('gun-turret', force.get_turret_attack_modifier('gun-turret') + value) end
+        turret_attack_bonus = function(value) force.set_turret_attack_modifier('gun-turret', force.get_turret_attack_modifier('gun-turret') + value) end,
+        laser_turret_damage_modifier = function(value) force.set_turret_attack_modifier('laser-turret', force.get_turret_attack_modifier('laser-turret') + value) end,
     }
     
     local custom_bonus_map = {

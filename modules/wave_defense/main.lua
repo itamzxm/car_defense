@@ -9,6 +9,7 @@ local WD = require 'modules.wave_defense.table'
 local Alert = require 'utils.alert'
 local diff = require 'maps.amap.diff'
 local WPT = require 'maps.amap.table'
+local World = require 'maps.amap.world.framework'
 local get_random_car = require"maps.amap.functions".get_random_car
 local Public = {}
 local math_random = math.random
@@ -374,6 +375,13 @@ local function set_enemy_evolution()
     local evolution_factor = wave_number * 0.001
     local enemy = game.forces.enemy
 
+    -- 本世界放行游戏原生自然进化（time / pollution / destruction），
+    -- 不覆盖 evolution_factor，使通道虫巢按自然节奏变强并随时间扩张
+    local map = diff.get()
+    if map and World.get_field(map.world, 'use_native_evolution') then
+        return
+    end
+
     if evolution_factor > 1 then
         evolution_factor = 1
     end
@@ -383,7 +391,7 @@ local function set_enemy_evolution()
     end
     -- if evolution_factor <= enemy.evolution_factor then return end
     enemy.set_evolution_factor(evolution_factor, surface_index)
-    
+
 end
 
 local function can_units_spawn()
@@ -443,6 +451,25 @@ local function set_next_wave()
     end
 
     wave_number = WD.get('wave_number')
+
+    -- 框架字段：每 spawn_boss_interval 波触发 Boss（由世界 def 定义接口）
+    local boss_fn = World.get_field(this.world_number, 'spawn_boss')
+    if boss_fn and wave_number > 0 then
+        local boss_interval = World.get_field(this.world_number, 'boss_interval') or 100
+        if wave_number % boss_interval == 0 then
+            local ok, err = pcall(boss_fn, wave_number)
+            if not ok then
+                log('[world' .. tostring(this.world_number) .. '] spawn_boss 错误: ' .. tostring(err))
+                game.print('[world' .. tostring(this.world_number) .. '] spawn_boss 错误: ' .. tostring(err))
+            end
+        end
+    end
+
+    -- 世界武器伤害科技随波次进度自动解锁（由世界 def 定义接口）
+    local unlock_fn = World.get_field(this.world_number, 'unlock_progressive_techs')
+    if unlock_fn and wave_number > 0 then
+        pcall(unlock_fn, wave_number)
+    end
 
     BiterRolls.wave_defense_set_unit_raffle(wave_number)
     local threat_gain_multiplier = WD.get('threat_gain_multiplier')
@@ -701,102 +728,116 @@ local function spawn_unit_group()
 
     local surface = game.surfaces[surface_index]
 
-    local spawn_position = get_spawn_pos()
-    if not spawn_position then
+    -- 支持多位置同时生成（世界15四路同时进攻）
+    local spawn_positions = WD.get('spawn_positions')
+    if not spawn_positions then
+        local sp = get_spawn_pos()
+        if not sp then return end
+        spawn_positions = {sp}
+    elseif #spawn_positions == 0 then
         return
     end
 
-    local current_time = game.tick
-    local last_mine_check_time = WD.get('last_mine_check_time')
-    local need_check_mine = (current_time - last_mine_check_time) >= 1200
-
-    if need_check_mine then
-        local radius = 10
-        for k, v in pairs(surface.find_entities_filtered {
-            position = spawn_position,
-            radius = radius,
-            name = 'land-mine'
-        }) do
-            if v and v.valid then
-                v.die()
-            end
-        end
-        WD.set('last_mine_check_time', current_time)
-    end
-
-    -- 生怪前清场：清树、清石头、填水（与 MFv3 对齐）
-    local remove_entities = WD.get('remove_entities')
-    if remove_entities then
-        remove_trees({ surface = surface, position = spawn_position, valid = true })
-        remove_rocks({ surface = surface, position = spawn_position, valid = true })
-        fill_tiles({ surface = surface, position = spawn_position, valid = true })
-    end
-
+    local num_positions = #spawn_positions
     local wave_number = WD.get('wave_number')
-    local position = spawn_position
-
-    local unit_group = surface.create_unit_group({
-        position = position,
-        force = 'enemy'
-    })
-
-    local group_size = 64
     local tick = game.tick
-    local max_threat = WD.get('threat') - WD.get('active_biter_threat')
+    local full_max_threat = WD.get('threat') - WD.get('active_biter_threat')
+    -- 四路同时进攻世界：不平分威胁/群上限，每路都按"原来一波满编"生成 → 总压力×4
+    -- 其他世界（单位置）position_divisor=num_positions，保持原平摊行为
+    local this = WPT.get()
+    local divisor = World.get_field(this and this.world_number, 'spawn_threat_divisor')
+    local position_divisor = divisor or num_positions
+    local max_threat = full_max_threat / position_divisor
+    local group_size = math.floor(64 / position_divisor)
 
-    local unit_table = BiterRolls.wave_defense_generate_unit_table(group_size, 0.73, 0.27, max_threat)
-     
-    local spawned_biters = {}
-    for _, unit_info in ipairs(unit_table) do
-        local unit_name = unit_info.unit_name
-        local quality_name = unit_info.quality_name
+    for i, position in ipairs(spawn_positions) do
+        local current_time = game.tick
+        local last_mine_check_time = WD.get('last_mine_check_time')
+        local need_check_mine = (current_time - last_mine_check_time) >= 1200
 
-        -- 共享计数器检查
-        local can_spawn, category = WD.try_register_biter_spawn(unit_name)
-        if can_spawn then
-            local biter = create_biter_unit(surface, position, unit_name, 'enemy', quality_name, false, 1, tick)
-            if biter then
-                unit_group.add_member(biter)
-                spawned_biters[#spawned_biters + 1] = biter
+        if need_check_mine then
+            local radius = 10
+            for k, v in pairs(surface.find_entities_filtered {
+                position = position,
+                radius = radius,
+                name = 'land-mine'
+            }) do
+                if v and v.valid then
+                    v.die()
+                end
             end
-        else
-            -- 超额，存入血量池
-            WD.add_health_to_pool(unit_name, quality_name, category)
+            WD.set('last_mine_check_time', current_time)
         end
-    end
-    
-    if #spawned_biters > 0 then
-        local active_biters = WD.get('active_biters')
-        local active_biter_count = WD.get('active_biter_count')
-        local active_biter_threat = WD.get('active_biter_threat')
-        
-        for _, biter in pairs(spawned_biters) do
-            active_biters[biter.unit_number] = {
-                entity = biter,
-                spawn_tick = tick
-            }
-            active_biter_count = active_biter_count + 1
-            active_biter_threat = active_biter_threat + math_round(threat_values[biter.name], 2)
-            WD.inc_type_counter(biter.name)
+
+        -- 生怪前清场：清树、清石头、填水（与 MFv3 对齐）
+        local remove_entities = WD.get('remove_entities')
+        if remove_entities then
+            remove_trees({ surface = surface, position = position, valid = true })
+            remove_rocks({ surface = surface, position = position, valid = true })
+            fill_tiles({ surface = surface, position = position, valid = true })
         end
-        
-        WD.set('active_biters', active_biters)
-        WD.set('active_biter_count', active_biter_count)
-        WD.set('active_biter_threat', active_biter_threat)
+
+        local unit_group = surface.create_unit_group({
+            position = position,
+            force = 'enemy'
+        })
+
+        local unit_table = BiterRolls.wave_defense_generate_unit_table(group_size, 0.73, 0.27, max_threat)
+
+        local spawned_biters = {}
+        for _, unit_info in ipairs(unit_table) do
+            local unit_name = unit_info.unit_name
+            local quality_name = unit_info.quality_name
+
+            -- 共享计数器检查
+            local can_spawn, category = WD.try_register_biter_spawn(unit_name)
+            if can_spawn then
+                local biter = create_biter_unit(surface, position, unit_name, 'enemy', quality_name, false, 1, tick)
+                if biter then
+                    unit_group.add_member(biter)
+                    spawned_biters[#spawned_biters + 1] = biter
+                end
+            else
+                -- 超额，存入血量池
+                WD.add_health_to_pool(unit_name, quality_name, category)
+            end
+        end
+
+        if #spawned_biters > 0 then
+            local active_biters = WD.get('active_biters')
+            local active_biter_count = WD.get('active_biter_count')
+            local active_biter_threat = WD.get('active_biter_threat')
+
+            for _, biter in pairs(spawned_biters) do
+                active_biters[biter.unit_number] = {
+                    entity = biter,
+                    spawn_tick = tick
+                }
+                active_biter_count = active_biter_count + 1
+                active_biter_threat = active_biter_threat + math_round(threat_values[biter.name], 2)
+                WD.inc_type_counter(biter.name)
+            end
+
+            WD.set('active_biters', active_biters)
+            WD.set('active_biter_count', active_biter_count)
+            WD.set('active_biter_threat', active_biter_threat)
+        end
+
+        local unit_groups = WD.get('unit_groups')
+        unit_groups[unit_group.unique_id] = unit_group
+        WD.get('unit_group_pos').positions[unit_group.unique_id] = { position = unit_group.position, index = 0 }
+        if math_random(1, 2) == 1 then
+            WD.set('random_group', unit_group.unique_id)
+        end
+        WD.set('spot', 'nil')
+
+        command_to_main_target(unit_group, true)
     end
 
-    local unit_groups = WD.get('unit_groups')
-    unit_groups[unit_group.unique_id] = unit_group
-    WD.get('unit_group_pos').positions[unit_group.unique_id] = { position = unit_group.position, index = 0 }
-    if math_random(1, 2) == 1 then
-        WD.set('random_group', unit_group.unique_id)
+    -- 撼地虫仅在单位置生成时触发（避免多位置重复生成）
+    if num_positions == 1 then
+        BiterRolls.try_spawn_demolisher(surface, spawn_positions[1], target)
     end
-    WD.set('spot', 'nil')
-    
-    command_to_main_target(unit_group, true)
-
-    -- 单独判断并生成撼地虫（不进编队、不做特殊设置，仅单纯生成并朝向主目标）
-    BiterRolls.try_spawn_demolisher(surface, position, target)
 
     return true
 end

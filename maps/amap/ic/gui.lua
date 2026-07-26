@@ -5,6 +5,8 @@ local Gui = require 'utils.gui'
 local Tabs = require 'comfy_panel.main'
 local Event = require 'utils.event'
 local WD = require 'modules.wave_defense.table'
+local diff = require 'maps.amap.diff'
+local World = require 'maps.amap.world.framework'
 local Public = {}
 local insert = table.insert
 local Collapse = require 'modules.collapse'
@@ -1136,7 +1138,14 @@ end)
 Gui.on_click('integration_buy_resources', function(event)
     local player = event.player
     if not player or not player.valid then return end
-    
+
+    -- 当前世界禁用汽车内生成矿物（纯塔防无矿设计）
+    local map = diff.get()
+    if World.get_field(map.world, 'disable_car_resource_generation') then
+        player.print("塔防世界禁止在汽车内生成矿物！", {r=1, g=0.3, b=0.3})
+        return
+    end
+
     -- 执行购买资源功能
     local index = player.index
     local can_buy = false
@@ -1180,6 +1189,13 @@ Gui.on_click('integration_stop_wave', function(event)
     
     -- 执行暂停波次功能
     local this = WPT.get()
+
+    -- 当前世界禁用暂停波防
+    local map = diff.get()
+    if World.get_field(map.world, 'disable_stop_wave') then
+        player.print("塔防世界无法暂停波防！", {r=1, g=0.3, b=0.3})
+        return false
+    end
 
     if this.stop_wave >= 12 then
         player.print({'amap.stop_wave_max_reached'})
@@ -1467,6 +1483,14 @@ end)
 
 Gui.on_click(stop_wave, function(event)
     local player = event.player
+
+    -- 当前世界禁用暂停波防
+    local map = diff.get()
+    if World.get_field(map.world, 'disable_stop_wave') then
+        player.print("塔防世界无法暂停波防！", {r=1, g=0.3, b=0.3})
+        return false
+    end
+
     local this = WPT.get()
 
     if this.stop_wave >= 12 then

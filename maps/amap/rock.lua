@@ -8,6 +8,7 @@ local RPG = require 'modules.rpg.table'
 local Server = require 'utils.server'
 local Factories = require 'maps.amap.production'
 local diff = require 'maps.amap.diff'
+local World = require 'maps.amap.world.framework'
 local functions = require 'maps.amap.functions'
 local round = math.round
 local List = require 'maps.amap.production_list'
@@ -261,8 +262,15 @@ function Public.refresh_shop(market)
 
     market.clear_market_items()
     urgrade_item(market)
+
+    -- 世界框架：部分世界（如世界15 纯塔防）屏蔽指定市场物品（载具/鱼↔币兑换/随机商品保留）
+    local blocked = World.get_field(this.world_number, 'blocked_market_offers')
     for _, item in pairs(market_items) do
-        market.add_market_item(item)
+        if blocked and item.offer and blocked[item.offer.item] then
+            -- 该世界屏蔽此物品
+        else
+            market.add_market_item(item)
+        end
     end
 
     
@@ -306,6 +314,17 @@ function Public.refresh_shop(market)
                 quality = 'legendary'
             }
         })
+    end
+
+    -- 世界框架：部分世界（如世界15）在岩石市场追加固定物品（按"所有物品价值表"定价）
+    local extra_items = World.get_field(this.world_number, 'rock_shop_extra_items')
+    if extra_items then
+        for _, item in ipairs(extra_items) do
+            market.add_market_item({
+                price = {{name = "coin", count = item.gold}},
+                offer = {type = 'give-item', item = item.name, count = 1}
+            })
+        end
     end
 
     game.print({'amap.refresh_shop'})

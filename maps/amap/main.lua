@@ -1055,6 +1055,22 @@ local function get_biter_point()
         return
     end
     
+    -- 世界框架：四路同时进攻（由 world 的 biter_spawn_rule.four_way 配置驱动）
+    if world_rule and world_rule.four_way then
+        local entity = wave_defense_table.target
+        if not entity or not entity.valid then return end
+        local offset_x = entity.position.x
+        local offset_y = entity.position.y
+        -- 四路同时生成位置表（下、右、上、左），距中心 200 tile，留足正方形边缓冲
+        wave_defense_table.spawn_positions = {}
+        for _, off in ipairs(world_rule.four_way) do
+            table.insert(wave_defense_table.spawn_positions, {x = offset_x + off[1], y = offset_y + off[2]})
+        end
+        return
+    end
+    -- 非四路世界清除残留的多位置数据
+    wave_defense_table.spawn_positions = nil
+
     -- 检查目标有效性（collapse_spawn 不需要目标，因此放后面）
     local entity = wave_defense_table.target
     if not entity or not entity.valid then
