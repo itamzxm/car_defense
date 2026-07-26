@@ -1330,6 +1330,9 @@ World.register(15, {
     -- 免费弹药系统：禁用 auto_put_turret 的扣背包弹逻辑（世界15 由 world15_supply_tick 持续补弹）
     free_turret_ammo = true,
 
+    -- 天赋间隔：每 15 级 +1 天赋（与竞技场一致；默认 35，由 tianfu.lua 经 World 配置表读取）
+    tianfu_jiange = 15,
+
 
     -- 汽车内禁止生成矿物 / 禁止暂停波防（纯塔防无矿设计）
     disable_car_resource_generation = true,
