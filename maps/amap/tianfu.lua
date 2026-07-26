@@ -1259,12 +1259,10 @@ local function on_gui_click(event)
     this.skill_owners[skill_name][player.index] = true
     -- 销毁整个天赋选择界面（按钮parent是卡片frame，需销毁外层'选择你的天赋'）
     player.gui.screen['选择你的天赋'].destroy()
-    local jiange = 35
     local this = WPT.get()
     local rpg_t = rpgtable.get('rpg_t')
-    if this.jjc == 2 or this.world_number == 15 then
-        jiange = 15
-    end
+    -- 天赋间隔经 World 框架配置表按世界查询：默认 35；竞技场/世界15 等声明 tianfu_jiange=15
+    local jiange = World.get_field(this.world_number, 'tianfu_jiange') or 35
     -- 检查必要的变量是否存在
     if rpg_t[player.index] and rpg_t[player.index].level and this.tianfu_count and this.tianfu_count[player.index] and this.skill_canchoise and this.skill_canchoise[player.name] == 0 then
         if math.floor(rpg_t[player.index].level / jiange) > this.tianfu_count[player.index] - 1 and is_gui_visible(frame) == false then
@@ -1502,10 +1500,8 @@ local function on_tick_learn_skill()
         local main_table = WPT.get()
 
         local frame = player.gui.screen['选择你的天赋']
-        local jiange = 35
-        if main_table.jjc == 2 or main_table.world_number == 15 then
-            jiange = 15
-        end
+        -- 天赋间隔经 World 框架配置表按世界查询：默认 35；竞技场/世界15 等声明 tianfu_jiange=15
+        local jiange = World.get_field(main_table.world_number, 'tianfu_jiange') or 35
         -- 检查必要的变量是否存在
         if rpg_t[player.index] and rpg_t[player.index].level and main_table.tianfu_count and main_table.tianfu_count[player.index] then
             if math.floor(rpg_t[player.index].level / jiange) > main_table.tianfu_count[player.index] - 1 and
