@@ -61,6 +61,9 @@ World.register(6, {
     -- 火焰塔上限（原 diff.lua set_diff 第 60-62 行 world_number==6 → max_flame=2）
     max_flame = 2,
 
+    -- 天赋间隔：每 15 级 +1 天赋（竞技场；默认 35，由 tianfu.lua 经 World 配置表读取）
+    tianfu_jiange = 15,
+
     -- 虫子生成方向规则（原 world_table.lua biter_spawn_rules[6] 无条目，使用默认循环方向）
     biter_spawn_rule = nil,
 
