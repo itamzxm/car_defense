@@ -247,6 +247,19 @@ local function unregister_turret(turret)
     return true
 end
 
+-- 波次选弹种（gun/rocket），被 charge_turret 与 world15_supply_tick 共用；自包含无依赖，前置定义以避免前向引用
+local function get_ammo_for_wave(name, wave)
+    if name == 'gun-turret' then
+        if wave <= 100 then return 'firearm-magazine'
+        elseif wave <= 300 then return 'piercing-rounds-magazine'
+        else return 'uranium-rounds-magazine' end
+    elseif name == 'rocket-turret' then
+        if wave <= 300 then return 'rocket'
+        else return 'explosive-rocket' end
+    end
+    return nil
+end
+
 -- 建造事件即时充能（登记同时补满，免等下一 tick）
 local function charge_turret(turret)
     if not turret or not turret.valid then return end
@@ -1120,23 +1133,6 @@ local function enforce_world15_techs()
     end
 
 end
-
---==============================================================================
--- N-03：全局弹药系统（gun-turret + rocket-turret，每秒补弹，免费，仅空了才补）
---==============================================================================
-
-local function get_ammo_for_wave(name, wave)
-    if name == 'gun-turret' then
-        if wave <= 100 then return 'firearm-magazine'
-        elseif wave <= 300 then return 'piercing-rounds-magazine'
-        else return 'uranium-rounds-magazine' end
-    elseif name == 'rocket-turret' then
-        if wave <= 300 then return 'rocket'
-        else return 'explosive-rocket' end
-    end
-    return nil
-end
-
 
 -- N-03/N-04：事件注册式供能（laser/tesla 补电 + gun/rocket 补弹，免费）
 -- 炮塔在建造事件中登记进 world15_registered_turrets（玩家/机器人建造均覆盖），
