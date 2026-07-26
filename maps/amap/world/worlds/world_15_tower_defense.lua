@@ -1207,7 +1207,7 @@ end)
 -- 注册到框架
 --==============================================================================
 
--- 车载开局物资钩子：世界15 仅发放战斗类物品（gun-turret / 弹药 / stone-wall）+ 1000 金币。
+-- 车载开局物资钩子：世界15 仅发放战斗类物品（gun-turret / 弹药 / stone-wall）+ 1000 金币 + 20 个传说机枪炮塔。
 -- 由 tank.lua 在放置汽车时通过 World.get_field(world, 'on_car_placed') 调用。
 -- 返回 true 表示已处理（tank.lua 据此跳过通用物资循环），保持其它世界逻辑不变。
 local function on_car_placed(player, wave_number, car_items)
@@ -1224,6 +1224,9 @@ local function on_car_placed(player, wave_number, car_items)
     end
     player.insert({name = 'coin', count = 1000})
     player.print({"", "[color=255, 215, 0]", "世界15：开局赠送 1000 金币（已存入背包，可在出生点市场购买炮塔）", "[/color]"})
+    -- 开局额外赠送：20 个传说机枪炮塔（原理参考上方 1000 金币赠送，同在此放车钩子发放）
+    player.insert({name = 'gun-turret', count = 20, quality = 'legendary'})
+    player.print({"", "[color=255, 215, 0]", "世界15：开局赠送 20 个传说机枪炮塔（已存入背包）", "[/color]"})
     return true
 end
 
@@ -1363,7 +1366,7 @@ World.register(15, {
         {name = 'personal-roboport-mk2-equipment', gold = 28418},
     },
 
-    -- 车载开局物资钩子：仅发战斗类物品 + 1000 金币（函数定义在下方）
+    -- 车载开局物资钩子：仅发战斗类物品 + 1000 金币 + 20 个传说机枪炮塔（函数定义在下方）
     on_car_placed = on_car_placed,
 
     -- 天赋黑名单（世界15 禁用建造 / 生产 / 科技类天赋）
