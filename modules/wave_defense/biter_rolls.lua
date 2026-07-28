@@ -8,6 +8,16 @@ local Public = {}
 
 local CACHE_UPDATE_INTERVAL = 6000
 
+--- 有效强度波数：由 set_next_wave 按世界 def 的 wave_strength_remap 刷新；
+--- 未重映射的世界恒等于 wave_number；0/nil（旧存档或首波前）回退真实波数
+local function get_strength_wave()
+    local sw = WD.get('strength_wave_number')
+    if sw and sw > 0 then
+        return sw
+    end
+    return WD.get('wave_number')
+end
+
 function Public.roll_from_raffle(raffle_key)
     local raffle = WD.get(raffle_key)
     local max_chance = 0
@@ -371,8 +381,9 @@ end
 --- 单独判断并生成撼地虫(demolisher)。仅设置出生方向朝向主目标，不进编队、不设 ai_settings、不追踪威胁。
 function Public.try_spawn_demolisher(surface, position, target)
     if not surface or not position then return nil end
+    -- 出场判定按有效强度波数（波次强度重映射）；每波一次的去重仍用真实波数
     local wave_number = WD.get('wave_number')
-    local name, chance = calculate_demolisher_chance(wave_number)
+    local name, chance = calculate_demolisher_chance(get_strength_wave())
     if not name then return nil end
     local last_spawn = WD.get('last_demolisher_spawn_wave')
     if wave_number == last_spawn then return nil end
@@ -415,7 +426,8 @@ function Public.wave_defense_generate_unit_table(total_units, melee_ratio, range
     
     local biter_raffle = WD.get('biter_raffle')
     local spitter_raffle = WD.get('spitter_raffle')
-    local wave_number = WD.get('wave_number')
+    -- 品质虫概率按有效强度波数计算（波次强度重映射）
+    local wave_number = get_strength_wave()
     
     local quality_raffle_cache, total_quality_weight, total_quality_chance = calculate_quality_raffle(wave_number)
     
