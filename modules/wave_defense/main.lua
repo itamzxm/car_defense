@@ -471,11 +471,20 @@ local function set_next_wave()
         pcall(unlock_fn, wave_number)
     end
 
-    BiterRolls.wave_defense_set_unit_raffle(wave_number)
+    -- 波次强度重映射（世界 def 可选字段 wave_strength_remap，声明式扩展点）：
+    -- 强度相关计算改用「有效强度波数」，真实 wave_number（GUI/Boss/胜利判定）不受影响。
+    -- 未声明该字段的世界：strength_wave == wave_number，行为不变。
+    local strength_wave = wave_number
+    local remap_fn = World.get_field(this.world_number, 'wave_strength_remap')
+    if remap_fn then
+        strength_wave = remap_fn(wave_number) or wave_number
+    end
+    WD.set('strength_wave_number', strength_wave)
+
+    BiterRolls.wave_defense_set_unit_raffle(strength_wave)
     local threat_gain_multiplier = WD.get('threat_gain_multiplier')
     -- 取消获得威胁的难度上限：有效波数不再封顶（原 math.min(wave_number, 4000)）
-    local effective_wave_number = wave_number
-    local threat_gain = effective_wave_number * threat_gain_multiplier
+    local threat_gain = strength_wave * threat_gain_multiplier
    
     -- 整体虫子生成量减少20%
     threat_gain = threat_gain * 0.8
@@ -528,8 +537,9 @@ local function set_next_wave()
     WD.set('active_biter_count', count)
 
     -- 取消获得威胁的难度上限：1000波后的额外难度加成不再封顶（原 wave_number <= 4000）
-    if wave_number > 1000 then
-        threat_gain = threat_gain * (wave_number * 0.001)
+    -- 改用有效强度波数：与波次强度重映射保持一致（未重映射的世界 strength_wave == wave_number）
+    if strength_wave > 1000 then
+        threat_gain = threat_gain * (strength_wave * 0.001)
     end
 
     local threat = WD.get('threat')
