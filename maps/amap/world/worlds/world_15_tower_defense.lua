@@ -268,6 +268,12 @@ local function charge_turret(turret)
         if turret.electric_buffer_size then
             turret.energy = turret.electric_buffer_size
         end
+        -- 世界15 无真实电网：将 laser/tesla 接入隐藏无限电源，消除「未接电」闪烁图标。
+        -- pcall 兜底：连接失败也不影响上方充能，降级为原有每 tick 补能。
+        local iface = world15_get_power_interface(turret.force)
+        if iface then
+            pcall(function() turret.connect_neighbour(iface) end)
+        end
     elseif n == 'gun-turret' or n == 'rocket-turret' then
         local inv = turret.get_inventory(defines.inventory.turret_ammo)
         local wave = WD.get('wave_number') or 0
@@ -276,6 +282,60 @@ local function charge_turret(turret)
             inv.clear()
             inv.insert({name = ammo_name, count = 200})
         end
+    end
+end
+
+--==============================================================================
+-- 特斯拉炮塔放置上限（世界15 平衡：实测后期伤害过高，尤其传说）
+--   全服总量上限（跨玩家共享）：普通 22 / 精良 8 / 稀有 10 / 史诗 6 / 传说 4
+--   仅在玩家/机器人放下 tesla-turret 时校验；超限则销毁并退还同品质物品，避免玩家损失金币。
+--==============================================================================
+local W15_TESLA_QUALITY_LIMIT = {
+    normal    = 22,
+    uncommon  = 10,
+    rare      = 8,
+    epic      = 6,
+    legendary = 4,
+}
+-- 品质中文名（自包含，不依赖 base locale 的 quality-name.*）
+local W15_QUALITY_CN = {
+    normal    = '普通',
+    uncommon  = '精良',
+    rare      = '稀有',
+    epic      = '史诗',
+    legendary = '传说',
+}
+
+-- 统计指定品质的特斯拉炮塔已放置数量（含刚放下的这尊）
+local function world15_count_tesla_of_quality(surface, quality_name)
+    local list = surface.find_entities_filtered{name = 'tesla-turret'}
+    local n = 0
+    for _, t in ipairs(list) do
+        if t.valid and t.quality and t.quality.name == quality_name then
+            n = n + 1
+        end
+    end
+    return n
+end
+
+-- 特斯拉炮塔放置上限校验：超限则销毁新炮塔并退还物品（按品质）
+local function world15_enforce_tesla_limit(entity, owner)
+    if not entity or not entity.valid then return end
+    if entity.name ~= 'tesla-turret' then return end
+    local q = (entity.quality and entity.quality.name) or 'normal'
+    local limit = W15_TESLA_QUALITY_LIMIT[q]
+    if not limit then return end
+    local surface = entity.surface
+    if not surface or not surface.valid then return end
+    -- 统计该品质已放置总数（含刚放下的这尊）
+    local count = world15_count_tesla_of_quality(surface, q)
+    if count <= limit then return end
+    -- 超限：销毁并退还同品质物品，提示放置者
+    entity.destroy()
+    if owner and owner.valid then
+        owner.insert({name = 'tesla-turret', count = 1, quality = q})
+        owner.print({'amap.world15_tesla_limit', W15_QUALITY_CN[q] or q, limit},
+            {r = 1, g = 0.6, b = 0.2})
     end
 end
 
@@ -305,6 +365,11 @@ local function on_built_entity(event)
             player.print({"amap.world15_build_restricted"}, {r = 1, g = 0.3, b = 0.3})
         end
     else
+        -- 世界15：特斯拉炮塔按品质限制放置数量（超限销毁并退还物品）
+        if entity.name == 'tesla-turret' then
+            world15_enforce_tesla_limit(entity, player)
+        end
+        if not entity.valid then return end  -- 超限已被销毁，跳过后续登记/充能
         -- N-01：中心正方形内 4 种炮塔 minable_flag=false 禁拆
         local name = entity.name
         if name == 'gun-turret' or name == 'laser-turret' or name == 'rocket-turret' or name == 'tesla-turret' then
@@ -335,6 +400,13 @@ local function on_robot_built_entity(event)
             owner.print({"amap.world15_build_restricted"}, {r = 1, g = 0.3, b = 0.3})
         end
     else
+        -- 机器人建造时取施工机器人的所有者作为退还/提示对象
+        local owner = event.robot and event.robot.valid and event.robot.last_user
+        -- 世界15：特斯拉炮塔按品质限制放置数量（超限销毁并退还物品）
+        if entity.name == 'tesla-turret' then
+            world15_enforce_tesla_limit(entity, owner)
+        end
+        if not entity.valid then return end  -- 超限已被销毁，跳过后续登记/充能
         -- N-01：中心正方形内 4 种炮塔 minable_flag=false 禁拆
         local name = entity.name
         if name == 'gun-turret' or name == 'laser-turret' or name == 'rocket-turret' or name == 'tesla-turret' then
@@ -511,6 +583,49 @@ local function match_boss_record(this, entity)
     return nil, nil
 end
 
+-- 识别击杀者归属玩家：支持 character / beam / turret / combat-robot 等常见致死来源。
+-- 返回玩家索引（player.index），无法识别时返回 nil。
+local function resolve_killer_owner(cause, this)
+    if not cause or not cause.valid then return nil end
+    local ctype = cause.type
+    if ctype == 'character' then
+        if cause.player and cause.player.valid then
+            return cause.player.index
+        end
+        return nil
+    elseif ctype == 'beam' then
+        -- beam.source 是发射该 beam 的实体（通常是炮塔）
+        local src = cause.source
+        if src and src.valid then
+            if src.type == 'character' then
+                if src.player and src.player.valid then return src.player.index end
+            elseif src.last_user and src.last_user.valid then
+                return src.last_user.index
+            end
+        end
+        return nil
+    elseif ctype == 'turret' then
+        if cause.last_user and cause.last_user.valid then
+            return cause.last_user.index
+        end
+        return nil
+    elseif ctype == 'combat-robot' then
+        -- 战斗机器人归属：优先 last_user（部署者），其次 owner.player
+        if cause.last_user and cause.last_user.valid then
+            return cause.last_user.index
+        end
+        if cause.owner and cause.owner.valid and cause.owner.player and cause.owner.player.valid then
+            return cause.owner.player.index
+        end
+        return nil
+    end
+    -- 其他来源（车/蜘蛛等）退化为 last_user
+    if cause.last_user and cause.last_user.valid then
+        return cause.last_user.index
+    end
+    return nil
+end
+
 -- Boss 击杀处理：死亡爆炸（200波起）+ 复活（每100波+1次）+ 完全击杀发奖
 local function on_boss_died(event)
     local entity = event.entity
@@ -579,14 +694,43 @@ local function on_boss_died(event)
         return
     end
 
-    -- 完全击杀：全员发放金币（每个在线玩家，不卡势力）
+    -- 完全击杀：识别击杀者，全员发基础赏金（每在线玩家 1 份），击杀者额外 1 份（共 2 倍）
     if not this.world15_player_gold then this.world15_player_gold = {} end
+    local killer_pidx = resolve_killer_owner(event.cause, this)
+
     for _, player in pairs(game.connected_players) do
         local pidx = player.index
-        this.world15_player_gold[pidx] = (this.world15_player_gold[pidx] or 0) + bd.reward
-        player.print({"amap.world15_boss_reward", math.floor(bd.reward)},
+        local amount = bd.reward
+        if killer_pidx and pidx == killer_pidx then
+            amount = amount * 2  -- 基础 1 份 + 额外悬赏 1 份
+        end
+        this.world15_player_gold[pidx] = (this.world15_player_gold[pidx] or 0) + amount
+        player.print({"amap.world15_boss_reward", math.floor(amount)},
             {r = 1, g = 0.85, b = 0})
     end
+
+    -- 极端情况兜底：击杀者不在 connected_players 列表中时，仍确保拿到悬赏
+    if killer_pidx then
+        local found = false
+        for _, p in pairs(game.connected_players) do
+            if p.index == killer_pidx then found = true; break end
+        end
+        if not found then
+            this.world15_player_gold[killer_pidx] = (this.world15_player_gold[killer_pidx] or 0) + bd.reward * 2
+        end
+    end
+
+    -- 全服播报：识别到击杀者则播报击杀者，否则播报"已被消灭"
+    if killer_pidx then
+        local killer = game.players[killer_pidx]
+        local kname = (killer and killer.valid) and killer.name or ("#" .. killer_pidx)
+        game.print({"amap.world15_boss_kill", kname, bd.wave, math.floor(bd.reward)},
+            {r = 1, g = 0.85, b = 0})
+    else
+        game.print({"amap.world15_boss_cleared", math.floor(bd.reward)},
+            {r = 1, g = 0.85, b = 0})
+    end
+
     this.world15_bosses[key] = nil
 end
 
@@ -1021,9 +1165,12 @@ local function give_starter_items()
             end)
         end
 
-        -- N-04：供电由 world15_supply_tick 每 tick 遍历已登记炮塔表强制设能量（事件注册式，无区域扫描），
-        -- 不依赖任何真实电网实体（无 roboport / solar / 电线杆）。故世界15不铺设 roboport，
-        -- 避免引入额外耗电实体；玩家如需建设/维修机器人网络，可在市场购买 roboport。
+        -- N-04：炮塔供能分两层。
+        --   ① gun/rocket 由 world15_supply_tick 每 tick 补弹（事件注册式，无区域扫描）。
+        --   ② laser/tesla 是 electric-turret：仍为「无真实电网」设计（不铺 roboport/solar/电线杆，避免额外耗电实体），
+        --      但其「未接电」图标需真实电网连接才能消除。故为每个势力建一个远置、隐藏、无限产能的
+        --      electric-energy-interface 作为专用电源，炮塔建造时 connect_neighbour 接入（见 charge_turret）。
+        --      同时保留每 tick 强制设能量作兜底。玩家如需建设/维修机器人网络，可在市场购买 roboport。
     end
 
     if not this.world15_player_gold then
@@ -1170,6 +1317,525 @@ end
 
 
 --==============================================================================
+-- 卡片1 全服强化投票：每 20 波直接弹窗，3 个选项供全体玩家投票，得票最多者全服生效
+-- 机制：参考天赋选择界面（卡片式）。每 20 波从 8 张升级卡池抽 3 张，向所有在线玩家
+--       弹出投票框；玩家点击卡片即投票，窗口立即消失；倒计时结束或全员投票后，
+--       得票最多者全服生效。平票/超时：随机选定。永久类记账进 WPT 供幂等重申。
+--==============================================================================
+local W15_VOTE_FRAME = 'world15_vote_frame'
+local W15_VOTE_CARDS = 'world15_vote_cards'
+local W15_VOTE_TIMER = 'world15_vote_timer'
+local W15_VOTE_BTN_PREFIX = 'world15_vote_pick_'
+local W15_VOTE_CLOSE = 'world15_vote_close'
+local W15_VOTE_SECONDS = 30          -- 投票限时（秒）
+local W15_VOTE_TICKS = W15_VOTE_SECONDS * 60
+
+-- 前置声明：world15_apply_upgrade 定义在下方（世界15 模块内），
+-- 但 world15_resolve_vote 需要调用它。若不前置声明，resolve 内引用到的是
+-- 全局 nil（Lua 词法作用域），调用报错又被 pcall 吞掉 → 投票通过但效果不生效。
+local world15_apply_upgrade
+
+-- 升级卡池（8 张）。永久类（bullet_dmg/laser_dmg/fire_rate/rocket_dmg/tesla_dmg/coin）记账进 this.w15_upgrade_counts / w15_coin_mult。
+local W15_UPGRADE_KEYS = {'bullet_dmg', 'laser_dmg', 'fire_rate', 'rocket_dmg', 'tesla_dmg', 'coin', 'repair', 'instant_coin'}
+
+-- 伤害/射速/炮塔攻击：可无限叠加，不再封顶（= 选取次数 ×5% 持续累加）。
+-- 金币：+1% 可叠加，上限 +10%（倍率上限 1.10）；达上限后仍可被随机抽中（抽奖池无排除逻辑）。
+local W15_COIN_BONUS = 0.01   -- 每次「金币收入」卡 +1%
+local W15_COIN_CAP   = 1.10   -- 金币倍率上限（= +10%）
+
+-- 升级卡图标（用于投票卡片，点击即投票）
+local W15_UPGRADE_ICON = {
+    bullet_dmg   = 'item/firearm-magazine',
+    laser_dmg    = 'item/laser-turret',
+    fire_rate    = 'item/speed-module',
+    rocket_dmg   = 'item/rocket-turret',
+    tesla_dmg    = 'item/tesla-turret',
+    coin         = 'item/coin',
+    repair       = 'item/repair-pack',
+    instant_coin = 'item/coin',
+}
+
+-- 取世界15 主 surface
+local function world15_get_surface()
+    local this = WPT.get()
+    local idx = this and this.active_surface_index
+    return idx and game.surfaces[idx] or nil
+end
+
+-- 判断玩家是否正在副本中（副本 surface 隔离；active=true 表示已进入）
+-- 副本内玩家不弹强化投票窗，避免干扰副本玩法
+local function world15_is_player_in_dungeon(player)
+    if not player or not player.valid then return false end
+    local this = WPT.get()
+    if not this or not this.dungeons then return false end
+    local d = this.dungeons[player.index]
+    return d and d.active or false
+end
+
+-- 世界15 无真实电网：laser/tesla 炮塔是 electric-turret，手动填充 energy 无法使其「接入电网」，
+-- 引擎每 tick 会把未联网电力实体的能量清零，导致「未接电」图标闪烁。
+-- 为每个势力创建一个远置、隐藏、无限产能的 electric-energy-interface 作为专用电源，
+-- 炮塔建造时通过 connect_neighbour（铜线=电网连接）接入该网络 → 图标消失。
+-- 仅世界15 生效，零框架改动；电源按 force 缓存复用。pcall 全程兜底，任意环节失败都不影响主流程。
+local function world15_get_power_interface(force)
+    local this = WPT.get()
+    if not this or not force then return nil end
+    if not this.world15_power_interfaces then this.world15_power_interfaces = {} end
+    local key = force.name
+    local sf = world15_get_surface()
+    if not sf then return nil end
+
+    -- 已创建则复用（校验有效性）
+    local unit = this.world15_power_interfaces[key]
+    if unit then
+        local existing = sf.find_entity_by_unit_number(unit)
+        if existing and existing.valid then return existing end
+    end
+
+    -- 远置候选点（避开出生点与可建区，尽量落在陆地），任一成功即用
+    local candidates = {
+        {x = 0,   y = -1000},
+        {x = 0,   y = -900},
+        {x = 100, y = -1000},
+        {x = -100, y = -1000},
+    }
+    local iface = nil
+    for _, pos in ipairs(candidates) do
+        pcall(function()
+            iface = sf.create_entity({
+                name = 'electric-energy-interface',
+                position = pos,
+                force = force,
+                create_build_effect_smoke = false,
+            })
+        end)
+        if iface and iface.valid then break end
+    end
+
+    if iface and iface.valid then
+        iface.destructible = false
+        iface.minable_flag = false
+        iface.operable = false
+        pcall(function() iface.power_production = 100000000 end)  -- 100MW，远超全图炮塔需求
+        this.world15_power_interfaces[key] = iface.unit_number
+        return iface
+    end
+    return nil
+end
+
+-- 抽 3 张升级卡（从 8 张池随机不重复）
+local function world15_draw_three()
+    local pool = {}
+    for _, k in ipairs(W15_UPGRADE_KEYS) do pool[#pool + 1] = k end
+    local picks = {}
+    for _ = 1, 3 do
+        local idx = math.random(#pool)
+        picks[#picks + 1] = table.remove(pool, idx)
+    end
+    return picks
+end
+
+-- 统计当前各选项票数（仅计入在线玩家）
+local function world15_tally_votes(vote)
+    local counts = {}
+    for _, k in ipairs(vote.options) do counts[k] = 0 end
+    for _, p in pairs(game.connected_players) do
+        if p.valid then
+            local v = vote.votes[p.name]
+            if v and counts[v] then counts[v] = counts[v] + 1 end
+        end
+    end
+    return counts
+end
+
+-- 打开/刷新投票 GUI（卡片式，参考天赋选择界面）
+local function world15_open_vote_gui(player, vote)
+    if world15_is_player_in_dungeon(player) then return end  -- 副本内玩家不弹投票窗
+    local screen = player.gui.screen
+    local old = screen[W15_VOTE_FRAME]
+    if old then old.destroy() end
+
+    local frame = screen.add{type = 'frame', name = W15_VOTE_FRAME, direction = 'vertical', caption = {'amap.world15_up_title'}}
+    frame.auto_center = true
+
+    local remain = math.max(0, math.ceil((vote.end_tick - game.tick) / 60))
+    frame.add{type = 'label', name = W15_VOTE_TIMER, caption = {'amap.world15_vote_timer', remain}}
+
+    local counts = world15_tally_votes(vote)
+    local my_vote = vote.votes[player.name]
+
+    local cards = frame.add{type = 'flow', name = W15_VOTE_CARDS, direction = 'horizontal'}
+    cards.style.horizontal_spacing = 8
+    cards.style.vertical_align = 'top'
+
+    for _, key in ipairs(vote.options) do
+        local card = cards.add{type = 'frame', name = 'w15_card_' .. key, direction = 'vertical'}
+        card.style.minimal_width = 170
+        card.style.maximal_width = 170
+        card.style.padding = 8
+        card.style.vertically_stretchable = true
+
+        -- 名称（已选高亮为绿色）
+        local name_flow = card.add{type = 'flow', direction = 'horizontal'}
+        name_flow.style.horizontally_stretchable = true
+        name_flow.style.horizontal_align = 'center'
+        local picked = (my_vote == key)
+        local name_label = name_flow.add{type = 'label', caption = {'amap.world15_up_' .. key}}
+        name_label.style.font = 'heading-2'
+        name_label.style.single_line = false
+        name_label.style.maximal_width = 150
+        if picked then name_label.style.font_color = {r = 0.2, g = 1, b = 0.2} end
+
+        -- 图标（点即投票）
+        local icon_flow = card.add{type = 'flow', direction = 'horizontal'}
+        icon_flow.style.horizontally_stretchable = true
+        icon_flow.style.horizontal_align = 'center'
+        icon_flow.style.top_padding = 4
+        icon_flow.style.bottom_padding = 4
+        local icon = icon_flow.add{type = 'sprite-button', name = W15_VOTE_BTN_PREFIX .. key, sprite = W15_UPGRADE_ICON[key],
+            tooltip = {'amap.world15_up_' .. key}}
+        icon.style.minimal_width = 72
+        icon.style.minimal_height = 72
+        icon.style.maximal_width = 72
+        icon.style.maximal_height = 72
+        if picked then icon.style.font_color = {r = 0.2, g = 1, b = 0.2} end
+
+        -- 当前票数
+        local cnt_flow = card.add{type = 'flow', direction = 'horizontal'}
+        cnt_flow.style.horizontally_stretchable = true
+        cnt_flow.style.horizontal_align = 'center'
+        cnt_flow.add{type = 'label', name = 'w15_cnt_' .. key, caption = {'amap.world15_vote_count', counts[key] or 0}}
+    end
+
+    if my_vote then
+        frame.add{type = 'label', caption = {'amap.world15_vote_you', {'amap.world15_up_' .. my_vote}}}
+    end
+    frame.add{type = 'button', name = W15_VOTE_CLOSE, caption = {'amap.world15_up_close'}}
+end
+
+-- 发起投票：抽 3 张，弹给所有在线玩家，设定倒计时
+local function world15_start_vote()
+    local this = WPT.get()
+    if not this or this.w15_vote then return end
+    local options = world15_draw_three()
+    this.w15_vote = {
+        options = options,
+        votes = {},
+        end_tick = game.tick + W15_VOTE_TICKS,
+        wave = WD.get('wave_number') or 0,
+    }
+    for _, p in pairs(game.connected_players) do
+        if p.valid then world15_open_vote_gui(p, this.w15_vote) end
+    end
+    game.print({'amap.world15_vote_start'}, {r = 1, g = 0.85, b = 0.2})
+end
+
+-- 结算投票：得票最多者全服生效；平票/超时随机
+local function world15_resolve_vote()
+    local this = WPT.get()
+    if not this or not this.w15_vote then return end
+    local vote = this.w15_vote
+    local counts = world15_tally_votes(vote)
+    local maxc = -1
+    local winners = {}
+    for _, k in ipairs(vote.options) do
+        local c = counts[k] or 0
+        if c > maxc then maxc = c; winners = {k} end
+        if c == maxc then winners[#winners + 1] = k end
+    end
+    if maxc <= 0 then
+        -- 无人投票：本轮跳过，不随机施加强化（得票多者当选才有意义）
+        game.print({'amap.world15_vote_skip'}, {r = 1, g = 0.85, b = 0.2})
+    else
+        local chosen
+        if #winners > 1 then
+            chosen = winners[math.random(#winners)]   -- 平票随机
+        else
+            chosen = winners[1]
+        end
+        local ok, err = pcall(function() world15_apply_upgrade(chosen, nil) end)
+        if not ok then log('[world15] apply_upgrade failed: ' .. tostring(err)) end
+        game.print({'amap.world15_vote_result', {'amap.world15_up_' .. chosen}, maxc}, {r = 0.4, g = 1, b = 0.4})
+    end
+    for _, p in pairs(game.connected_players) do
+        if p.valid then
+            local f = p.gui.screen[W15_VOTE_FRAME]
+            if f then pcall(function() f.destroy() end) end
+        end
+    end
+    this.w15_vote = nil
+end
+
+-- 投票点击：点卡片=投票（窗口立即消失）；点关闭=收起窗口（保留已投）
+local function on_world15_vote_click(event)
+    if (WPT.get() and WPT.get().world_number or 0) ~= 15 then return end
+    local element = event.element
+    if not element or not element.valid then return end
+    local name = element.name
+    local this = WPT.get()
+    local vote = this and this.w15_vote
+    if not vote then return end
+
+    if name == W15_VOTE_CLOSE then
+        local f = game.get_player(event.player_index).gui.screen[W15_VOTE_FRAME]
+        if f then pcall(function() f.destroy() end) end
+        return
+    end
+    if name:sub(1, #W15_VOTE_BTN_PREFIX) == W15_VOTE_BTN_PREFIX then
+        local player = game.get_player(event.player_index)
+        if not player or not player.valid then return end
+        local key = name:sub(#W15_VOTE_BTN_PREFIX + 1)
+        local ok = false
+        for _, k in ipairs(vote.options) do if k == key then ok = true; break end end
+        if not ok then return end
+        vote.votes[player.name] = key
+        player.print({'amap.world15_vote_you', {'amap.world15_up_' .. key}})  -- 非阻塞确认：已记录你的投票
+        -- 点击即投票，窗口立即消失，不再停留影响操作；最终结果待投票倒计时结束统一公布
+        local f = player.gui.screen[W15_VOTE_FRAME]
+        if f then pcall(function() f.destroy() end) end
+    end
+end
+
+-- 每 20 波发起投票；进行中刷新倒计时；到点结算
+local function world15_vote_tick()
+    if (WPT.get() and WPT.get().world_number or 0) ~= 15 then return end
+    local this = WPT.get()
+    if not this then return end
+    if not this.w15_vote then
+        local wave = WD.get('wave_number') or 0
+        if wave > 0 and wave % 20 == 0 and (this.w15_last_vote_wave or 0) ~= wave then
+            this.w15_last_vote_wave = wave
+            world15_start_vote()
+        end
+        return
+    end
+    local vote = this.w15_vote
+    local remain = math.ceil((vote.end_tick - game.tick) / 60)
+    for _, p in pairs(game.connected_players) do
+        if p.valid then
+            local f = p.gui.screen[W15_VOTE_FRAME]
+            if f then
+                if world15_is_player_in_dungeon(p) then
+                    pcall(function() f.destroy() end)   -- 投票期间进入副本者立即关闭窗口
+                else
+                    local t = f[W15_VOTE_TIMER]
+                    if t and t.valid then t.caption = {'amap.world15_vote_timer', math.max(0, remain)} end
+                end
+            end
+        end
+    end
+    if game.tick >= vote.end_tick then world15_resolve_vote() end
+end
+
+-- 幂等重申：由记账的 counts 推导 force modifier 并每帧设置，防框架覆盖
+local function world15_reassert_modifiers()
+    local this = WPT.get()
+    if (this and this.world_number or 0) ~= 15 then return end
+    local counts = this.w15_upgrade_counts
+    if not counts then return end
+    local force = game.forces.player
+    if not force then return end
+    force.set_ammo_damage_modifier('bullet', (counts.bullet_dmg or 0) * 0.05)
+    force.set_ammo_damage_modifier('laser',  (counts.laser_dmg  or 0) * 0.05)
+    for _, k in ipairs({'bullet', 'laser', 'flamethrower'}) do
+        force.set_gun_speed_modifier(k, (counts.fire_rate or 0) * 0.05)
+    end
+    -- 火箭/特斯拉炮塔攻击加成（set_turret_attack_modifier，与框架 ammo modifier 不冲突；均不再封顶）
+    force.set_turret_attack_modifier('rocket-turret', (counts.rocket_dmg or 0) * 0.05)
+    force.set_turret_attack_modifier('tesla-turret',  (counts.tesla_dmg  or 0) * 0.05)
+end
+
+-- 应用一张升级卡（对应上方前置声明，勿改回 local function —— 会重新引入前向引用 bug）
+world15_apply_upgrade = function(key, player)
+    local this = WPT.get()
+    local force = game.forces.player
+    local fname = force and force.name
+    if key == 'bullet_dmg' then
+        this.w15_upgrade_counts = this.w15_upgrade_counts or {}
+        this.w15_upgrade_counts.bullet_dmg = (this.w15_upgrade_counts.bullet_dmg or 0) + 1
+    elseif key == 'laser_dmg' then
+        this.w15_upgrade_counts = this.w15_upgrade_counts or {}
+        this.w15_upgrade_counts.laser_dmg = (this.w15_upgrade_counts.laser_dmg or 0) + 1
+    elseif key == 'fire_rate' then
+        this.w15_upgrade_counts = this.w15_upgrade_counts or {}
+        this.w15_upgrade_counts.fire_rate = (this.w15_upgrade_counts.fire_rate or 0) + 1
+    elseif key == 'rocket_dmg' then
+        this.w15_upgrade_counts = this.w15_upgrade_counts or {}
+        this.w15_upgrade_counts.rocket_dmg = (this.w15_upgrade_counts.rocket_dmg or 0) + 1
+    elseif key == 'tesla_dmg' then
+        this.w15_upgrade_counts = this.w15_upgrade_counts or {}
+        this.w15_upgrade_counts.tesla_dmg = (this.w15_upgrade_counts.tesla_dmg or 0) + 1
+    elseif key == 'coin' then
+        -- 金币收入 +1%，可叠加；上限 +10%（达上限后本次不追加，但仍可被随机抽中）
+        this.w15_coin_mult = (this.w15_coin_mult or 1) + W15_COIN_BONUS
+        if this.w15_coin_mult > W15_COIN_CAP then this.w15_coin_mult = W15_COIN_CAP end
+    elseif key == 'repair' then
+        -- 全场修复：优先遍历已登记炮塔表（与供能系统一致，直接持有实体引用，
+        -- 不依赖 surface/force 匹配，可靠覆盖全部 4 种炮塔），再补充扫描全场 player 势力实体。
+        local this = WPT.get()
+        if this and this.world15_registered_turrets then
+            for _, turret in pairs(this.world15_registered_turrets) do
+                if turret and turret.valid and turret.health and turret.max_health and turret.health < turret.max_health then
+                    turret.health = turret.max_health
+                end
+            end
+        end
+        local surface = world15_get_surface()
+        if surface then
+            for _, ent in pairs(surface.find_entities_filtered{force = 'player'}) do
+                -- 用 health 赋值修复，避免 ent.repair() 对无 repair 字段的实体抛错
+                if ent.valid and ent.health and ent.max_health and ent.health < ent.max_health then
+                    ent.health = ent.max_health
+                end
+            end
+        end
+        for _, p in pairs(game.players) do
+            if p.valid and p.character and p.character.valid and p.character.max_health then
+                p.character.health = p.character.max_health
+            end
+        end
+    elseif key == 'instant_coin' then
+        local amt = math.floor(1000 * (this.w15_coin_mult or 1))
+        for _, p in pairs(game.connected_players) do
+            if p.valid and p.force.name == fname then p.insert({name = 'coin', count = amt}) end
+        end
+    end
+    world15_reassert_modifiers()
+end
+
+-- 卡片1 旧实现（精良木箱点击触发 + 每20波投放 + per-player 点选）已移除。
+-- 现改为直接投票弹窗，相关函数见上方 world15_start_vote / world15_vote_tick / on_world15_vote_click。
+
+--==============================================================================
+-- 卡片7：完美波挑战 + 成就（世界15 自包含，零框架改动，world_number==15 自守）
+-- 范围：核心完美波 + M1 速通连击 + M6 总击杀。M2/M3/M4/M5 本轮挂起。
+-- 关键事实：WD.get('active_biters') 只含波防刷怪（spawn_unit_group 入表），
+--          野生虫巢刷出的怪不在此表 → 完美波判定天然不含野怪。
+--==============================================================================
+
+-- —— 配置（集中，便于调参）——
+local W15_PERFECT_SECONDS = 20
+local W15_PERFECT_TICKS   = W15_PERFECT_SECONDS * 60   -- 1200 tick
+local W15_PERFECT_MULT    = 5     -- 完美波奖励 = 5 × 当前波次编号（金币/人）；Boss 波跳过
+local W15_BOSS_WAVE_MOD   = 100   -- 每 100 波为 Boss 波，跳过完美波挑战
+
+-- M1 速通连击：连续完美波达阈值 → 额外金币（= 当次完美奖励 × 倍率），一次性去重
+local W15_COMBO_TIERS = { { n = 10, mult = 2 }, { n = 20, mult = 3 }, { n = 30, mult = 5 } }
+-- M6 总击杀：累计击杀达阈值 → 一次性金币（含一切 enemy 单位死亡，含野生虫）
+local W15_TOTALKILL_TIERS = { { n = 10000, gold = 1000 }, { n = 50000, gold = 5000 }, { n = 100000, gold = 15000 } }
+
+-- 确保世界15 成就/统计状态存在（幂等）
+local function world15_ach_ensure(this)
+    this.world15_ach_claimed = this.world15_ach_claimed or {}
+    this.world15_kill_stats  = this.world15_kill_stats or
+        { total = 0, consecutive = 0, perfect_total = 0 }
+    this.world15_perfect     = this.world15_perfect or
+        { last_wave = 0, active = false, start_tick = 0, peak = 0, reached_zero = false }
+    return this
+end
+
+-- 全体在线玩家发放金币 + 可选全服播报（locale_key 可带最多 2 个 __N__ 参数）
+local function world15_give_all(amount, locale_key, p1, p2)
+    for _, p in pairs(game.connected_players) do
+        if p.valid then p.insert({ name = 'coin', count = amount }) end
+    end
+    if locale_key then
+        local color = { r = 1, g = 0.85, b = 0.2 }
+        if p2 ~= nil then
+            game.print({ locale_key, p1, p2 }, color)
+        elseif p1 ~= nil then
+            game.print({ locale_key, p1 }, color)
+        else
+            game.print({ locale_key }, color)
+        end
+    end
+end
+
+-- 完美波达成：发奖 + 推进 M1 连击
+local function world15_award_perfect(this, wave)
+    world15_ach_ensure(this)
+    local reward = W15_PERFECT_MULT * wave
+    world15_give_all(reward, 'amap.world15_perfect_clear', wave, reward)
+
+    local ks = this.world15_kill_stats
+    ks.consecutive  = (ks.consecutive or 0) + 1
+    ks.perfect_total = (ks.perfect_total or 0) + 1
+
+    local claimed = this.world15_ach_claimed
+    for _, t in ipairs(W15_COMBO_TIERS) do
+        if ks.consecutive >= t.n and not claimed['combo_' .. t.n] then
+            claimed['combo_' .. t.n] = true
+            world15_give_all(reward * t.mult, 'amap.world15_ach_combo', ks.consecutive, reward * t.mult)
+        end
+    end
+end
+
+-- 击杀计数钩子（on_entity_died）：累计一切 enemy 单位死亡 → M6 总击杀里程碑
+local function world15_on_enemy_died(event)
+    local entity = event.entity
+    if not entity or not entity.valid then return end
+    if not entity.force or entity.force.name ~= 'enemy' then return end
+    local this = WPT.get()
+    if not this then return end
+    world15_ach_ensure(this)
+    local ks = this.world15_kill_stats
+    ks.total = (ks.total or 0) + 1
+    local claimed = this.world15_ach_claimed
+    for _, t in ipairs(W15_TOTALKILL_TIERS) do
+        if ks.total >= t.n and not claimed['totalkill_' .. t.n] then
+            claimed['totalkill_' .. t.n] = true
+            world15_give_all(t.gold, 'amap.world15_ach_totalkill', t.n, t.gold)
+        end
+    end
+end
+
+-- 主循环（每 60 tick）：检测波次递增 → 启动/结算 20 秒完美波挑战
+local function world15_perfect_tick(event)
+    local wpt = WPT.get()
+    if not wpt or (wpt.world_number or 0) ~= 15 then return end
+    local this = wpt
+    world15_ach_ensure(this)
+
+    local wave = WD.get('wave_number') or 0
+    if wave <= 0 then return end
+
+    local pf = this.world15_perfect
+
+    -- 检测波次递增 → 新波开始
+    if pf.last_wave ~= wave then
+        pf.last_wave = wave
+        if wave % W15_BOSS_WAVE_MOD == 0 then
+            -- Boss 波：跳过挑战（跳过≠失败，不重置连击）
+            pf.active = false
+        else
+            pf.active = true
+            pf.start_tick = game.tick
+            pf.peak = 0
+            pf.reached_zero = false
+        end
+        return
+    end
+
+    if not pf.active then return end
+
+    local elapsed = game.tick - pf.start_tick
+    local count = WD.get('active_biter_count') or 0
+    if count > pf.peak then pf.peak = count end
+    if count == 0 then pf.reached_zero = true end
+
+    if elapsed >= W15_PERFECT_TICKS then
+        pf.active = false
+        if pf.peak > 0 and pf.reached_zero then
+            -- 完美：窗口内波防虫曾全部清空
+            world15_award_perfect(this, wave)
+        else
+            -- 失败：重置 M1 连击
+            this.world15_kill_stats.consecutive = 0
+        end
+    end
+end
+
+--==============================================================================
 -- 事件注册
 --==============================================================================
 
@@ -1187,8 +1853,21 @@ Event.add(defines.events.on_chunk_generated, spawn_nests_in_chunk)
 Event.add(defines.events.on_chunk_generated, clear_rocks_in_chunk)
 Event.add(defines.events.on_chunk_generated, cleanup_sea_enemies_in_chunk)
 
+-- 卡片1 全服强化投票：直接弹窗投票 + 每 20 波发起 + 永久 modifier 幂等重申
+Event.add(defines.events.on_gui_click, on_world15_vote_click)
+Event.on_nth_tick(60, world15_vote_tick)
+Event.on_nth_tick(60, world15_reassert_modifiers)
+Event.on_nth_tick(60, world15_perfect_tick)              -- 卡片7：完美波挑战 + 连击/总击杀
+Event.add(defines.events.on_entity_died, world15_on_enemy_died)  -- 卡片7：累计击杀 → 总击杀里程碑
+
 Event.add(defines.events.on_player_joined_game, function(event)
     give_starter_items()
+    -- 世界15：投票进行中，给新加入玩家也弹投票框
+    local this = WPT.get()
+    if this and this.w15_vote then
+        local p = game.get_player(event.player_index)
+        if p and p.valid then world15_open_vote_gui(p, this.w15_vote) end
+    end
 end)
 
 -- 施工机器人建造同样受“仅中心正方形”限制
@@ -1207,7 +1886,7 @@ end)
 -- 注册到框架
 --==============================================================================
 
--- 车载开局物资钩子：世界15 仅发放战斗类物品（gun-turret / 弹药 / stone-wall）+ 1000 金币。
+-- 车载开局物资钩子：世界15 仅发放战斗类物品（gun-turret / 弹药 / stone-wall）+ 1000 金币 + 20 个传说机枪炮塔。
 -- 由 tank.lua 在放置汽车时通过 World.get_field(world, 'on_car_placed') 调用。
 -- 返回 true 表示已处理（tank.lua 据此跳过通用物资循环），保持其它世界逻辑不变。
 local function on_car_placed(player, wave_number, car_items)
@@ -1224,6 +1903,9 @@ local function on_car_placed(player, wave_number, car_items)
     end
     player.insert({name = 'coin', count = 1000})
     player.print({"", "[color=255, 215, 0]", "世界15：开局赠送 1000 金币（已存入背包，可在出生点市场购买炮塔）", "[/color]"})
+    -- 开局额外赠送：20 个传说机枪炮塔（原理参考上方 1000 金币赠送，同在此放车钩子发放）
+    player.insert({name = 'gun-turret', count = 20, quality = 'legendary'})
+    player.print({"", "[color=255, 215, 0]", "世界15：开局赠送 20 个传说机枪炮塔（已存入背包）", "[/color]"})
     return true
 end
 
@@ -1327,6 +2009,9 @@ World.register(15, {
     -- 免费弹药系统：禁用 auto_put_turret 的扣背包弹逻辑（世界15 由 world15_supply_tick 持续补弹）
     free_turret_ammo = true,
 
+    -- 天赋间隔：每 15 级 +1 天赋（与竞技场一致；默认 35，由 tianfu.lua 经 World 配置表读取）
+    tianfu_jiange = 15,
+
 
     -- 汽车内禁止生成矿物 / 禁止暂停波防（纯塔防无矿设计）
     disable_car_resource_generation = true,
@@ -1345,12 +2030,30 @@ World.register(15, {
         ['artillery-shell'] = true,
     },
 
-    -- 岩石市场固定物品（14 项，按“所有物品价值表”定价，round(v)）
+    -- 岩石市场固定物品（按“所有物品价值表”定价，round(v)）
+    -- 炮塔：4 种 × 5 品质，价格取自“世界15 炮塔品质升级助手.html”全价目表
+    --   (基础价 × 原版品质倍率 1.0/1.3/1.6/1.9/2.5，round)
     rock_shop_extra_items = {
-        {name = 'gun-turret',           gold = 223},
-        {name = 'laser-turret',         gold = 1159},
-        {name = 'rocket-turret',        gold = 3235},
-        {name = 'tesla-turret',         gold = 15000},
+        {name = 'gun-turret',    quality = 'normal',   gold = 223},
+        {name = 'gun-turret',    quality = 'uncommon', gold = 290},
+        {name = 'gun-turret',    quality = 'rare',     gold = 357},
+        {name = 'gun-turret',    quality = 'epic',     gold = 424},
+        {name = 'gun-turret',    quality = 'legendary',gold = 558},
+        {name = 'laser-turret',  quality = 'normal',   gold = 1159},
+        {name = 'laser-turret',  quality = 'uncommon', gold = 1507},
+        {name = 'laser-turret',  quality = 'rare',     gold = 1854},
+        {name = 'laser-turret',  quality = 'epic',     gold = 2202},
+        {name = 'laser-turret',  quality = 'legendary',gold = 2898},
+        {name = 'rocket-turret', quality = 'normal',   gold = 3235},
+        {name = 'rocket-turret', quality = 'uncommon', gold = 4206},
+        {name = 'rocket-turret', quality = 'rare',     gold = 5176},
+        {name = 'rocket-turret', quality = 'epic',     gold = 6147},
+        {name = 'rocket-turret', quality = 'legendary',gold = 8088},
+        {name = 'tesla-turret',  quality = 'normal',   gold = 5015},
+        {name = 'tesla-turret',  quality = 'uncommon', gold = 6520},
+        {name = 'tesla-turret',  quality = 'rare',     gold = 8024},
+        {name = 'tesla-turret',  quality = 'epic',     gold = 9529},
+        {name = 'tesla-turret',  quality = 'legendary',gold = 12538},
         {name = 'land-mine',            gold = 17},
         {name = 'construction-robot',   gold = 245},
         {name = 'passive-provider-chest', gold = 379},
@@ -1363,7 +2066,7 @@ World.register(15, {
         {name = 'personal-roboport-mk2-equipment', gold = 28418},
     },
 
-    -- 车载开局物资钩子：仅发战斗类物品 + 1000 金币（函数定义在下方）
+    -- 车载开局物资钩子：仅发战斗类物品 + 1000 金币 + 20 个传说机枪炮塔（函数定义在下方）
     on_car_placed = on_car_placed,
 
     -- 天赋黑名单（世界15 禁用建造 / 生产 / 科技类天赋）
@@ -1387,6 +2090,19 @@ World.register(15, {
 
     -- 四路同时进攻：每路按整波压力生成（不平分威胁）
     spawn_threat_divisor = 1,
+
+    -- 波次强度重映射（框架扩展点，wave_defense 按世界查询）：
+    -- 后期强度不足 → 把原版 2000~4000 波的虫子强度线性映射到 1000~2000 波（2000 波通关前）。
+    -- 1000 波前不变；1000 波后有效强度波数 = 2000 + (波数 - 1000) * 2：
+    --   1001 波 ≈ 原版 2002 波强度，1500 波 = 原版 3000 波，2000 波通关 = 原版 4000 波。
+    -- 影响：兵种池、威胁值增长、品质虫概率、撼地虫出场（原 2500/3000/3500 → 1250/1500/1750 波）。
+    -- 仅影响强度计算，不改变真实 wave_number（GUI 波次显示 / Boss 间隔 / 科技解锁 / 2000 波胜利判定均不受影响）。
+    wave_strength_remap = function(wave_number)
+        if wave_number > 1000 then
+            return 2000 + (wave_number - 1000) * 2
+        end
+        return wave_number
+    end,
 
     -- 该世界参与随机选世界池
     selectable = true,
