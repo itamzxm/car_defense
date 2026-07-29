@@ -1044,7 +1044,7 @@ local function draw_talent_categories_tab(player, frame)
     local scroll = frame.add({
         type = "scroll-pane", 
         vertical_scroll_policy = 'auto',
-        horizontal_scroll_policy = 'never'
+        horizontal_scroll_policy = 'auto'
     })
     scroll.style.height = 400
     scroll.style.maximal_width = 510
@@ -1089,46 +1089,38 @@ local function draw_talent_categories_tab(player, frame)
         })
         count_label.style.font_color = CONST.COLORS.GREY
         
-        -- 显示该分类中的所有天赋
-        local talents_per_row = 7
-        local row_count = math.ceil(#category_talents / talents_per_row)
-        
-        for row = 1, row_count do
-            local talents_flow = category_frame.add({
-                type = "flow",
-                direction = "horizontal"
+        -- 显示该分类中的所有天赋（Table 网格布局，6列等宽）
+        local column_count = 6
+        local talents_table = category_frame.add({
+            type = "table",
+            column_count = column_count
+        })
+        talents_table.style.horizontal_spacing = 12
+        talents_table.style.vertical_spacing = 4
+        talents_table.style.maximal_width = 510
+
+        for i = 1, #category_talents do
+            local talent_id = category_talents[i]
+            local is_learned = player_talents[talent_id]
+
+            local talent_label = talents_table.add({
+                type = "label", 
+                caption = {'tianfu.' .. talent_id}, 
+                tooltip = {'tianfu.' .. talent_id .. '_tip', table.unpack(TianfuQuality.tip_args(talent_id, is_learned and TianfuQuality.idx(player, talent_id) or 1))}
             })
-            talents_flow.style.horizontal_spacing = 4
-            talents_flow.style.maximal_width = 510
-            
-            local start_idx = (row - 1) * talents_per_row + 1
-            local end_idx = math.min(row * talents_per_row, #category_talents)
-            
-            for i = start_idx, end_idx do
-                local talent_id = category_talents[i]
-                local is_learned = player_talents[talent_id]
-                
-                local talent_label = talents_flow.add({
-                    type = "label", 
-                    caption = {'tianfu.' .. talent_id}, 
-                    tooltip = {'tianfu.' .. talent_id .. '_tip', table.unpack(TianfuQuality.tip_args(talent_id, is_learned and TianfuQuality.idx(player, talent_id) or 1))}
-                })
-                
-                -- 已学习的天赋用青色，未学习的用灰色
-                if is_learned then
-                    talent_label.style.font_color = CONST.COLORS.CYAN
-                else
-                    talent_label.style.font_color = CONST.COLORS.GREY
-                end
-                
-                -- 添加分隔符（逗号），每行最后一个天赋不加逗号
-                if i < end_idx then
-                    local separator = talents_flow.add({
-                        type = "label", 
-                        caption = ","
-                    })
-                    separator.style.font_color = CONST.COLORS.GREY
-                end
+
+            if is_learned then
+                talent_label.style.font_color = CONST.COLORS.CYAN
+            else
+                talent_label.style.font_color = CONST.COLORS.GREY
+            end
+        end
+
+        -- 末行补空格，确保 table 列对齐
+        local remainder = #category_talents % column_count
+        if remainder ~= 0 then
+            for _ = 1, column_count - remainder do
+                talents_table.add({ type = "label", caption = "" })
             end
         end
     end
