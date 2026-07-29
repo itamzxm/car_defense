@@ -808,7 +808,7 @@ local function on_player_used_capsule(event)
     return
   end
 
-  local conjure_items = Public.get_spells()
+  local conjure_items = Public.rebuild_spells()
   local projectile_types = Public.get_projectiles
   local itam_spell = Public.get_itam_spell
 

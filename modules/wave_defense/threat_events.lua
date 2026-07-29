@@ -167,19 +167,8 @@ local function trigger_nest_kill_punish(char, nk)
 end
 
 local Public = {}
-
---- 有效强度波数：由世界 def 的 wave_strength_remap 重映射（set_next_wave 每波刷新）；
---- 未重映射的世界恒等于 wave_number；0/nil（旧存档或首波前）回退真实波数
-local function get_strength_wave()
-  local sw = WD.get('strength_wave_number')
-  if sw and sw > 0 then
-    return sw
-  end
-  return WD.get('wave_number')
-end
-
 local function more_biter()
-  local wave_number = get_strength_wave()
+  local wave_number = WD.get('wave_number')
   local k = game.forces.enemy.get_evolution_factor() * 1000
   if k > wave_number then
     wave_number = k
@@ -519,7 +508,7 @@ function Public.build_worm()
     return
   end
 
-  local wave_number = get_strength_wave()
+  local wave_number = WD.get('wave_number')
 
   local k =game.forces.enemy.get_evolution_factor()*1000
   if k >wave_number then
@@ -649,7 +638,7 @@ local function spawn_unit_spawner_inhabitants(entity, cause)
   end
   
   local current_time = game.tick
-  local wave_number = get_strength_wave()
+  local wave_number = WD.get('wave_number')
   local k = game.forces.enemy.get_evolution_factor() * 1000
   if k > wave_number then
     wave_number = k

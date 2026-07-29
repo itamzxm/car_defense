@@ -124,7 +124,7 @@ end
 
 -- Token 定义
 local lowdowm_1 = Token.register(function(player)
-    RPG = RPG or require 'modules.rpg.table'
+    
     RPG.update_player_stats(player)
 end)
 
@@ -240,7 +240,7 @@ local diankuang_self_loss_token = Token.register(function(data)
     local player = data.player
     if not player or not player.valid then return end
     if not player.character or not player.character.valid then return end
-    RPG = RPG or require 'modules.rpg.table'
+    
     local rpg_t = RPG.get_value_from_player(player.index)
     if not rpg_t then return end
     local hp_loss = player.character.max_health * 0.05
@@ -262,7 +262,7 @@ local diankuang_burst_token = Token.register(function(data)
     if not player.character or not player.character.valid then return end
     if not surface or not surface.valid then return end
     if not position then return end
-    RPG = RPG or require 'modules.rpg.table'
+    
     local rpg_t = RPG.get_value_from_player(player.index)
     if not rpg_t then return end
     local laser_bonus = game.forces.player.get_ammo_damage_modifier("laser") + 1
@@ -756,7 +756,7 @@ function Public.conjure_items()
         mana_cost = 300,
         tick = 100,
         enabled = true,
-        sprite = 'item/fluid-truck-pump'
+        sprite = 'item/offshore-pump'
     }
     spells[#spells + 1] = {
         name = {'spells.xiao_jingling'},
@@ -965,7 +965,7 @@ end
 function Public.huo_dun(position, surface, player, times)
     local level = times or 1
     if level > 80 then level = 80 end
-    RPG = RPG or require 'modules.rpg.table'
+    
     local rpg_t = RPG.get_value_from_player(player.index)
     local magicka_bonus = rpg_t.magicka or 0
     local damage_multiplier = magicka_bonus * 1
@@ -1032,7 +1032,7 @@ end
 function Public.shui_long_dan(position, surface, player, times)
     local level = times or 1
     if level > 80 then level = 80 end
-    RPG = RPG or require 'modules.rpg.table'
+    
     local rpg_t = RPG.get_value_from_player(player.index)
     local magicka_bonus = rpg_t.magicka or 0
     local damage_multiplier = magicka_bonus * 1
@@ -1129,7 +1129,7 @@ function Public.lightning_chain(position, surface, player, times)
         return false
     end
 
-    RPG = RPG or require 'modules.rpg.table'
+    
     local rpg_t = RPG.get_value_from_player(player.index)
     local magicka_bonus = rpg_t.magicka or 0
     local damage_multiplier = magicka_bonus * 1
@@ -1236,7 +1236,7 @@ end
 
 -- 虫海（ch）：消耗法力召唤随机虫群（12 秒后清理）
 function Public.ch(position, surface, player, times)
-    RPG = RPG or require 'modules.rpg.table'
+    
     local rpg_t = RPG.get('rpg_t')
     local mana_max = math.floor(rpg_t[player.index].mana) * 1.2 + times
     local forces = {}
@@ -1317,7 +1317,7 @@ end
 -- 小精灵召唤（xiao_jingling）：召唤 3-12 只 behemoth-spitter 作为法师宠物
 function Public.xiao_jingling(position, surface, player, times)
     local level = times or 1
-    RPG = RPG or require 'modules.rpg.table'
+    
     local rpg_t = RPG.get_value_from_player(player.index)
     local this = WPT.get()
     local spirit_count = 3 + (level - 1)
@@ -1507,7 +1507,7 @@ function Public.huanxing_huoshan_penfa(position, surface, player, times)
         return false
     end
 
-    RPG = RPG or require 'modules.rpg.table'
+    
     local rpg_t = RPG.get_value_from_player(player.index)
     local magicka_bonus = rpg_t.magicka or 0
     local damage_multiplier = magicka_bonus * 1
@@ -1563,7 +1563,7 @@ function Public.leizhenyu(position, surface, player, times)
     local level = times or 1
     if level > 80 then level = 80 end
 
-    RPG = RPG or require 'modules.rpg.table'
+    
     local rpg_t = RPG.get_value_from_player(player.index)
     local magicka_bonus = rpg_t.magicka or 0
     local damage_multiplier = magicka_bonus * 1
@@ -1601,7 +1601,7 @@ function Public.diankuang(position, surface, player, times)
     if not surface or not surface.valid then return false end
     if not position then return false end
 
-    RPG = RPG or require 'modules.rpg.table'
+    
     local rpg_t = RPG.get_value_from_player(player.index)
     if not rpg_t then return false end
 
@@ -1648,5 +1648,10 @@ Public.handlers = {
     ['huanxing_huoshan_penfa'] = Public.huanxing_huoshan_penfa,
     ['diankuang'] = Public.diankuang,
 }
+
+-- 延迟绑定：由 table.lua 在 require 后调用，解决循环依赖 + 运行时 require 限制
+function Public.set_rpg_ref(ref)
+    RPG = ref
+end
 
 return Public

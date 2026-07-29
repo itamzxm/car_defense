@@ -351,9 +351,6 @@ function Public.reset_wave_defense()
     this.wave_interval = 3600
     this.wave_enforced = false
     this.wave_number = 0
-    -- 有效强度波数：由世界 def 的 wave_strength_remap 重映射（set_next_wave 每波刷新）；
-    -- 未重映射的世界恒等于 wave_number，强度消费方（兵种池/品质池/撼地虫/巢穴生怪）读它
-    this.strength_wave_number = 0
     this.worm_building_chance = 3
     this.worm_building_density = 16
     this.worm_raffle = {}

@@ -37,6 +37,9 @@ Global.register(
 
 local Public = {}
 
+-- 注入 RPG 引用给 spells 模块，避免运行时 require（Factorio 禁止）
+Spells.set_rpg_ref(Public)
+
 Public.points_per_level = 5
 
 Public.experience_levels = {0}

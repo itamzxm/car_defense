@@ -316,16 +316,13 @@ function Public.refresh_shop(market)
         })
     end
 
-    -- 世界框架：部分世界（如世界15）在岩石市场追加固定物品（按“所有物品价值表”定价）
-    -- 若条目带 quality 字段则透传给 offer（市场原生支持品质 offer，见世界13 legendary wooden-chest）
+    -- 世界框架：部分世界（如世界15）在岩石市场追加固定物品（按"所有物品价值表"定价）
     local extra_items = World.get_field(this.world_number, 'rock_shop_extra_items')
     if extra_items then
         for _, item in ipairs(extra_items) do
-            local offer = {type = 'give-item', item = item.name, count = 1}
-            if item.quality then offer.quality = item.quality end
             market.add_market_item({
                 price = {{name = "coin", count = item.gold}},
-                offer = offer
+                offer = {type = 'give-item', item = item.name, count = 1}
             })
         end
     end
