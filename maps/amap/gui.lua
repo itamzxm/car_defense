@@ -343,7 +343,7 @@ local function draw_talent_tab(player, frame)
         vertical_scroll_policy = 'auto',
         horizontal_scroll_policy = 'never'
     })
-    scroll.style.height = 300
+    scroll.style.height = 260
     scroll.style.maximal_width = 510
 
     for talent_id, talent_quality in pairs(this.skill[player.name]) do
@@ -479,7 +479,7 @@ local function draw_skill_tab(player, frame)
         vertical_scroll_policy = 'auto',
         horizontal_scroll_policy = 'never'
     })
-    scroll.style.height = 200
+    scroll.style.height = 400
     scroll.style.maximal_width = 510
     
     local skill_flow = scroll.add({
@@ -643,7 +643,7 @@ local function draw_other_players_tab(player, frame)
         vertical_scroll_policy = 'auto',
         horizontal_scroll_policy = 'auto'
     })
-    scroll.style.height = 400
+    scroll.style.height = 435
     scroll.style.maximal_width = 510
     
     -- 创建垂直流布局
@@ -693,7 +693,7 @@ local function draw_other_players_tab(player, frame)
             })
             empty_label.style.font_color = CONST.COLORS.GREY
         else
-            local column_count = 4
+            local column_count = 5
             local talents_table = player_frame.add({
                 type = "table",
                 column_count = column_count
@@ -826,9 +826,9 @@ local function draw_world_bonus_tab(player, frame)
     local scroll = frame.add({
         type = "scroll-pane",
         vertical_scroll_policy = 'auto',
-        horizontal_scroll_policy = 'never'
+        horizontal_scroll_policy = 'auto'
     })
-    scroll.style.height = 300
+    scroll.style.height = 250
     scroll.style.maximal_width = 510
     
     local worlds_table = scroll.add({
@@ -1038,26 +1038,19 @@ local function draw_talent_categories_tab(player, frame)
         vertical_scroll_policy = 'auto',
         horizontal_scroll_policy = 'auto'
     })
-    scroll.style.height = 400
+    scroll.style.height = 435
     scroll.style.maximal_width = 510
-    
-    -- 创建垂直流布局
-    local categories_flow = scroll.add({
-        type = "flow", 
-        direction = "vertical"
-    })
-    categories_flow.style.vertical_spacing = 16
     
     -- 遍历每个分类
     for category_key, category_talents in pairs(tianfu_categories) do
         -- 创建分类框架
-        local category_frame = categories_flow.add({
+        local category_frame = scroll.add({
             type = "frame",
             direction = "vertical"
         })
         category_frame.style.maximal_width = 510
         category_frame.style.padding = 12
-        
+
         -- 分类标题行：分类名称 + 天赋数量
         local header_flow = category_frame.add({
             type = "flow",
@@ -1082,7 +1075,7 @@ local function draw_talent_categories_tab(player, frame)
         count_label.style.font_color = CONST.COLORS.GREY
         
         -- 显示该分类中的所有天赋（Table 网格布局，4列等宽）
-        local column_count = 4
+        local column_count = 5
         local talents_table = category_frame.add({
             type = "table",
             column_count = column_count
@@ -1156,6 +1149,8 @@ local function tianfu_gui(player)
         name = CONST.CONTENT_OCCUPATION_COOLDOWN, 
         direction = "vertical"
     })
+    content1.style.height = 450
+    content1.style.minimal_width = 510
     tabbed_pane.add_tab(tab1, content1)
     
     -- 职业选择部分
@@ -1196,6 +1191,8 @@ local function tianfu_gui(player)
         name = CONST.CONTENT_SKILL_UPGRADE, 
         direction = "vertical"
     })
+    content2.style.height = 450
+    content2.style.minimal_width = 510
     tabbed_pane.add_tab(tab2, content2)
     
     -- 技能升级部分
@@ -1217,6 +1214,8 @@ local function tianfu_gui(player)
         name = CONST.CONTENT_OTHER_PLAYERS, 
         direction = "vertical"
     })
+    content3.style.height = 450
+    content3.style.minimal_width = 510
     tabbed_pane.add_tab(tab3, content3)
     
     draw_other_players_tab(player, content3)
@@ -1232,6 +1231,8 @@ local function tianfu_gui(player)
         name = CONST.CONTENT_WORLD_BONUS, 
         direction = "vertical"
     })
+    content4.style.height = 450
+    content4.style.minimal_width = 510
     tabbed_pane.add_tab(tab4, content4)
     
     draw_world_bonus_tab(player, content4)
@@ -1247,6 +1248,8 @@ local function tianfu_gui(player)
         name = CONST.CONTENT_TALENT_CATEGORIES, 
         direction = "vertical"
     })
+    content5.style.height = 450
+    content5.style.minimal_width = 510
     tabbed_pane.add_tab(tab5, content5)
     
     draw_talent_categories_tab(player, content5)
