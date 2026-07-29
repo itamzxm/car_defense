@@ -1084,20 +1084,12 @@ local function init_technologies_for_force(force)
 end
 
 local function init_technologies()
-    -- 双重判断：world_number 或 diff.get().world 任一为 15 即放行。
-    -- world_number 在 reset_map 中赋值、diff.get().world 在选世界后更新，两者时机不同；
-    -- 用「或」避免任一方尚未就绪时过早 return（曾导致开局科技永不解锁）。
-    local this = WPT.get()
-    local map = diff.get()
-    if not this or (this.world_number ~= 15 and (not map or map.world ~= 15)) then return end
-
-    this.world15_techs_unlocked = this.world15_techs_unlocked or {}
+    -- 由框架 main.lua reset_map 的 on_world_start 钩子调用：
+    -- 每次「进入 / 重进」世界15 都会执行（含火箭发射井爆炸后重进），
+    -- 不再依赖 on_nth_tick / give_starter_items 的自驱动，避免重进世界科技不解锁。
     -- 对每个在线玩家的真实势力执行初始化（幂等，per-force），避免只动默认 player 势力。
     for _, force in pairs(world15_get_player_forces()) do
-        if not this.world15_techs_unlocked[force.index] then
-            init_technologies_for_force(force)
-            this.world15_techs_unlocked[force.index] = true
-        end
+        init_technologies_for_force(force)
     end
 end
 
@@ -1145,14 +1137,13 @@ local function give_starter_items()
     if not this or (this.world_number ~= 15 and (not map or map.world ~= 15)) then return end
 
     -- ===== 世界级一次性初始化（科技 / 边界）=====
-    if not this.world15_started then
-        this.world15_started = true
+        if not this.world15_started then
+            this.world15_started = true
 
-        -- 先解锁科技
-        init_technologies()
+            -- 科技解锁已移至框架 main.lua reset_map 的 on_world_start 钩子（每次进入/重进世界15 均执行）
 
-        -- 绘制可建区边界到小地图（仅一次）
-        render_buildable_area()
+            -- 绘制可建区边界到小地图（仅一次）
+            render_buildable_area()
 
         -- N-05：在出生点 (0,-5) 创建市场 market（供玩家直接交易，4 种炮塔购买挂在主市场 rock.lua）。
         -- 金币不再挂钩任何商店：开局放车由 item_build_car 直发 1000 coin，击杀/Boss 奖励每 tick 回灌背包。
@@ -1213,6 +1204,67 @@ local function give_starter_items()
 end
 
 --==============================================================================
+-- 跨存档全局元进度（同一玩家在所有存档累计、永久绑定账号）
+-- 机制：Factorio 运行时沙箱无文件读取 API，故把累计次数写入全局 script-output
+--      （跨所有存档、随账号永久保留于本机），并自动生成“继承命令”写入同目录；
+--      新存档进游戏后把该命令粘贴到控制台一次即可继承。游戏内加成以
+--      this.world15_hp_bonus[pidx]（累计通关次数）为唯一真值，进入世界15/重生时 SET 应用。
+--==============================================================================
+
+local function world15_meta_filename(player)
+    local safe = tostring(player.name):gsub('[^%w%-_]', '_')
+    return 'world15_meta/world15_hp_' .. safe .. '.json'
+end
+
+-- 把某玩家累计通关次数持久化到全局 script-output（全局账本 + 可粘贴继承命令）
+local function world15_write_meta(player, total)
+    local data = { name = player.name, clears = total, hp_bonus = total * 10 }
+    pcall(helpers.write_file, world15_meta_filename(player), helpers.table_to_json(data), false)
+    local safe = tostring(player.name):gsub('[^%w%-_]', '_')
+    local cmd = '/c world15_apply_global_hp("' .. player.name .. '", ' .. total .. ')'
+    pcall(helpers.write_file, 'world15_meta/world15_apply_' .. safe .. '.txt', cmd, false)
+end
+
+-- 给玩家设置初始生命加成：count=累计通关次数；fresh=true 角色刚创建(SET绝对+补满)，false 游戏中增量(+10)
+local function world15_apply_hp_to_player(player, count, fresh)
+    if not player or not player.valid or not player.character or not player.character.valid then return end
+    local char = player.character
+    if fresh then
+        char.character_health_bonus = count * 10
+        char.health = char.health + count * 10
+    else
+        char.character_health_bonus = (char.character_health_bonus or 0) + 10
+        char.health = char.health + 10
+    end
+end
+
+-- 控制台继承命令（由脚本自动生成到 script-output/world15_meta/，新存档粘贴一次即可）
+function world15_apply_global_hp(name, total)
+    local this = WPT.get()
+    this.world15_hp_bonus = this.world15_hp_bonus or {}
+    for _, player in pairs(game.players) do
+        if player.name == name then
+            local pidx = player.index
+            this.world15_hp_bonus[pidx] = total
+            world15_apply_hp_to_player(player, total, true)
+            player.print({'amap.world15_meta_applied', total * 10}, {r = 0.3, g = 1, b = 0.3})
+        end
+    end
+end
+
+-- 进入/重进世界15 钩子：先解锁科技，再给所有在线玩家补发已累计的初始生命加成
+local function world15_on_world_start(world_number)
+    init_technologies()
+    local this = WPT.get()
+    if not this.world15_hp_bonus then return end
+    for _, player in pairs(game.connected_players) do
+        if player.force == game.forces.player then
+            world15_apply_hp_to_player(player, this.world15_hp_bonus[player.index] or 0, true)
+        end
+    end
+end
+
+--==============================================================================
 -- on_tick 主循环
 --==============================================================================
 
@@ -1244,9 +1296,26 @@ local function on_tick(event)
     local wave_number = WD.get('wave_number') or 0
 
     if wave_number >= 2000 then
+        -- 通关奖励：每次通关给每位玩家 +10 初始生命值（可叠加，唯一真值=this.world15_hp_bonus[pidx] 累计通关次数）
+        -- 同时写入全局 script-output 账本（跨存档、永久绑定账号）+ 生成继承命令
+        this.world15_hp_bonus = this.world15_hp_bonus or {}
+        this.world15_rewarded = this.world15_rewarded or {}
         for _, player in pairs(game.connected_players) do
             if player.force == game.forces.player then
                 player.print({"amap.world15_victory"}, {r = 1, g = 0.85, b = 0})
+                local pidx = player.index
+                -- 每位玩家仅发放一次（can_continue 后 on_tick 每 tick 重入）
+                if not this.world15_rewarded[pidx] then
+                    this.world15_rewarded[pidx] = true
+                    this.world15_hp_bonus[pidx] = (this.world15_hp_bonus[pidx] or 0) + 1
+                    local total = this.world15_hp_bonus[pidx]
+                    -- 游戏中增量发放：当前角色生命上限 +10、当前生命 +10
+                    world15_apply_hp_to_player(player, total, false)
+                    -- 跨存档账本：写入全局 script-output（永久、跨存档）+ 生成继承命令
+                    world15_write_meta(player, total)
+                    player.print({"amap.world15_victory_hp", total * 10}, {r = 0.4, g = 1, b = 0.4})
+                    player.print({"amap.world15_meta_apply_hint"}, {r = 0.6, g = 0.8, b = 1})
+                end
             end
         end
         game.set_game_state({game_finished = true, player_won = true, can_continue = true})
@@ -1266,8 +1335,7 @@ local function enforce_world15_techs()
     local this = WPT.get()
     if not this then return end
 
-    -- 一次性解锁非禁用科技（受 world15_techs_unlocked 标志保护，仅首次真正执行）
-    init_technologies()
+    -- 一次性科技解锁已移至框架 main.lua reset_map 的 on_world_start 钩子（每次进入/重进世界均执行）
 
     local wave_number = WD.get('wave_number') or 0
 
@@ -1868,6 +1936,24 @@ Event.add(defines.events.on_player_joined_game, function(event)
         local p = game.get_player(event.player_index)
         if p and p.valid then world15_open_vote_gui(p, this.w15_vote) end
     end
+    -- 世界15：进入世界后加入的玩家，按已累计通关次数补发初始生命加成（SET 语义，幂等）
+    if this and (this.world_number or 0) == 15 and this.world15_hp_bonus then
+        local p = game.get_player(event.player_index)
+        if p and p.valid then
+            world15_apply_hp_to_player(p, this.world15_hp_bonus[p.index] or 0, true)
+        end
+    end
+end)
+
+-- 世界15：玩家重生时重新应用已累计的初始生命加成（新角色默认 bonus=0，需补回）
+Event.add(defines.events.on_player_respawned, function(event)
+    local this = WPT.get()
+    if (this and this.world_number or 0) ~= 15 then return end
+    if not this.world15_hp_bonus then return end
+    local player = game.get_player(event.player_index)
+    if player and player.valid then
+        world15_apply_hp_to_player(player, this.world15_hp_bonus[player.index] or 0, true)
+    end
 end)
 
 -- 施工机器人建造同样受“仅中心正方形”限制
@@ -1986,19 +2072,16 @@ World.register(15, {
     unlock_planet_technologies = false,
     planet_resource_boost = false,
 
-    -- 开局解锁科技（在 give_starter_items 中通过 init_technologies 处理）
+    -- 开局解锁科技统一由框架 main.lua reset_map 经 on_world_start 钩子调用 init_technologies 处理（见下方 on_world_start 字段）
     unlocked_technologies = {},
 
     -- 填海：允许（用户要求不限制）
     landfill_allowed = true,
 
-    -- 通关奖励：激光炮塔伤害
-    world_bonus_type = {
-        name = 'character_laser_turret_damage_bonus',
-        force_modifier = 'laser_turret_damage_modifier',
-        base_value = 0.03,
-        max_value = 0.20,
-    },
+    -- 通关奖励：改为「每次通关 +10 玩家初始生命值（可叠加）」
+    -- 不再走框架 world_bonus_type（force 级、按波数缩放、不可叠加），改由世界15 模块自管：
+    -- 见 on_tick 胜利分支（按玩家累加 character_health_bonus）与 on_player_joined_game（补发后加入玩家）
+    world_bonus_type = nil,
 
     -- 参与终极奖励
     joins_solar_system_edge = true,
@@ -2087,6 +2170,11 @@ World.register(15, {
     spawn_boss = spawn_boss,
     boss_interval = BOSS_INTERVAL,
     unlock_progressive_techs = unlock_progressive_weapon_techs,
+
+    -- 开局科技解锁钩子：每次「进入 / 重进」世界15 时由框架 main.lua reset_map 调用。
+    -- 修复「火箭发射井爆炸后重进世界15，科技无法正常解锁」——此前解锁仅靠世界模块 on_nth_tick
+    -- 自驱动且受持久化标志保护，重进世界时不重新触发。现统一在框架重进入口执行，稳定可靠。
+    on_world_start = world15_on_world_start,
 
     -- 四路同时进攻：每路按整波压力生成（不平分威胁）
     spawn_threat_divisor = 1,
