@@ -1379,35 +1379,10 @@ local function on_tick()
             end
 
             for _, skill_name in ipairs(skills) do
-                local should_schedule_next = true
-
-                if can_call and not is_tianfu_blacklisted(skill_name) then
-                    -- 仍在学（未被 delete_talent 删除）
-                    if p_time_skills and p_time_skills[skill_name] then
-                        -- 启用状态（tianfu_enabled[idx][skill] ~= false 表示启用）
-                        if enabled[skill_name] ~= false then
-                            local skill_func = time_skill_funcs[skill_name]
-                            if skill_func then
-                                -- 调用前先记录触发时刻，供 GUI 冷却条计算剩余时间
-                                player_cooldowns[skill_name] = current_tick
-                                -- ★ check_tick 已退化为恒 true（桶调度保证到期，check_tick 会通过）
-                                skill_func(player, q_table[skill_name] or 1)
-                            end
-                        end
-                    else
-                        -- 技能已删除（delete_talent 清理了 player_time_skills），不再登记下一次
-                        should_schedule_next = false
-                    end
-                else
-                    -- 不可调用（断线/副本内/AFK）或黑名单：不调用天赋，但仍登记下一次到期保持链不断
-                    -- 仅检查技能是否仍学习，已删除的不再登记
-                    if not (p_time_skills and p_time_skills[skill_name]) then
-                        should_schedule_next = false
-                    end
-                end
-
-                -- 登记下一次到期（保持桶调度链不断；已删除技能不登记）
-                if should_schedule_next then
+                -- ★ 无条件优先登记下一次到期（只要技能未删除），与是否调用/触发成功完全解耦
+                -- 这样玩家死亡/进副本/断线/AFK 时链都不会断，恢复可调用状态后自动恢复触发
+                local skill_still_learned = p_time_skills and p_time_skills[skill_name]
+                if skill_still_learned then
                     local cooldown = (time_skills[skill_name] or {}).time or 60
                     if cooldown <= 0 then cooldown = 1 end
                     local next_tick = current_tick + cooldown
@@ -1422,6 +1397,19 @@ local function on_tick()
                         next_bucket[player_index] = next_player_skills
                     end
                     next_player_skills[#next_player_skills + 1] = skill_name
+                end
+
+                -- 调用天赋（仅在可调用且未黑名单且启用时）
+                if can_call and skill_still_learned
+                   and not is_tianfu_blacklisted(skill_name)
+                   and enabled[skill_name] ~= false then
+                    local skill_func = time_skill_funcs[skill_name]
+                    if skill_func then
+                        -- 调用前先记录触发时刻，供 GUI 冷却条计算剩余时间
+                        player_cooldowns[skill_name] = current_tick
+                        -- ★ check_tick 已退化为恒 true（桶调度保证到期，check_tick 会通过）
+                        skill_func(player, q_table[skill_name] or 1)
+                    end
                 end
             end
             ::next_player::
