@@ -709,12 +709,19 @@ local function draw_other_players_tab(player, frame)
                 
                 for i = start_idx, end_idx do
                     local talent = talents[i]
+                    local skill_id = talent[1]:sub(8)
+                    local q = TianfuQuality.idx(online_player, skill_id)
                     local talent_label = talents_flow.add({
                         type = "label", 
                         caption = talent, 
-                        tooltip = {'tianfu.' .. talent[1]:sub(8) .. '_tip', table.unpack(TianfuQuality.tip_args(talent[1]:sub(8), TianfuQuality.idx(online_player, talent[1]:sub(8))))}
+                        tooltip = {'tianfu.' .. skill_id .. '_tip', table.unpack(TianfuQuality.tip_args(skill_id, q))}
                     })
-                    talent_label.style.font_color = CONST.COLORS.CYAN
+                    local q_color = TianfuQuality.color(q)
+                    if q_color then
+                        talent_label.style.font_color = { r = q_color.r / 255, g = q_color.g / 255, b = q_color.b / 255 }
+                    else
+                        talent_label.style.font_color = CONST.COLORS.CYAN
+                    end
                     
                     -- 添加分隔符（逗号），每行最后一个天赋不加逗号
                     if i < end_idx then
