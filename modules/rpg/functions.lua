@@ -306,7 +306,7 @@ function Public.repair_aoe(player, position)
     local e = entities[i]
     local car= false 
     if car_name[e.name] then
-      car = ture
+      car = true
     end
     if e.max_health ~= e.health and car==false  then
       count = count + 1

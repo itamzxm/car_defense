@@ -22,7 +22,7 @@ local COEFF_REG = {1, 1.2, 1.4, 1.6, 1.8}
 -- 成品类天赋：物品品质名（q_idx 1..5 → normal..legendary），用于 player.insert 的 quality 字段
 local QUALITY_NAMES = {'normal', 'uncommon', 'rare', 'epic', 'legendary'}
 
-local goal = {'unit', 'turret ', 'unit-spawner','spider-leg','combat-robot','spider-unit'}
+local goal = {'unit', 'turret', 'unit-spawner','spider-leg','combat-robot','spider-unit'}
 
 local function get_player_car_entity(player, q_idx)
     local this = WPT.get()
