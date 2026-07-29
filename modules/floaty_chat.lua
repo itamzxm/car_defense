@@ -1,0 +1,63 @@
+﻿local Event = require 'utils.event'
+local Global = require 'utils.global'
+
+local this =
+{
+    player_floaty_chat = {}
+}
+
+Global.register(this,
+    function (tbl)
+        this = tbl
+    end)
+
+local function on_console_chat(event)
+	if not event.message then return end
+	if not event.player_index then return end
+	local player = game.players[event.player_index]
+	if not player.character then return end
+
+	local y_offset = -4
+	if is_loaded('modules.rpg') then y_offset = -4.5 end
+
+	local prev_text = this.player_floaty_chat[player.index]	if prev_text and prev_text.valid then
+		prev_text.destroy()
+	end
+
+	local players = {}
+	for _, p in pairs(game.connected_players) do
+		if player.force.index == p.force.index then
+			players[#players + 1] = p
+		end
+	end
+	if #players == 0 then return end
+
+	this.player_floaty_chat[player.index] = rendering.draw_text{
+		text = event.message,
+		surface = player.physical_surface,
+		target = player.character,
+		target_offset = {-0.05, y_offset},
+		color = {
+			r = player.color.r * 0.6 + 0.25,
+			g = player.color.g * 0.6 + 0.25,
+			b = player.color.b * 0.6 + 0.25,
+			a = 1
+		},
+		players = players,
+		time_to_live = 600,
+		scale = 1.50,
+		font = "default-game",
+		alignment = "center",
+		scale_with_zoom = false
+	}
+
+    if event.message:sub(1,1) == "/" then return end
+
+    for _, force in pairs(game.forces) do
+        if force ~= player.force then
+            force.print(player.name .. ": " .. event.message, player.color)
+        end
+    end
+end
+
+Event.add(defines.events.on_console_chat, on_console_chat)

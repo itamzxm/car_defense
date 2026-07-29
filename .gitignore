@@ -1,0 +1,23 @@
+# 默认忽略所有内容（* 会递归匹配任意深度的文件名）
+*
+
+# 仅跟踪以下 8 个子目录（先解除目录本身，再递归解除其全部内容）
+!png/
+!png/**
+!comfy_panel/
+!comfy_panel/**
+!commands/
+!commands/**
+!functions/
+!functions/**
+!locale/
+!locale/**
+!maps/
+!maps/**
+!modules/
+!modules/**
+!utils/
+!utils/**
+
+# 跟踪本范围约束文件本身（它是限定范围生效的关键）
+!.gitignore
