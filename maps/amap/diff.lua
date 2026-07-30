@@ -427,6 +427,7 @@ function Public.apply_world_bonuses()
     this.experience_bonus = 0
     
     local modifier_map = {
+        character_health_bonus = function(value) force.character_health_bonus = force.character_health_bonus + value end,
         character_inventory_slots_bonus = function(value) force.character_inventory_slots_bonus = force.character_inventory_slots_bonus + value end,
         character_running_speed_modifier = function(value) force.character_running_speed_modifier = force.character_running_speed_modifier + value end,
         mining_drill_productivity_bonus = function(value) force.mining_drill_productivity_bonus = force.mining_drill_productivity_bonus + value end,
