@@ -340,6 +340,52 @@ local function world15_enforce_tesla_limit(entity, owner)
 end
 
 --==============================================================================
+-- 火箭炮塔放置上限（世界15 平衡：火箭弹伤害/范围过高，按品质限制数量）
+--   全服总量上限（跨玩家共享）：普通 40 / 精良 20 / 稀有 16 / 史诗 12 / 传说 8
+--   仅在玩家/机器人放下 rocket-turret 时校验；超限则销毁并退还同品质物品。
+--==============================================================================
+local W15_ROCKET_QUALITY_LIMIT = {
+    normal    = 40,
+    uncommon  = 20,
+    rare      = 16,
+    epic      = 12,
+    legendary = 8,
+}
+
+-- 统计指定品质的火箭炮塔已放置数量（含刚放下的这尊）
+local function world15_count_rocket_of_quality(surface, quality_name)
+    local list = surface.find_entities_filtered{name = 'rocket-turret'}
+    local n = 0
+    for _, t in ipairs(list) do
+        if t.valid and t.quality and t.quality.name == quality_name then
+            n = n + 1
+        end
+    end
+    return n
+end
+
+-- 火箭炮塔放置上限校验：超限则销毁新炮塔并退还物品（按品质）
+local function world15_enforce_rocket_limit(entity, owner)
+    if not entity or not entity.valid then return end
+    if entity.name ~= 'rocket-turret' then return end
+    local q = (entity.quality and entity.quality.name) or 'normal'
+    local limit = W15_ROCKET_QUALITY_LIMIT[q]
+    if not limit then return end
+    local surface = entity.surface
+    if not surface or not surface.valid then return end
+    -- 统计该品质已放置总数（含刚放下的这尊）
+    local count = world15_count_rocket_of_quality(surface, q)
+    if count <= limit then return end
+    -- 超限：销毁并退还同品质物品，提示放置者
+    entity.destroy()
+    if owner and owner.valid then
+        owner.insert({name = 'rocket-turret', count = 1, quality = q})
+        owner.print({'amap.world15_rocket_limit', W15_QUALITY_CN[q] or q, limit},
+            {r = 1, g = 0.6, b = 0.2})
+    end
+end
+
+--==============================================================================
 -- 建筑区域限制
 --==============================================================================
 
@@ -368,6 +414,10 @@ local function on_built_entity(event)
         -- 世界15：特斯拉炮塔按品质限制放置数量（超限销毁并退还物品）
         if entity.name == 'tesla-turret' then
             world15_enforce_tesla_limit(entity, player)
+        end
+        -- 世界15：火箭炮塔按品质限制放置数量（超限销毁并退还物品）
+        if entity.valid and entity.name == 'rocket-turret' then
+            world15_enforce_rocket_limit(entity, player)
         end
         if not entity.valid then return end  -- 超限已被销毁，跳过后续登记/充能
         -- N-01：中心正方形内 4 种炮塔 minable_flag=false 禁拆
@@ -405,6 +455,10 @@ local function on_robot_built_entity(event)
         -- 世界15：特斯拉炮塔按品质限制放置数量（超限销毁并退还物品）
         if entity.name == 'tesla-turret' then
             world15_enforce_tesla_limit(entity, owner)
+        end
+        -- 世界15：火箭炮塔按品质限制放置数量（超限销毁并退还物品）
+        if entity.valid and entity.name == 'rocket-turret' then
+            world15_enforce_rocket_limit(entity, owner)
         end
         if not entity.valid then return end  -- 超限已被销毁，跳过后续登记/充能
         -- N-01：中心正方形内 4 种炮塔 minable_flag=false 禁拆
@@ -478,61 +532,92 @@ local function spawn_boss(wave_number)
     local target = WD.get('target')
     local center = (target and target.valid) and {x = target.position.x, y = target.position.y} or {x = 0, y = 0}
 
-    -- 四个通道按波次轮流：下 → 右 → 上 → 左（每 100 波推进一个通道）
-    local channel_names = {"下通道", "右通道", "上通道", "左通道"}
-    local channel_offsets = {
-        {x = 0, y = -SPAWN_DISTANCE},    -- 下通道
-        {x = SPAWN_DISTANCE, y = 0},     -- 右通道
-        {x = 0, y = SPAWN_DISTANCE},     -- 上通道
-        {x = -SPAWN_DISTANCE, y = 0},    -- 左通道
-    }
-    local channel_index = ((tier - 1) % #channel_offsets) + 1
-    local channel_name = channel_names[channel_index]
-    local entry = {
-        x = center.x + channel_offsets[channel_index].x,
-        y = center.y + channel_offsets[channel_index].y,
+    -- 四个方向定义（已纠正上/下通道）：
+    -- Factorio 坐标系中 y 正方向向下(南=下通道)，负方向向上(北=上通道)。
+    -- 原代码把 -y 标成「下通道」、+y 标成「上通道」，正好反了，此处已修正。
+    local directions = {
+        {name = "下通道", offset = {x = 0, y =  SPAWN_DISTANCE}, perp = {x = 1, y = 0}},  -- 南
+        {name = "右通道", offset = {x =  SPAWN_DISTANCE, y = 0}, perp = {x = 0, y = 1}},  -- 东
+        {name = "上通道", offset = {x = 0, y = -SPAWN_DISTANCE}, perp = {x = 1, y = 0}},  -- 北
+        {name = "左通道", offset = {x = -SPAWN_DISTANCE, y = 0}, perp = {x = 0, y = 1}},  -- 西
     }
 
-    -- 逐步扩大搜索半径找可生成位置（stomper 体型大，需确保不落水/不卡墙）
-    local boss_pos = nil
-    for _, radius in ipairs({5, 10, 20, 50}) do
-        boss_pos = surface.find_non_colliding_position("big-stomper-pentapod", entry, radius, 1)
-        if boss_pos then break end
-    end
-    if not boss_pos then
-        boss_pos = entry  -- 兜底：直接在入口尝试
+    -- 决定本次 Boss 分布（数量/方向）：
+    --   <1000 波：维持原「四通道轮流出一只」机制（每 100 波推进一个通道）
+    --  >=1000 波：四个方向各出 1 只
+    --  >=1500 波：四个方向各出 5 只
+    -- 整波总奖励封顶不变（= 原单只 1000*tier），由本波所有 Boss 均分。
+    local active_dirs, count_per_dir
+    if wave_number >= 1500 then
+        active_dirs, count_per_dir = {1, 2, 3, 4}, 5
+    elseif wave_number >= 1000 then
+        active_dirs, count_per_dir = {1, 2, 3, 4}, 1
+    else
+        local idx = ((tier - 1) % #directions) + 1
+        active_dirs, count_per_dir = {idx}, 1
     end
 
-    local boss = surface.create_entity({
-        name = "big-stomper-pentapod",
-        position = boss_pos,
-        force = "enemy",
-    })
-    if boss then
-        -- ⚠️ Factorio 2.x：LuaEntity.max_health 只读，赋值会抛错并中断本函数，
-        -- 导致下面的进攻指令与 Boss 记录全部不执行（不进攻/不爆炸/不奖励的真根因，自测捕获）。
-        -- health 赋值会被引擎钳制到原型上限，故用赋值后的实际血量作为 max_hp。
-        boss.health = boss_hp
-        boss_hp = boss.health
+    local total_bosses = #active_dirs * count_per_dir
+    -- 整波总奖励封顶 = 原单只奖励(1000*tier)，均分给本波每只 Boss（无论几只总量不变）
+    local per_boss_reward = math.floor((1000 * tier) / total_bosses)
 
-        -- spider-unit（五足虫）不支持 set_command，必须用 unit_group 指挥其主动进攻中心
-        command_boss_to_center(boss, center)
+    local spread = 7          -- 同方向多 Boss 沿垂直通道展开间距(tile)
+    local spawned_channels = {}
+    local this = WPT.get()
+    if not this.world15_bosses then this.world15_bosses = {} end
 
-        local this = WPT.get()
-        if not this.world15_bosses then this.world15_bosses = {} end
-        this.world15_bosses[boss.unit_number] = {
-            wave = wave_number,
-            reward = 1000 * tier,                          -- 每 100 波 +1000 金币
-            max_hp = boss_hp,
-            spawn_pos = boss_pos,
-            revives_left = tier - 1,                       -- 100波=0次, 200波=1次 ...
-            death_dmg_pct = tier >= 2 and (50 + (tier - 2) * 5) or 0,  -- 200波=50%, 300波=55% ...
-            entity = boss,                                 -- 看门狗重新下令用
-        }
-        game.print({"amap.world15_boss_spawn", wave_number, math.floor(boss_hp)},
-            {r = 1, g = 0.3, b = 0})
-        game.print("Boss 出生通道：" .. channel_name, {r = 1, g = 0.6, b = 0})
+    for _, di in ipairs(active_dirs) do
+        local dir = directions[di]
+        for k = 0, count_per_dir - 1 do
+            -- 同方向多个 Boss 沿垂直方向等距展开，避免完全重叠
+            local lateral = (k - (count_per_dir - 1) / 2) * spread
+            local entry = {
+                x = center.x + dir.offset.x + dir.perp.x * lateral,
+                y = center.y + dir.offset.y + dir.perp.y * lateral,
+            }
+
+            -- 逐步扩大搜索半径找可生成位置（stomper 体型大，需确保不落水/不卡墙）
+            local boss_pos = nil
+            for _, radius in ipairs({5, 10, 20, 50}) do
+                boss_pos = surface.find_non_colliding_position("big-stomper-pentapod", entry, radius, 1)
+                if boss_pos then break end
+            end
+            if not boss_pos then
+                boss_pos = entry  -- 兜底：直接在入口尝试
+            end
+
+            local boss = surface.create_entity({
+                name = "big-stomper-pentapod",
+                position = boss_pos,
+                force = "enemy",
+            })
+            if boss then
+                -- ⚠️ Factorio 2.x：LuaEntity.max_health 只读，赋值会抛错并中断本函数，
+                -- 导致下面的进攻指令与 Boss 记录全部不执行（不进攻/不爆炸/不奖励的真根因，自测捕获）。
+                -- health 赋值会被引擎钳制到原型上限，故用赋值后的实际血量作为 max_hp。
+                boss.health = boss_hp
+                boss_hp = boss.health
+
+                -- spider-unit（五足虫）不支持 set_command，必须用 unit_group 指挥其主动进攻中心
+                command_boss_to_center(boss, center)
+
+                this.world15_bosses[boss.unit_number] = {
+                    wave = wave_number,
+                    reward = per_boss_reward,                     -- 整波总奖励封顶=1000*tier，均分至每只（不随 Boss 数量改变）
+                    max_hp = boss_hp,
+                    spawn_pos = boss_pos,
+                    revives_left = tier - 1,                       -- 100波=0次, 200波=1次 ...
+                    death_dmg_pct = tier >= 2 and (50 + (tier - 2) * 5) or 0,  -- 200波=50%, 300波=55% ...
+                    entity = boss,                                 -- 看门狗重新下令用
+                }
+            end
+        end
+        spawned_channels[#spawned_channels + 1] = dir.name
     end
+
+    game.print({"amap.world15_boss_spawn", wave_number, math.floor(boss_hp)},
+        {r = 1, g = 0.3, b = 0})
+    game.print("Boss 出生通道：" .. table.concat(spawned_channels, "、"), {r = 1, g = 0.6, b = 0})
 end
 
 -- 注：Boss 接口（spawn_boss / boss_interval / unlock_progressive_techs）已通过
@@ -1295,6 +1380,23 @@ local function on_tick(event)
     -- 胜利条件：坚守 2000 波
     local wave_number = WD.get('wave_number') or 0
 
+    -- 波次提速：坚守超过 300 波后，波次间隔缩短 50%（仅生效一次）。
+    -- wave_interval 是波防框架的「波间延迟」WD 字段，set_next_wave 每波读取用于设定 next_wave；
+    -- 减半它即可让此后每一波间隔减半。同时立即压缩当前已排队的下一波倒计时，
+    -- 保证「300波后」无缝提速（含 300→301 这一跳），无需等到下个波次边界。
+    if wave_number > 300 and not this.world15_wave_speedup then
+        local cur = WD.get('wave_interval')
+        if cur and cur > 0 then
+            WD.set('wave_interval', math.floor(cur / 2))
+            local nw = WD.get('next_wave')
+            if nw and nw > game.tick then
+                WD.set('next_wave', game.tick + math.floor((nw - game.tick) / 2))
+            end
+            this.world15_wave_speedup = true
+            game.print({'amap.world15_wave_speedup'}, {r = 1, g = 0.75, b = 0.3})
+        end
+    end
+
     if wave_number >= 2000 then
         -- 通关奖励：每次通关给每位玩家 +10 初始生命值（可叠加，唯一真值=this.world15_hp_bonus[pidx] 累计通关次数）
         -- 同时写入全局 script-output 账本（跨存档、永久绑定账号）+ 生成继承命令
@@ -1776,27 +1878,34 @@ end
 
 --==============================================================================
 -- 卡片7：完美波挑战 + 成就（世界15 自包含，零框架改动，world_number==15 自守）
--- 范围：核心完美波 + M1 速通连击 + M6 总击杀。M2/M3/M4/M5 本轮挂起。
+-- 范围：核心完美波 + M1 速通连击 + M6 个人击杀里程碑。M2/M3/M4/M5 本轮挂起。
 -- 关键事实：WD.get('active_biters') 只含波防刷怪（spawn_unit_group 入表），
 --          野生虫巢刷出的怪不在此表 → 完美波判定天然不含野怪。
 --==============================================================================
 
 -- —— 配置（集中，便于调参）——
-local W15_PERFECT_SECONDS = 20
-local W15_PERFECT_TICKS   = W15_PERFECT_SECONDS * 60   -- 1200 tick
+local W15_PERFECT_SECONDS = 10
+local W15_PERFECT_TICKS   = W15_PERFECT_SECONDS * 60   -- 600 tick
 local W15_PERFECT_MULT    = 5     -- 完美波奖励 = 5 × 当前波次编号（金币/人）；Boss 波跳过
 local W15_BOSS_WAVE_MOD   = 100   -- 每 100 波为 Boss 波，跳过完美波挑战
 
 -- M1 速通连击：连续完美波达阈值 → 额外金币（= 当次完美奖励 × 倍率），一次性去重
 local W15_COMBO_TIERS = { { n = 10, mult = 2 }, { n = 20, mult = 3 }, { n = 30, mult = 5 } }
--- M6 总击杀：累计击杀达阈值 → 一次性金币（含一切 enemy 单位死亡，含野生虫）
-local W15_TOTALKILL_TIERS = { { n = 10000, gold = 1000 }, { n = 50000, gold = 5000 }, { n = 100000, gold = 15000 } }
+-- M6 个人击杀里程碑：按击杀者个人累计击杀达阈值 → 一次性金币（仅统计玩家方击杀；野生虫互殴不计入个人成就）
+local W15_TOTALKILL_TIERS = {
+    { n = 10000, gold = 1000 },
+    { n = 50000, gold = 5000 },
+    { n = 100000, gold = 15000 },
+    { n = 1000000, gold = 50000 },    -- 百万击杀：奖励 50k（给击杀个人）
+    { n = 10000000, gold = 100000 },  -- 千万击杀：奖励 100k（给击杀个人）
+}
 
 -- 确保世界15 成就/统计状态存在（幂等）
 local function world15_ach_ensure(this)
     this.world15_ach_claimed = this.world15_ach_claimed or {}
     this.world15_kill_stats  = this.world15_kill_stats or
-        { total = 0, consecutive = 0, perfect_total = 0 }
+        { players = {}, total = 0, consecutive = 0, perfect_total = 0 }
+    if not this.world15_kill_stats.players then this.world15_kill_stats.players = {} end
     this.world15_perfect     = this.world15_perfect or
         { last_wave = 0, active = false, start_tick = 0, peak = 0, reached_zero = false }
     return this
@@ -1838,26 +1947,43 @@ local function world15_award_perfect(this, wave)
     end
 end
 
--- 击杀计数钩子（on_entity_died）：累计一切 enemy 单位死亡 → M6 总击杀里程碑
+-- 击杀计数钩子（on_entity_died）：按击杀者个人累计击杀 → 个人击杀里程碑（奖励给击杀个人）
 local function world15_on_enemy_died(event)
+    if (WPT.get() and WPT.get().world_number or 0) ~= 15 then return end
     local entity = event.entity
     if not entity or not entity.valid then return end
     if not entity.force or entity.force.name ~= 'enemy' then return end
-    local this = WPT.get()
-    if not this then return end
-    world15_ach_ensure(this)
-    local ks = this.world15_kill_stats
-    ks.total = (ks.total or 0) + 1
-    local claimed = this.world15_ach_claimed
+    local wpt = WPT.get()
+    if not wpt then return end
+    -- 仅统计「玩家方」造成的击杀（野生虫互殴不计入个人成就）
+    local killer_index = resolve_killer_owner(event.cause, wpt)
+    if not killer_index then return end
+    world15_ach_ensure(wpt)
+    local stats = wpt.world15_kill_stats
+    stats.players[killer_index] = (stats.players[killer_index] or 0) + 1
+    local claimed = wpt.world15_ach_claimed
     for _, t in ipairs(W15_TOTALKILL_TIERS) do
-        if ks.total >= t.n and not claimed['totalkill_' .. t.n] then
-            claimed['totalkill_' .. t.n] = true
-            world15_give_all(t.gold, 'amap.world15_ach_totalkill', t.n, t.gold)
+        local key = 'totalkill_' .. t.n .. '_' .. killer_index
+        if stats.players[killer_index] >= t.n and not claimed[key] then
+            claimed[key] = true
+            -- 全服播报（含玩家名 + 个人累计击杀数 + 奖励金币）
+            local p = game.get_player(killer_index)
+            local pname = (p and p.valid) and p.name or ('#' .. killer_index)
+            game.print({ 'amap.world15_ach_totalkill', pname, t.n, t.gold }, { r = 1, g = 0.85, b = 0.2 })
+            -- 奖励给击杀个人：在线即时进背包，否则挂账 world15_player_gold（复用现有回灌机制）
+            local given = 0
+            if p and p.valid and p.connected and p.character then
+                given = p.insert({ name = 'coin', count = t.gold })
+            end
+            if given < t.gold then
+                wpt.world15_player_gold = wpt.world15_player_gold or {}
+                wpt.world15_player_gold[killer_index] = (wpt.world15_player_gold[killer_index] or 0) + (t.gold - given)
+            end
         end
     end
 end
 
--- 主循环（每 60 tick）：检测波次递增 → 启动/结算 20 秒完美波挑战
+-- 主循环（每 60 tick）：检测波次递增 → 启动/结算 10 秒完美波挑战
 local function world15_perfect_tick(event)
     local wpt = WPT.get()
     if not wpt or (wpt.world_number or 0) ~= 15 then return end
@@ -1929,6 +2055,7 @@ Event.on_nth_tick(60, world15_perfect_tick)              -- 卡片7：完美波�
 Event.add(defines.events.on_entity_died, world15_on_enemy_died)  -- 卡片7：累计击杀 → 总击杀里程碑
 
 Event.add(defines.events.on_player_joined_game, function(event)
+    if (WPT.get() and WPT.get().world_number or 0) ~= 15 then return end
     give_starter_items()
     -- 世界15：投票进行中，给新加入玩家也弹投票框
     local this = WPT.get()
@@ -1960,6 +2087,7 @@ end)
 Event.add(defines.events.on_robot_built_entity, on_robot_built_entity)
 
 Event.add(defines.events.on_entity_died, function(event)
+    if (WPT.get() and WPT.get().world_number or 0) ~= 15 then return end
     local entity = event.entity
     if entity and entity.valid then
         unregister_turret(entity)
@@ -2114,29 +2242,31 @@ World.register(15, {
     },
 
     -- 岩石市场固定物品（按“所有物品价值表”定价，round(v)）
-    -- 炮塔：4 种 × 5 品质，价格取自“世界15 炮塔品质升级助手.html”全价目表
-    --   (基础价 × 原版品质倍率 1.0/1.3/1.6/1.9/2.5，round)
+    -- 炮塔：4 种 × 5 品质。
+    --   普通(normal)价格不变；精良=普通+现精良；稀有=普通+现精良+现稀有；
+    --   史诗=普通+现精良+现稀有+现史诗；传说=普通+现精良+现稀有+现史诗+现传说。
+    --   （即除普通外各品质价格 = 普通价 + 从精良到自身当前价累加）
     rock_shop_extra_items = {
         {name = 'gun-turret',    quality = 'normal',   gold = 223},
-        {name = 'gun-turret',    quality = 'uncommon', gold = 290},
-        {name = 'gun-turret',    quality = 'rare',     gold = 357},
-        {name = 'gun-turret',    quality = 'epic',     gold = 424},
-        {name = 'gun-turret',    quality = 'legendary',gold = 558},
+        {name = 'gun-turret',    quality = 'uncommon', gold = 513},
+        {name = 'gun-turret',    quality = 'rare',     gold = 870},
+        {name = 'gun-turret',    quality = 'epic',     gold = 1294},
+        {name = 'gun-turret',    quality = 'legendary',gold = 1852},
         {name = 'laser-turret',  quality = 'normal',   gold = 1159},
-        {name = 'laser-turret',  quality = 'uncommon', gold = 1507},
-        {name = 'laser-turret',  quality = 'rare',     gold = 1854},
-        {name = 'laser-turret',  quality = 'epic',     gold = 2202},
-        {name = 'laser-turret',  quality = 'legendary',gold = 2898},
+        {name = 'laser-turret',  quality = 'uncommon', gold = 2666},
+        {name = 'laser-turret',  quality = 'rare',     gold = 4520},
+        {name = 'laser-turret',  quality = 'epic',     gold = 6722},
+        {name = 'laser-turret',  quality = 'legendary',gold = 9620},
         {name = 'rocket-turret', quality = 'normal',   gold = 3235},
-        {name = 'rocket-turret', quality = 'uncommon', gold = 4206},
-        {name = 'rocket-turret', quality = 'rare',     gold = 5176},
-        {name = 'rocket-turret', quality = 'epic',     gold = 6147},
-        {name = 'rocket-turret', quality = 'legendary',gold = 8088},
+        {name = 'rocket-turret', quality = 'uncommon', gold = 7441},
+        {name = 'rocket-turret', quality = 'rare',     gold = 12617},
+        {name = 'rocket-turret', quality = 'epic',     gold = 18764},
+        {name = 'rocket-turret', quality = 'legendary',gold = 26852},
         {name = 'tesla-turret',  quality = 'normal',   gold = 5015},
-        {name = 'tesla-turret',  quality = 'uncommon', gold = 6520},
-        {name = 'tesla-turret',  quality = 'rare',     gold = 8024},
-        {name = 'tesla-turret',  quality = 'epic',     gold = 9529},
-        {name = 'tesla-turret',  quality = 'legendary',gold = 12538},
+        {name = 'tesla-turret',  quality = 'uncommon', gold = 11535},
+        {name = 'tesla-turret',  quality = 'rare',     gold = 19559},
+        {name = 'tesla-turret',  quality = 'epic',     gold = 29088},
+        {name = 'tesla-turret',  quality = 'legendary',gold = 41626},
         {name = 'land-mine',            gold = 17},
         {name = 'construction-robot',   gold = 245},
         {name = 'passive-provider-chest', gold = 379},
