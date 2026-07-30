@@ -1289,64 +1289,46 @@ local function give_starter_items()
 end
 
 --==============================================================================
--- 跨存档全局元进度（同一玩家在所有存档累计、永久绑定账号）
--- 机制：Factorio 运行时沙箱无文件读取 API，故把累计次数写入全局 script-output
---      （跨所有存档、随账号永久保留于本机），并自动生成“继承命令”写入同目录；
---      新存档进游戏后把该命令粘贴到控制台一次即可继承。游戏内加成以
---      this.world15_hp_bonus[pidx]（累计通关次数）为唯一真值，进入世界15/重生时 SET 应用。
+-- 通关奖励（框架 world_bonus 机制）
+-- 与其他世界同款：记录历史最高波数 → 折算 coefficient → 每次开图 reset 时
+-- 由 diff.apply_world_bonuses() 统一施加 force 级 modifier（所有世界通用）。
+-- 世界15 参数经 World.register 声明式覆写：解锁波数 2000、增档间隔 200。
+-- 「只按最高计算、不叠加」由框架天然保证（coefficient 由 max_wave 单调推导，
+-- 每次 reset 从零重新施加，绝无跨局叠加）。
 --==============================================================================
 
-local function world15_meta_filename(player)
-    local safe = tostring(player.name):gsub('[^%w%-_]', '_')
-    return 'world15_meta/world15_hp_' .. safe .. '.json'
-end
-
--- 把某玩家累计通关次数持久化到全局 script-output（全局账本 + 可粘贴继承命令）
-local function world15_write_meta(player, total)
-    local data = { name = player.name, clears = total, hp_bonus = total * 10 }
-    pcall(helpers.write_file, world15_meta_filename(player), helpers.table_to_json(data), false)
-    local safe = tostring(player.name):gsub('[^%w%-_]', '_')
-    local cmd = '/c world15_apply_global_hp("' .. player.name .. '", ' .. total .. ')'
-    pcall(helpers.write_file, 'world15_meta/world15_apply_' .. safe .. '.txt', cmd, false)
-end
-
--- 给玩家设置初始生命加成：count=累计通关次数；fresh=true 角色刚创建(SET绝对+补满)，false 游戏中增量(+10)
-local function world15_apply_hp_to_player(player, count, fresh)
-    if not player or not player.valid or not player.character or not player.character.valid then return end
-    local char = player.character
-    if fresh then
-        char.character_health_bonus = count * 10
-        char.health = char.health + count * 10
-    else
-        char.character_health_bonus = (char.character_health_bonus or 0) + 10
-        char.health = char.health + 10
+-- 胜利瞬间/坚守推进时即时更新 world_bonus 记录（与 tank.lua game_over 同款规则；
+-- game_over 在最终失败时也会兜底更新，此处保证 2000 波胜利当刻即入账）
+local function world15_update_bonus_record(wave_number)
+    local map = diff.get()
+    if not map or not map.world_bonus then return end
+    if map.world_bonus[15] == nil then
+        map.world_bonus[15] = {unlocked = false, coefficient = 0, max_wave = 0}
+    end
+    local record = map.world_bonus[15]
+    if wave_number <= record.max_wave then return end
+    record.max_wave = wave_number
+    local start_wave = World.get_field(15, 'world_bonus_start_wave') or map.world_bonus.start_wave
+    local interval = World.get_field(15, 'world_bonus_interval') or map.world_bonus.coefficient_interval
+    if wave_number < start_wave then return end
+    local old_unlocked = record.unlocked
+    local old_coefficient = record.coefficient
+    record.unlocked = true
+    local coefficient_increase = math.floor((wave_number - start_wave) / interval)
+    record.coefficient = math.min(
+        map.world_bonus.base_coefficient + coefficient_increase,
+        map.world_bonus.max_coefficient
+    )
+    if not old_unlocked then
+        game.print({'amap.world_bonus_unlocked', 15}, {r = 255, g = 255, b = 0})
+    elseif record.coefficient > old_coefficient then
+        game.print({'amap.world_bonus_increased', 15, record.coefficient}, {r = 0, g = 255, b = 0})
     end
 end
 
--- 控制台继承命令（由脚本自动生成到 script-output/world15_meta/，新存档粘贴一次即可）
-function world15_apply_global_hp(name, total)
-    local this = WPT.get()
-    this.world15_hp_bonus = this.world15_hp_bonus or {}
-    for _, player in pairs(game.players) do
-        if player.name == name then
-            local pidx = player.index
-            this.world15_hp_bonus[pidx] = total
-            world15_apply_hp_to_player(player, total, true)
-            player.print({'amap.world15_meta_applied', total * 10}, {r = 0.3, g = 1, b = 0.3})
-        end
-    end
-end
-
--- 进入/重进世界15 钩子：先解锁科技，再给所有在线玩家补发已累计的初始生命加成
+-- 进入/重进世界15 钩子：解锁科技（通关奖励改走框架 world_bonus，无需按玩家补发）
 local function world15_on_world_start(world_number)
     init_technologies()
-    local this = WPT.get()
-    if not this.world15_hp_bonus then return end
-    for _, player in pairs(game.connected_players) do
-        if player.force == game.forces.player then
-            world15_apply_hp_to_player(player, this.world15_hp_bonus[player.index] or 0, true)
-        end
-    end
 end
 
 --==============================================================================
@@ -1398,27 +1380,14 @@ local function on_tick(event)
     end
 
     if wave_number >= 2000 then
-        -- 通关奖励：每次通关给每位玩家 +10 初始生命值（可叠加，唯一真值=this.world15_hp_bonus[pidx] 累计通关次数）
-        -- 同时写入全局 script-output 账本（跨存档、永久绑定账号）+ 生成继承命令
-        this.world15_hp_bonus = this.world15_hp_bonus or {}
-        this.world15_rewarded = this.world15_rewarded or {}
-        for _, player in pairs(game.connected_players) do
-            if player.force == game.forces.player then
-                player.print({"amap.world15_victory"}, {r = 1, g = 0.85, b = 0})
-                local pidx = player.index
-                -- 每位玩家仅发放一次（can_continue 后 on_tick 每 tick 重入）
-                if not this.world15_rewarded[pidx] then
-                    this.world15_rewarded[pidx] = true
-                    this.world15_hp_bonus[pidx] = (this.world15_hp_bonus[pidx] or 0) + 1
-                    local total = this.world15_hp_bonus[pidx]
-                    -- 游戏中增量发放：当前角色生命上限 +10、当前生命 +10
-                    world15_apply_hp_to_player(player, total, false)
-                    -- 跨存档账本：写入全局 script-output（永久、跨存档）+ 生成继承命令
-                    world15_write_meta(player, total)
-                    player.print({"amap.world15_victory_hp", total * 10}, {r = 0.4, g = 1, b = 0.4})
-                    player.print({"amap.world15_meta_apply_hint"}, {r = 0.6, g = 0.8, b = 1})
-                end
-            end
+        -- 通关奖励：框架 world_bonus（初始生命值 +50，2000 波起每坚守 200 波再 +10，
+        -- 只按历史最高记录、不叠加；下次开图 reset 时统一施加，所有世界通用）
+        world15_update_bonus_record(wave_number)
+        -- 胜利公告仅一次（can_continue 后 on_tick 每 tick 重入）
+        if not this.world15_victory_announced then
+            this.world15_victory_announced = true
+            game.print({"amap.world15_victory"}, {r = 1, g = 0.85, b = 0})
+            game.print({"amap.world15_victory_hp"}, {r = 0.4, g = 1, b = 0.4})
         end
         game.set_game_state({game_finished = true, player_won = true, can_continue = true})
         return
@@ -2063,24 +2032,7 @@ Event.add(defines.events.on_player_joined_game, function(event)
         local p = game.get_player(event.player_index)
         if p and p.valid then world15_open_vote_gui(p, this.w15_vote) end
     end
-    -- 世界15：进入世界后加入的玩家，按已累计通关次数补发初始生命加成（SET 语义，幂等）
-    if this and (this.world_number or 0) == 15 and this.world15_hp_bonus then
-        local p = game.get_player(event.player_index)
-        if p and p.valid then
-            world15_apply_hp_to_player(p, this.world15_hp_bonus[p.index] or 0, true)
-        end
-    end
-end)
-
--- 世界15：玩家重生时重新应用已累计的初始生命加成（新角色默认 bonus=0，需补回）
-Event.add(defines.events.on_player_respawned, function(event)
-    local this = WPT.get()
-    if (this and this.world_number or 0) ~= 15 then return end
-    if not this.world15_hp_bonus then return end
-    local player = game.get_player(event.player_index)
-    if player and player.valid then
-        world15_apply_hp_to_player(player, this.world15_hp_bonus[player.index] or 0, true)
-    end
+    -- （通关生命奖励已改走框架 world_bonus：force 级 modifier 对全员自动生效，无需按玩家补发/重生重发）
 end)
 
 -- 施工机器人建造同样受“仅中心正方形”限制
@@ -2206,10 +2158,19 @@ World.register(15, {
     -- 填海：允许（用户要求不限制）
     landfill_allowed = true,
 
-    -- 通关奖励：改为「每次通关 +10 玩家初始生命值（可叠加）」
-    -- 不再走框架 world_bonus_type（force 级、按波数缩放、不可叠加），改由世界15 模块自管：
-    -- 见 on_tick 胜利分支（按玩家累加 character_health_bonus）与 on_player_joined_game（补发后加入玩家）
-    world_bonus_type = nil,
+    -- 通关奖励（框架 world_bonus）：初始生命值。
+    -- 2000 波通关解锁 +50；之后每坚守 200 波 coefficient +1、生命值再 +10；
+    -- coefficient 5→20 共 15 档，封顶 +200（即 5000 波拉满）。
+    -- 只按历史最高波数计算、不叠加；force 级 modifier，所有世界通用。
+    world_bonus_type = {
+        name = 'character_health_bonus',
+        force_modifier = 'character_health_bonus',
+        base_value = 50,
+        max_value = 200
+    },
+    -- 通关奖励按世界覆写（tank.lua / gui.lua 经 World.get_field 查表；未声明的世界用全局默认 1500/500）
+    world_bonus_start_wave = 2000,
+    world_bonus_interval = 200,
 
     -- 参与终极奖励
     joins_solar_system_edge = true,
