@@ -695,13 +695,16 @@ local function game_over()
     end
     if wave_number > map.world_bonus[map.world].max_wave then
         map.world_bonus[map.world].max_wave = wave_number
-        if wave_number >= map.world_bonus.start_wave then
+        -- World 框架：世界可经 World.register 覆写解锁波数/增档间隔（如世界15=2000/200），未声明用全局默认
+        local bonus_start_wave = World.get_field(map.world, 'world_bonus_start_wave') or map.world_bonus.start_wave
+        local bonus_interval = World.get_field(map.world, 'world_bonus_interval') or map.world_bonus.coefficient_interval
+        if wave_number >= bonus_start_wave then
             local old_unlocked = map.world_bonus[map.world].unlocked
             local old_coefficient = map.world_bonus[map.world].coefficient
             
             map.world_bonus[map.world].unlocked = true
-            local extra_waves = wave_number - map.world_bonus.start_wave
-            local coefficient_increase = math.floor(extra_waves / map.world_bonus.coefficient_interval)
+            local extra_waves = wave_number - bonus_start_wave
+            local coefficient_increase = math.floor(extra_waves / bonus_interval)
             map.world_bonus[map.world].coefficient = math.min(
                 map.world_bonus.base_coefficient + coefficient_increase,
                 map.world_bonus.max_coefficient
