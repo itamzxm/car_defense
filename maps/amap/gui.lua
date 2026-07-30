@@ -9,6 +9,7 @@ local WD = require 'modules.wave_defense.table'
 local tianfu = require 'maps.amap.tianfu'
 local rpgtable = require 'modules.rpg.table'
 local TianfuQuality = require 'maps.amap.tianfu_quality'  -- 天赋品质系统 helper（方案 D）
+local World = require 'maps.amap.world.framework'  -- 世界框架（world_bonus_type 声明式查表）
 
 -- 模块公开接口
 local Public = {}
@@ -840,13 +841,19 @@ local function draw_world_bonus_tab(player, frame)
     worlds_table.style.vertical_spacing = 10
     
     local world_names = {}
+    -- World 框架优先：已注册且声明 world_bonus_type 的世界也进列表（如世界15）；旧表 fallback
+    for _, world_id in ipairs(World.get_registered_worlds()) do
+        if World.get_field(world_id, 'world_bonus_type') then
+            world_names[world_id] = {'amap.world_name_' .. world_id}
+        end
+    end
     for world_id, _ in pairs(map_data.world_bonus_types) do
         world_names[world_id] = {'amap.world_name_' .. world_id}
     end
     
     for world_id, world_name in pairs(world_names) do
         local world_data = map_data.world_bonus[world_id]
-        local bonus_type = map_data.world_bonus_types[world_id]
+        local bonus_type = World.get_field(world_id, 'world_bonus_type') or map_data.world_bonus_types[world_id]
         
         if world_data and bonus_type then
             local world_frame = worlds_table.add({
@@ -864,9 +871,9 @@ local function draw_world_bonus_tab(player, frame)
             world_frame.children[1].style.minimal_width = 70
             world_frame.children[1].style.maximal_width = 70
             
-            -- 加成类型
+            -- 加成类型（World 框架优先，旧表 fallback；间隔波数支持按世界覆写）
             local bonus_name_key = 'amap.world_bonus_type_' .. world_id .. '_name'
-            local bonus_type_data = map_data.world_bonus_types[world_id]
+            local bonus_type_data = bonus_type
             local tooltip_text
             
             if bonus_type_data then
@@ -874,7 +881,8 @@ local function draw_world_bonus_tab(player, frame)
                 local max_value = bonus_type_data.max_value or 0
                 local growth_value = (max_value - base_value) / (map_data.world_bonus.max_coefficient - map_data.world_bonus.base_coefficient)
                 growth_value = string.format('%.2f', growth_value)
-                tooltip_text = {'amap.world_bonus_tooltip', base_value, growth_value}
+                local bonus_interval = World.get_field(world_id, 'world_bonus_interval') or map_data.world_bonus.coefficient_interval or 500
+                tooltip_text = {'amap.world_bonus_tooltip', base_value, growth_value, bonus_interval}
             end
             
             world_frame.add({
