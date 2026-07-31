@@ -878,9 +878,14 @@ local function draw_world_bonus_tab(player, frame)
             
             if bonus_type_data then
                 local base_value = bonus_type_data.base_value or 0
-                local max_value = bonus_type_data.max_value or 0
-                local growth_value = (max_value - base_value) / (map_data.world_bonus.max_coefficient - map_data.world_bonus.base_coefficient)
-                growth_value = string.format('%.2f', growth_value)
+                local growth_value
+                if bonus_type_data.growth_value then
+                    -- 线性增长模式：每档增量由世界直接声明（无 max_value 即不设上限）
+                    growth_value = string.format('%.2f', bonus_type_data.growth_value)
+                else
+                    local max_value = bonus_type_data.max_value or 0
+                    growth_value = string.format('%.2f', (max_value - base_value) / (map_data.world_bonus.max_coefficient - map_data.world_bonus.base_coefficient))
+                end
                 local bonus_interval = World.get_field(world_id, 'world_bonus_interval') or map_data.world_bonus.coefficient_interval or 500
                 tooltip_text = {'amap.world_bonus_tooltip', base_value, growth_value, bonus_interval}
             end
@@ -899,8 +904,8 @@ local function draw_world_bonus_tab(player, frame)
             local status_color
             if world_data.unlocked then
                 local bonus_desc_key = 'amap.world_bonus_type_' .. world_id .. '_desc'
-                local bonus_value = bonus_type_data.base_value + (bonus_type_data.max_value - bonus_type_data.base_value) * ((world_data.coefficient - map_data.world_bonus.base_coefficient) / (map_data.world_bonus.max_coefficient - map_data.world_bonus.base_coefficient))
-                bonus_value = math.floor(bonus_value * 100 + 0.5) / 100
+                -- 数值与实际施加逻辑同源（插值模式 / 线性增长模式由 diff 统一判定）
+                local bonus_value = diff.get_world_bonus_value(world_id, world_data) or 0
                 status_text = {bonus_desc_key, bonus_value }
                 status_color = CONST.COLORS.GREEN
             else
