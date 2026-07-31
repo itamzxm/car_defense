@@ -1,10 +1,14 @@
 local Event = require 'utils.event'
-local Gui = require 'utils.gui'
 local WPT = require 'maps.amap.table'
-local World = require 'maps.amap.world.framework'  -- 世界框架
+local World = require 'maps.amap.world.framework'
+local GuiDispatcher = require 'utils.gui_dispatcher'
+local TopBar = require 'utils.top_bar'
+local GuiRebuild = require 'utils.gui_rebuild'
 
-local main_button_name = "poll_button"
-local main_frame_name = "poll_frame"
+local Public = {}
+
+local main_button_name = "amap_vote_poll_button"
+local main_frame_name = "amap_vote_poll_frame"
 
 -- 获取表中的最大值对应的键
 local function getKeyOfMaxValue(tbl)
@@ -25,24 +29,29 @@ local function create_main_button(event)
     if not player or not player.valid then
         return
     end
-    if player.gui.top[main_button_name] then
+    local flow = TopBar.get_button_flow(player)
+    if flow['poll_button'] then
+        flow['poll_button'].destroy()
+    end
+    if flow[main_button_name] then
         return
     end
-    local b = player.gui.top.add {
+    local b = TopBar.add_button(player, {
         type = 'sprite-button',
         name = main_button_name,
         caption = {'amap.next_map'}
-    }
-    b.style.minimal_height = 38
-    b.style.maximal_height = 38
-    b.style.minimal_width = 120
-    b.style.font_color = {0, 255, 255}
+    })
+    b.style.font_color = {0, 1, 0}
+    b.style.left_padding = 4
+    b.style.right_padding = 4
+    b.style.padding = 0
+    b.style.margin = 0
 end
 
 -- 更新主按钮的显示数据
 local function updata_gui(player)
     local WPT = WPT.get()
-    local button = player.gui.top[main_button_name]
+    local button = TopBar.get_button_flow(player)[main_button_name]
     
     if not button or not button.valid then return end
 
@@ -62,7 +71,7 @@ local function updata_gui(player)
     else
         -- 需求2: 如果还没有投票，按钮就显示投票下一张地图 (保持默认文案)
         button.caption = {'amap.next_map'}
-        button.tooltip = "点击投票 / Click to vote"
+        button.tooltip = {'amap.vote_tooltip'}
     end
 end
 
@@ -126,7 +135,7 @@ local function gui_open(player)
     local close_btn = frame.add {
         type = 'button',
         name = 'close_poll_frame',
-        caption = 'Close / 关闭'
+        caption = {'amap.talent_close'}
     }
     close_btn.style.minimal_width = 150
 end
@@ -137,12 +146,6 @@ local function on_gui_click(event)
     if not player or not player.valid then return end
     if not event.element or not event.element.valid then return end
     
-    -- 处理关闭按钮
-    if event.element.name == 'close_poll_frame' then
-        if event.element.parent then event.element.parent.destroy() end
-        return
-    end
-
     if not event.element.parent or not event.element.parent.valid then return end
     if event.element.parent.name ~= main_frame_name then return end
 
@@ -208,21 +211,21 @@ local function on_gui_click(event)
     player.print({'amap.vote_success', {'amap.world_name_' .. choise}})
 end
 
-Gui.on_click(
-    main_button_name,
-    function(event)
-        local player = event.player
-        local frame = player.gui.screen[main_frame_name]
-        
-        -- 如果窗口已打开则关闭
-        if frame ~= nil then
-            frame.destroy()
-        else
-            -- 需求1: 无论是否投过票，都可以打开窗口进行投票/改票
-            gui_open(player)
-        end
+GuiDispatcher.register_click(main_button_name, function(event)
+    local player = game.get_player(event.player_index)
+    if not player or not player.valid then return end
+    local frame = player.gui.screen[main_frame_name]
+
+    if frame ~= nil then
+        frame.destroy()
+    else
+        gui_open(player)
     end
-)
+end)
+
+GuiDispatcher.register_click('close_poll_frame', function(event)
+    if event.element.parent then event.element.parent.destroy() end
+end)
 
 Event.add(defines.events.on_player_joined_game, function(e)
     create_main_button(e)
@@ -231,3 +234,16 @@ Event.add(defines.events.on_player_joined_game, function(e)
 end)
 
 Event.add(defines.events.on_gui_click, on_gui_click)
+
+function Public.refresh_all()
+    for _, player in pairs(game.connected_players) do
+        updata_gui(player)
+    end
+end
+
+GuiRebuild.register('vote_choise_map', function(player)
+    create_main_button({player_index = player.index})
+    updata_gui(player)
+end)
+
+return Public

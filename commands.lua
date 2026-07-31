@@ -1,2 +1,2 @@
-﻿require 'commands.misc'
-require 'commands.where'
+﻿require 'utils.commands.misc'
+require 'utils.commands.where'

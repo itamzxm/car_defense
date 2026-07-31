@@ -735,7 +735,7 @@ local function count_down()
         wave_defense_table.game_lost = false
         if this.world_number == 7 and this.number >= 100 then
             Collapse.start_now(true)
-            game.print('塌陷已开始！！！')
+            game.print({'amap.collapse_started'})
         end
         if get_car_number() ~= 0 then
             wave_defense_table.target = Public.get_random_car(true)
@@ -914,11 +914,7 @@ local function on_console_command(event)
     if cmd ~= "debug" and cmd ~= "itam" and cmd ~= "tk" and cmd ~= "rpg" and cmd ~= "time" and cmd ~= "help" then
         this.editor = true
         local player = game.players[event.player_index]
-        player.print('你已作弊，如果是挑战单通，则该存档已经作废！')
-        player.print('你已作弊，如果是挑战单通，则该存档已经作废！！')
-        player.print('你已作弊，如果是挑战单通，则该存档已经作废！！！')
-        player.print('你已作弊，如果是挑战单通，则该存档已经作废！！！!')
-        player.print('你已作弊，如果是挑战单通，则该存档已经作废！！！! !')
+        player.print({'amap.cheat_detected'})
     end
 
 end

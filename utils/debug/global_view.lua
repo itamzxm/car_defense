@@ -1,4 +1,5 @@
 local Gui = require 'utils.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Model = require 'utils.debug.model'
 local Color = require 'utils.color_presets'
 
@@ -10,11 +11,11 @@ local Public = {}
 
 local ignore = {tokens = true}
 
-local header_name = Gui.uid_name()
-local left_panel_name = Gui.uid_name()
-local right_panel_name = Gui.uid_name()
-local input_text_box_name = Gui.uid_name()
-local refresh_name = Gui.uid_name()
+local header_name = 'dbg_gv_header_name'
+local left_panel_name = 'dbg_gv_left_panel_name'
+local right_panel_name = 'dbg_gv_right_panel_name'
+local input_text_box_name = 'dbg_gv_input_text_box_name'
+local refresh_name = 'dbg_gv_refresh_name'
 
 Public.name = 'global'
 
@@ -69,37 +70,6 @@ function Public.show(container)
     Gui.set_data(refresh_button, data)
 end
 
-Gui.on_click(
-    header_name,
-    function(event)
-        local element = event.element
-        local key = Gui.get_data(element)
-
-        local left_panel = element.parent.parent
-        local data = Gui.get_data(left_panel)
-        if not data then
-            return
-        end
-
-        local right_panel = data.right_panel
-        local selected_header = data.selected_header
-        local input_text_box = data.input_text_box
-
-        if selected_header then
-            selected_header.style.font_color = Color.white
-        end
-
-        element.style.font_color = Color.orange
-        data.selected_header = element
-
-        input_text_box.text = concat {"storage['", key, "']"}
-        input_text_box.style.font_color = Color.black
-
-        local content = dump(storage[key]) or 'nil'
-        right_panel.text = content
-    end
-)
-
 local function update_dump(text_input, data, player)
     local suc, ouput = dump_text(text_input.text, player)
     if not suc then
@@ -110,29 +80,51 @@ local function update_dump(text_input, data, player)
     end
 end
 
-Gui.on_text_changed(
-    input_text_box_name,
-    function(event)
-        local element = event.element
-        local data = Gui.get_data(element)
+GuiDispatcher.register_click(header_name, function(event)
+    local element = event.element
+    local key = Gui.get_data(element)
 
-        update_dump(element, data, event.player)
+    local left_panel = element.parent.parent
+    local data = Gui.get_data(left_panel)
+    if not data then
+        return
     end
-)
 
-Gui.on_click(
-    refresh_name,
-    function(event)
-        local element = event.element
-        local data = Gui.get_data(element)
-        if not data then
-            return
-        end
+    local right_panel = data.right_panel
+    local selected_header = data.selected_header
+    local input_text_box = data.input_text_box
 
-        local input_text_box = data.input_text_box
-
-        update_dump(input_text_box, data, event.player)
+    if selected_header then
+        selected_header.style.font_color = Color.white
     end
-)
+
+    element.style.font_color = Color.orange
+    data.selected_header = element
+
+    input_text_box.text = concat {"storage['", key, "']"}
+    input_text_box.style.font_color = Color.black
+
+    local content = dump(storage[key]) or 'nil'
+    right_panel.text = content
+end)
+
+GuiDispatcher.register_click(refresh_name, function(event)
+    local element = event.element
+    local data = Gui.get_data(element)
+    if not data then
+        return
+    end
+
+    local input_text_box = data.input_text_box
+
+    update_dump(input_text_box, data, event.player)
+end)
+
+GuiDispatcher.register_text_changed(input_text_box_name, function(event)
+    local element = event.element
+    local data = Gui.get_data(element)
+
+    update_dump(element, data, event.player)
+end)
 
 return Public

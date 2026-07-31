@@ -1,6 +1,5 @@
 -- 虫子宠物系统 - 全局数据表和常量
 local Global = require 'utils.global'
-local Gui = require 'utils.gui'
 
 local this = {
     pet_data = {},              -- player_index -> { pets = {...} }
@@ -20,18 +19,18 @@ Global.register(
 local Public = {}
 
 -- GUI 元素唯一名称
-Public.draw_main_button_name = Gui.uid_name()
-Public.main_frame_name = Gui.uid_name()
-Public.detail_frame_name = Gui.uid_name()
-Public.confirm_frame_name = Gui.uid_name()
-Public.exp_transfer_frame_name = Gui.uid_name()
-Public.skill_replace_frame_name = Gui.uid_name()
-Public.skill_book_frame_name = Gui.uid_name()
-Public.help_frame_name = Gui.uid_name()
-Public.rename_frame_name = Gui.uid_name()
+Public.draw_main_button_name = 'pet_draw_main_button'
+Public.main_frame_name = 'pet_main_frame'
+Public.detail_frame_name = 'pet_detail_frame'
+Public.confirm_frame_name = 'pet_confirm_frame'
+Public.exp_transfer_frame_name = 'pet_exp_transfer_frame'
+Public.skill_replace_frame_name = 'pet_skill_replace_frame'
+Public.skill_book_frame_name = 'pet_skill_book_frame'
+Public.help_frame_name = 'pet_help_frame'
+Public.rename_frame_name = 'pet_rename_frame'
 
 -- 按钮名称（用于卡片的点击）
-Public.card_button_prefix = Gui.uid_name()
+Public.card_button_prefix = 'pet_card_button_'
 
 -- ============================================================
 -- 宠物名字生成

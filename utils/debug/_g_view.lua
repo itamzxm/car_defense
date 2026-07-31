@@ -1,4 +1,5 @@
-﻿local Gui = require 'utils.gui'
+local Gui = require 'utils.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Model = require 'utils.debug.model'
 local Color = require 'utils.color_presets'
 
@@ -54,9 +55,9 @@ local ignore = {
     rendering = true
 }
 
-local header_name = Gui.uid_name()
-local left_panel_name = Gui.uid_name()
-local right_panel_name = Gui.uid_name()
+local header_name = 'dbg__gv_header_name'
+local left_panel_name = 'dbg__gv_left_panel_name'
+local right_panel_name = 'dbg__gv_right_panel_name'
 
 Public.name = '_G'
 
@@ -87,27 +88,24 @@ function Public.show(container)
     Gui.set_data(left_panel, {right_panel = right_panel, selected_header = nil})
 end
 
-Gui.on_click(
-    header_name,
-    function(event)
-        local element = event.element
-        local value = Gui.get_data(element)
+GuiDispatcher.register_click(header_name, function(event)
+    local element = event.element
+    local value = Gui.get_data(element)
 
-        local left_panel = element.parent.parent
-        local left_panel_data = Gui.get_data(left_panel)
-        local right_panel = left_panel_data.right_panel
-        local selected_header = left_panel_data.selected_header
+    local left_panel = element.parent.parent
+    local left_panel_data = Gui.get_data(left_panel)
+    local right_panel = left_panel_data.right_panel
+    local selected_header = left_panel_data.selected_header
 
-        if selected_header then
-            selected_header.style.font_color = Color.white
-        end
-
-        element.style.font_color = Color.orange
-        left_panel_data.selected_header = element
-
-        local content = dump(value)
-        right_panel.text = content
+    if selected_header then
+        selected_header.style.font_color = Color.white
     end
-)
+
+    element.style.font_color = Color.orange
+    left_panel_data.selected_header = element
+
+    local content = dump(value)
+    right_panel.text = content
+end)
 
 return Public

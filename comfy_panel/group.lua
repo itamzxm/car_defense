@@ -4,6 +4,7 @@ local Tabs = require 'comfy_panel.main'
 local Global = require 'utils.global'
 local SpamProtection = require 'utils.spam_protection'
 local Token = require 'utils.token'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 
 local module_name = 'Groups'
 
@@ -31,15 +32,15 @@ local function build_group_gui(data)
     local members_width = 90
     local member_columns = 3
     local actions_width = 80
-    local total_height = frame.style.minimal_height - 60
+    local total_height = 420
 
     frame.clear()
 
     local t = frame.add({type = 'table', column_count = 5})
     local headings = {
-        {'Title', group_name_width},
-        {'Description', description_width},
-        {'Members', members_width * member_columns},
+        {{'gui.group_title'}, group_name_width},
+        {{'gui.group_description'}, description_width},
+        {{'gui.group_members'}, members_width * member_columns},
         {'', actions_width}
     }
     for _, h in pairs(headings) do
@@ -56,7 +57,7 @@ local function build_group_gui(data)
         frame.add(
         {
             type = 'scroll-pane',
-            name = 'scroll_pane',
+            name = 'cp_grp_scroll_pane',
             direction = 'vertical',
             horizontal_scroll_policy = 'never',
             vertical_scroll_policy = 'auto'
@@ -65,7 +66,7 @@ local function build_group_gui(data)
     scroll_pane.style.maximal_height = total_height - 50
     scroll_pane.style.minimal_height = total_height - 50
 
-    t = scroll_pane.add({type = 'table', name = 'groups_table', column_count = 4})
+    t = scroll_pane.add({type = 'table', name = 'cp_grp_groups_table', column_count = 4})
     for _, h in pairs(headings) do
         local l = t.add({type = 'label', caption = ''})
         l.style.minimal_width = h[2]
@@ -115,18 +116,18 @@ local function build_group_gui(data)
 
             tt = t.add({type = 'table', name = group.name, column_count = 1})
             if group.name ~= this.player_group[player.name] then
-                local b = tt.add({type = 'button', caption = 'Join'})
+                local b = tt.add({type = 'button', name = 'cp_grp_join', caption = {'gui.group_join'}})
                 b.style.font = 'default-bold'
                 b.style.minimal_width = actions_width
                 b.style.maximal_width = actions_width
             else
-                local b = tt.add({type = 'button', caption = 'Leave'})
+                local b = tt.add({type = 'button', name = 'cp_grp_leave', caption = {'gui.group_leave'}})
                 b.style.font = 'default-bold'
                 b.style.minimal_width = actions_width
                 b.style.maximal_width = actions_width
             end
             if player.admin == true or group.founder == player.name then
-                local b = tt.add({type = 'button', caption = 'Delete'})
+                local b = tt.add({type = 'button', name = 'cp_grp_delete', caption = {'gui.group_delete'}})
                 b.style.font = 'default-bold'
                 b.style.minimal_width = actions_width
                 b.style.maximal_width = actions_width
@@ -138,13 +139,15 @@ local function build_group_gui(data)
         end
     end
 
-    local frame2 = frame.add({type = 'frame', name = 'frame2'})
-    t = frame2.add({type = 'table', name = 'group_table', column_count = 3})
-    local textfield = t.add({type = 'textfield', name = 'new_group_name', text = 'Name'})
+    local frame2 = frame.add({type = 'frame', name = 'cp_grp_frame2'})
+    t = frame2.add({type = 'table', name = 'cp_grp_table', column_count = 5})
+    t.add({type = 'label', caption = {'gui.group_name_placeholder'}})
+    local textfield = t.add({type = 'textfield', name = 'cp_grp_new_name', text = ''})
     textfield.style.minimal_width = 200
-    textfield = t.add({type = 'textfield', name = 'new_group_description', text = 'Description'})
+    t.add({type = 'label', caption = {'gui.group_desc_placeholder'}})
+    textfield = t.add({type = 'textfield', name = 'cp_grp_new_desc', text = ''})
     textfield.style.minimal_width = 400
-    local b = t.add({type = 'button', name = 'create_new_group', caption = 'Create'})
+    local b = t.add({type = 'button', name = 'cp_grp_create', caption = {'gui.group_create'}})
     b.style.minimal_width = 150
     b.style.font = 'default-bold'
 end
@@ -156,15 +159,15 @@ local function refresh_gui()
         local frame = Tabs.comfy_panel_get_active_frame(p)
         if frame then
             if frame.name == module_name then
-                local new_group_name = frame.frame2.group_table.new_group_name.text
-                local new_group_description = frame.frame2.group_table.new_group_description.text
+                local new_group_name = frame.cp_grp_frame2.cp_grp_table.cp_grp_new_name.text
+                local new_group_description = frame.cp_grp_frame2.cp_grp_table.cp_grp_new_desc.text
 
                 local data = {player = p, frame = frame}
                 build_group_gui(data)
 
                 frame = Tabs.comfy_panel_get_active_frame(p)
-                frame.frame2.group_table.new_group_name.text = new_group_name
-                frame.frame2.group_table.new_group_description.text = new_group_description
+                frame.cp_grp_frame2.cp_grp_table.cp_grp_new_name.text = new_group_name
+                frame.cp_grp_frame2.cp_grp_table.cp_grp_new_desc.text = new_group_description
             end
         end
     end
@@ -185,6 +188,56 @@ end
 local function alphanumeric(str)
     return (string.match(str, '[^%w%s%p]') ~= nil)
 end
+
+GuiDispatcher.register_click('cp_grp_create', function(event)
+    local player = game.get_player(event.player_index)
+    local frame = Tabs.comfy_panel_get_active_frame(player)
+    if not frame then
+        return
+    end
+    if frame.name ~= module_name then
+        return
+    end
+
+    local is_spamming = SpamProtection.is_spamming(player, nil, 'Group Click')
+    if is_spamming then
+        return
+    end
+
+    local new_group_name = frame.cp_grp_frame2.cp_grp_table.cp_grp_new_name.text
+    local new_group_description = frame.cp_grp_frame2.cp_grp_table.cp_grp_new_desc.text
+    if new_group_name ~= '' and new_group_description ~= '' then
+        if string.len(new_group_name) > 64 then
+            player.print({'gui-description.group_name_too_long'}, {r = 0.90, g = 0.0, b = 0.0})
+            return
+        end
+
+        if string.len(new_group_description) > 128 then
+            player.print({'gui-description.group_desc_too_long'}, {r = 0.90, g = 0.0, b = 0.0})
+            return
+        end
+
+        this.tag_groups[new_group_name] = {
+            name = new_group_name,
+            description = new_group_description,
+            founder = player.name
+        }
+        local color = {
+            r = player.color.r * 0.7 + 0.3,
+            g = player.color.g * 0.7 + 0.3,
+            b = player.color.b * 0.7 + 0.3,
+            a = 1
+        }
+        game.print({'gui-description.group_founded', player.name}, color)
+        game.print('>> ' .. new_group_name, {r = 0.98, g = 0.66, b = 0.22})
+        game.print(new_group_description, {r = 0.85, g = 0.85, b = 0.85})
+
+        frame.cp_grp_frame2.cp_grp_table.cp_grp_new_name.text = ''
+        frame.cp_grp_frame2.cp_grp_table.cp_grp_new_desc.text = ''
+        refresh_gui()
+        return
+    end
+end)
 
 local function on_gui_click(event)
     local element = event.element
@@ -210,63 +263,19 @@ local function on_gui_click(event)
         return
     end
 
-    if name == 'create_new_group' then
-        local is_spamming = SpamProtection.is_spamming(player, nil, 'Group Click')
-
-        if is_spamming then
-            return
-        end
-
-        local new_group_name = frame.frame2.group_table.new_group_name.text
-        local new_group_description = frame.frame2.group_table.new_group_description.text
-        if new_group_name ~= '' and new_group_name ~= 'Name' and new_group_description ~= 'Description' then
-      
-
-            if string.len(new_group_name) > 64 then
-                player.print('Group name is too long. 64 characters maximum.', {r = 0.90, g = 0.0, b = 0.0})
-                return
-            end
-
-            if string.len(new_group_description) > 128 then
-                player.print('Description is too long. 128 characters maximum.', {r = 0.90, g = 0.0, b = 0.0})
-                return
-            end
-
-            this.tag_groups[new_group_name] = {
-                name = new_group_name,
-                description = new_group_description,
-                founder = player.name
-            }
-            local color = {
-                r = player.color.r * 0.7 + 0.3,
-                g = player.color.g * 0.7 + 0.3,
-                b = player.color.b * 0.7 + 0.3,
-                a = 1
-            }
-            game.print(player.name .. ' has founded a new group!', color)
-            game.print('>> ' .. new_group_name, {r = 0.98, g = 0.66, b = 0.22})
-            game.print(new_group_description, {r = 0.85, g = 0.85, b = 0.85})
-
-            frame.frame2.group_table.new_group_name.text = 'Name'
-            frame.frame2.group_table.new_group_description.text = 'Description'
-            refresh_gui()
-            return
-        end
-    end
-
     local p = element.parent
     if p then
         p = p.parent
     end
     if p then
-        if p.name == 'groups_table' then
+        if p.name == 'cp_grp_groups_table' then
             local is_spamming = SpamProtection.is_spamming(player, nil, 'Group Click')
 
             if is_spamming then
                 return
             end
 
-            if element.type == 'button' and element.caption == 'Join' then
+            if element.type == 'button' and element.name == 'cp_grp_join' then
                 this.player_group[player.name] = element.parent.name
                 local str = '[' .. element.parent.name
                 str = str .. ']'
@@ -278,14 +287,14 @@ local function on_gui_click(event)
                         b = player.color.b * 0.7 + 0.3,
                         a = 1
                     }
-                    game.print(player.name .. ' has joined group "' .. element.parent.name .. '"', color)
+                    game.print({'gui-description.group_joined', player.name, element.parent.name}, color)
                     this.join_spam_protection[player.name] = game.tick
                 end
                 refresh_gui()
                 return
             end
 
-            if element.type == 'button' and element.caption == 'Delete' then
+            if element.type == 'button' and element.name == 'cp_grp_delete' then
                 for _, players in pairs(game.players) do
                     if this.player_group[players.name] then
                         if this.player_group[players.name] == element.parent.name then
@@ -294,13 +303,13 @@ local function on_gui_click(event)
                         end
                     end
                 end
-                game.print(player.name .. ' deleted group "' .. element.parent.name .. '"')
+                game.print({'gui-description.group_deleted_msg', player.name, element.parent.name})
                 this.tag_groups[element.parent.name] = nil
                 refresh_gui()
                 return
             end
 
-            if element.type == 'button' and element.caption == 'Leave' then
+            if element.type == 'button' and element.name == 'cp_grp_leave' then
                 this.player_group[player.name] = '[Group]'
                 player.tag = ''
                 refresh_gui()
@@ -330,8 +339,8 @@ end
 
 Tabs.add_tab_to_gui({name = module_name, id = build_group_gui_token, admin = false})
 
-local event = require 'utils.event'
-event.add(defines.events.on_gui_click, on_gui_click)
-event.add(defines.events.on_player_joined_game, on_player_joined_game)
+local Event = require 'utils.event'
+Event.add(defines.events.on_gui_click, on_gui_click)
+Event.add(defines.events.on_player_joined_game, on_player_joined_game)
 
 return Public

@@ -265,7 +265,7 @@ local function on_init()
     collapse.tiles = nil
     collapse.speed = 1
     collapse.amount = 8
-    collapse.start_now = true
+    collapse.start_now = false
 end
 
 local function on_tick()

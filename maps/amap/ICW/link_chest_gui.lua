@@ -3,18 +3,18 @@
 -- 玩家放置 linked-chest 时自动连接到第一个车厢输入箱A
 -- 再次点击关联箱时弹出选择窗口，让玩家修改连接目标
 ----------------------------------------------------------------
--- 设计原则（同 magic_wood.lua）：
+-- 设计原则：
 --   1. 不使用 Gui.uid_name()——它底层 Token.uid() 是模块级 local 计数器，
 --      不在 global 中持久化，新连接客户端从初始值开始，会导致 name 不一致 → desync。
 --   2. 不使用 Gui.on_click / Gui.on_custom_close——它们的 handler 表是模块级
 --      local，函数闭包无法序列化到 global，新连接客户端为空 → desync。
---   3. 所有 GUI 事件用 Event.add 在模块加载时统一注册，
---      通过 element.name 字符串路由到对应处理逻辑。
+--   3. 使用 GuiDispatcher 按 element.name 字符串路由 GUI 事件，
+--      handler 内通过 player_index 查 global 状态，不依赖闭包捕获局部变量。
 --   4. 运行时状态存 global（ICW.get()），不通过闭包捕获。
 ----------------------------------------------------------------
 local ICW = require 'maps.amap.ICW.table'
-local Event = require 'utils.event'
 local Gui = require 'utils.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local WPT = require 'maps.amap.table'
 
 local Public = {}
@@ -221,19 +221,12 @@ function Public.show_link_chest_gui(player, linked_chest_entity)
 end
 
 ----------------------------------------------------------------
--- 统一 GUI 事件处理
--- 所有事件在模块加载时用 Event.add 注册（control stage），handler 内通过
--- element.name / player index 查 global 状态路由，不依赖闭包捕获局部变量。
+-- GUI 事件处理
+-- GuiDispatcher 按 element.name 自动路由，handler 只含业务逻辑。
+-- 运行时状态通过 player_index 查 global（ICW.get()），不依赖闭包。
 ----------------------------------------------------------------
 
--- on_gui_click：按钮点击
-Event.add(defines.events.on_gui_click, function(event)
-    local element = event.element
-    if not element or not element.valid then return end
-    local name = element.name
-
-    if name ~= LINK_CHEST_CONFIRM and name ~= LINK_CHEST_CANCEL then return end
-
+local function on_confirm_click(event)
     local p = game.get_player(event.player_index)
     if not p or not p.valid then return end
     local pi = p.index
@@ -243,90 +236,89 @@ Event.add(defines.events.on_gui_click, function(event)
     if not data then return end
 
     local frame_elem = p.gui.screen[LINK_CHEST_FRAME]
+    if not frame_elem or not frame_elem.valid then
+        icw.pending_links[pi] = nil
+        return
+    end
 
-    if name == LINK_CHEST_CONFIRM then
-        -- 确认按钮：执行连接
-        if not frame_elem or not frame_elem.valid then
-            icw.pending_links[pi] = nil
-            return
-        end
+    local dropdown_elem = frame_elem[LINK_CHEST_DROPDOWN]
+    if not dropdown_elem or not dropdown_elem.valid then
+        icw.pending_links[pi] = nil
+        Gui.destroy(frame_elem)
+        return
+    end
 
-        local dropdown_elem = frame_elem[LINK_CHEST_DROPDOWN]
-        if not dropdown_elem or not dropdown_elem.valid then
-            icw.pending_links[pi] = nil
-            Gui.destroy(frame_elem)
-            return
-        end
+    local selected_index = dropdown_elem.selected_index
+    if selected_index < 1 or selected_index > #data.link_ids then
+        p.print({'icw.link_chest_invalid_selection'})
+        return
+    end
 
-        local selected_index = dropdown_elem.selected_index
-        if selected_index < 1 or selected_index > #data.link_ids then
-            p.print({'icw.link_chest_invalid_selection'})
-            return
-        end
-
-        -- 查找关联箱实体
-        local entity = data.entity
-        if not entity or not entity.valid then
-            local surface = game.surfaces[data.surface_index]
-            if surface and surface.valid then
-                local entities = surface.find_entities_filtered({
-                    name = 'linked-chest',
-                    position = data.entity_position,
-                    radius = 0.5
-                })
-                if #entities > 0 then
-                    entity = entities[1]
-                end
+    local entity = data.entity
+    if not entity or not entity.valid then
+        local surface = game.surfaces[data.surface_index]
+        if surface and surface.valid then
+            local entities = surface.find_entities_filtered({
+                name = 'linked-chest',
+                position = data.entity_position,
+                radius = 0.5
+            })
+            if #entities > 0 then
+                entity = entities[1]
             end
         end
-        if not entity or not entity.valid then
-            p.print({'icw.link_chest_entity_lost'})
-            Gui.destroy(frame_elem)
-            icw.pending_links[pi] = nil
-            return
-        end
-
-        -- 设置 link_id 以连接到所选输入箱
-        local target_link_id = data.link_ids[selected_index]
-        entity.link_id = target_link_id
-
-        -- 更新漂浮文字
-        Public.update_link_chest_label(entity, target_link_id)
-
-        -- 成功提示
-        local selected_text = dropdown_elem.items[selected_index]
-        p.print({'icw.link_chest_success', selected_text})
-
-        -- 清理
+    end
+    if not entity or not entity.valid then
+        p.print({'icw.link_chest_entity_lost'})
         Gui.destroy(frame_elem)
         icw.pending_links[pi] = nil
-
-    elseif name == LINK_CHEST_CANCEL then
-        -- 取消按钮
-        if frame_elem and frame_elem.valid then
-            if p.opened == frame_elem then
-                p.opened = nil
-            end
-            Gui.destroy(frame_elem)
-        end
-
-        icw.pending_links[pi] = nil
-        p.print({'icw.link_chest_cancelled'})
+        return
     end
-end)
 
--- on_gui_closed：E键关闭 / player.opened 切换
-Event.add(defines.events.on_gui_closed, function(event)
-    local element = event.element
-    if not element or not element.valid then return end
-    if element.name ~= LINK_CHEST_FRAME then return end
+    local target_link_id = data.link_ids[selected_index]
+    entity.link_id = target_link_id
 
+    Public.update_link_chest_label(entity, target_link_id)
+
+    local selected_text = dropdown_elem.items[selected_index]
+    p.print({'icw.link_chest_success', selected_text})
+
+    Gui.destroy(frame_elem)
+    icw.pending_links[pi] = nil
+end
+
+local function on_cancel_click(event)
+    local p = game.get_player(event.player_index)
+    if not p or not p.valid then return end
+    local pi = p.index
+
+    local icw = ICW.get()
+    local data = icw.pending_links and icw.pending_links[pi]
+    if not data then return end
+
+    local frame_elem = p.gui.screen[LINK_CHEST_FRAME]
+    if frame_elem and frame_elem.valid then
+        if p.opened == frame_elem then
+            p.opened = nil
+        end
+        Gui.destroy(frame_elem)
+    end
+
+    icw.pending_links[pi] = nil
+    p.print({'icw.link_chest_cancelled'})
+end
+
+local function on_frame_closed(event)
     local pi = event.player_index
     local icw = ICW.get()
     if icw.pending_links and icw.pending_links[pi] then
         icw.pending_links[pi] = nil
     end
-    Gui.destroy(element)
-end)
+    Gui.destroy(event.element)
+end
+
+GuiDispatcher.register_click(LINK_CHEST_CONFIRM, on_confirm_click)
+GuiDispatcher.register_click(LINK_CHEST_CANCEL, on_cancel_click)
+GuiDispatcher.register_closed(LINK_CHEST_FRAME, on_frame_closed)
 
 return Public

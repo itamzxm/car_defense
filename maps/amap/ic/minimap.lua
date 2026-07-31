@@ -3,9 +3,10 @@
 local ICT = require 'maps.amap.ic.table'
 local Functions = require 'maps.amap.ic.functions'
 local Gui = require 'maps.amap.ic.gui'
+local TopBar = require 'utils.top_bar'
 
 local function get_top_frame_custom(player, name)
-    return player.gui.top[name]
+    return TopBar.get_button_flow(player)[name]
 end
 
 local function validate_player(player)
@@ -28,39 +29,35 @@ local function validate_player(player)
 end
 
 local function get_top_frame(player)
-    return player.gui.top['minimap_button']
+    return TopBar.get_button_flow(player)['minimap_button']
 end
 
 local function create_button(player)
+    local flow = TopBar.get_button_flow(player)
     local button = 
-        player.gui.top['minimap_button'] or
-        player.gui.top.add(
-            {
-                type = 'sprite-button',
-                name = 'minimap_button',
-                sprite = 'utility/map',
-                tooltip = 'Open or close minimap.',
-                style = Gui.button_style
-            }
-        )
-    button.style.minimal_height = 38
-    button.style.maximal_height = 38
+        flow['minimap_button'] or
+        TopBar.add_button(player, {
+            type = 'sprite-button',
+            name = 'minimap_button',
+            sprite = 'utility/map',
+            tooltip = {'amap.minimap_toggle'}
+        })
     return button
 end
 
 function Public.toggle_button(player)
-    if not get_top_frame(player) then
-        create_button(player)
-    end
-
     local button = get_top_frame(player)
+
     if Functions.get_player_surface(player) then
+        if not button then
+            button = create_button(player)
+        end
         if button and button.valid then
-            button.visible = true
+            button.visible = not TopBar.is_collapsed(player.index)
         end
     else
         if button and button.valid then
-            button.visible = false
+            button.destroy()
         end
     end
 end
@@ -135,7 +132,7 @@ local function draw_minimap(player, surface, position)
     local player_data = get_player_data(player)
     local frame = player.gui.left.minimap_toggle_frame
     if not frame then
-        frame = player.gui.left.add({type = 'frame', direction = 'vertical', name = 'minimap_toggle_frame', caption = 'Minimap'})
+        frame = player.gui.left.add({type = 'frame', direction = 'vertical', name = 'minimap_toggle_frame', caption = {'amap.minimap_frame_title'}})
     end
     frame.visible = true
     if not frame.ic_auto_switch then
@@ -160,10 +157,10 @@ local function draw_minimap(player, surface, position)
                 position = position,
                 surface_index = surface.index,
                 zoom = player_data.zoom,
-                tooltip = 'LMB: Increase zoom level.\nRMB: Decrease zoom level.\nMMB: Toggle camera size.'
+                tooltip = {'amap.minimap_camera_tooltip'}
             }
         )
-        element.style.margin = 1
+        element.style.margin = 0
         element.style.minimal_height = player_data.map_size
         element.style.minimal_width = player_data.map_size
         return

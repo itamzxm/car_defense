@@ -146,7 +146,7 @@ local function on_car_buff(this, rpg_t)
     for _, player in pairs(game.connected_players) do
         local index = player.index
         if not this.ciyuan_pos[index] then
-            player.print('你还没有放车，请及时放车,build a car', {0, 255, 255})
+            player.print({'amap.please_build_car'}, {0, 255, 255})
         end
     end
 end

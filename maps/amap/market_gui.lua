@@ -3,8 +3,10 @@
 -- 依赖 rock 模块提供的购买逻辑函数
 
 local Event = require 'utils.event'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local WPT = require 'maps.amap.table'
 local rock = require 'maps.amap.rock'
+local GuiStyles = require 'maps.amap.gui_styles'
 
 local Public = {}
 
@@ -26,17 +28,7 @@ local CONST = {
     RANDOM_BUY_PREFIX = 'amap_mkt_rnd_',
     CLOSE_BUTTON = 'amap_mkt_close',
 
-    -- 颜色定义（与 gui.lua 保持一致）
-    COLORS = {
-        GREEN = {0, 255, 0},
-        GREY = {175, 175, 175},
-        CYAN = {0, 175, 175},
-        YELLOW = {255, 255, 0},
-        WHITE = {0.88, 0.88, 0.88},
-        RED = {255, 0, 0},
-        ORANGE = {255, 165, 0},
-        BLACK = {0, 0, 0}
-    },
+    COLORS = GuiStyles.COLORS,
 
     -- 升级物品分类配置（按展示顺序排列）
     UPGRADE_CATEGORIES = {
@@ -578,7 +570,7 @@ local function on_gui_opened(event)
     create_market_gui(player)
 end
 
--- on_gui_click: 处理按钮点击
+-- on_gui_click: 处理前缀匹配的购买按钮点击
 local function on_gui_click(event)
     local element = event.element
     if not element or not element.valid then
@@ -587,15 +579,6 @@ local function on_gui_click(event)
 
     local name = element.name
     local player = game.players[event.player_index]
-
-    -- 关闭按钮
-    if name == CONST.CLOSE_BUTTON then
-        local frame = player.gui.screen[CONST.MAIN_FRAME]
-        if frame and frame.valid then
-            frame.destroy()
-        end
-        return
-    end
 
     -- 升级购买
     if string.sub(name, 1, #CONST.UPGRADE_BUY_PREFIX) == CONST.UPGRADE_BUY_PREFIX then
@@ -628,23 +611,22 @@ local function on_gui_click(event)
     end
 end
 
--- on_gui_closed: 支持 Escape 键关闭 GUI
-local function on_gui_closed(event)
-    local element = event.element
-    if not element or not element.valid then
-        return
-    end
-
-    if element.name == CONST.MAIN_FRAME then
-        element.destroy()
-    end
-end
-
 -- ============ 事件注册 ============
 
 Event.add(defines.events.on_gui_opened, on_gui_opened)
 Event.add(defines.events.on_gui_click, on_gui_click)
-Event.add(defines.events.on_gui_closed, on_gui_closed)
+
+GuiDispatcher.register_click(CONST.CLOSE_BUTTON, function(event)
+    local player = game.players[event.player_index]
+    local frame = player.gui.screen[CONST.MAIN_FRAME]
+    if frame and frame.valid then
+        frame.destroy()
+    end
+end)
+
+GuiDispatcher.register_closed(CONST.MAIN_FRAME, function(event)
+    event.element.destroy()
+end)
 
 -- 注册刷新回调到 rock 模块（在商店刷新时同步刷新所有玩家的 GUI）
 rock._on_shop_refreshed = refresh_all_market_guis

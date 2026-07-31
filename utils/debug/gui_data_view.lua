@@ -1,4 +1,5 @@
-﻿local Gui = require 'utils.gui'
+local Gui = require 'utils.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Color = require 'utils.color_presets'
 local Model = require 'utils.debug.model'
 
@@ -8,13 +9,13 @@ local concat = table.concat
 
 local Public = {}
 
-local player_header_name = Gui.uid_name()
-local element_header_name = Gui.uid_name()
-local player_panel_name = Gui.uid_name()
-local element_panel_name = Gui.uid_name()
-local input_text_box_name = Gui.uid_name()
-local refresh_name = Gui.uid_name()
-local data_panel_name = Gui.uid_name()
+local player_header_name = 'dbg_gdv_player_header_name'
+local element_header_name = 'dbg_gdv_element_header_name'
+local player_panel_name = 'dbg_gdv_player_panel_name'
+local element_panel_name = 'dbg_gdv_element_panel_name'
+local input_text_box_name = 'dbg_gdv_input_text_box_name'
+local refresh_name = 'dbg_gdv_refresh_name'
+local data_panel_name = 'dbg_gdv_data_panel_name'
 
 Public.name = 'Gui Data'
 
@@ -153,74 +154,6 @@ local function draw_element_headers(element_panel, values, selected_index)
     return selected_header
 end
 
-Gui.on_click(
-    player_header_name,
-    function(event)
-        local element = event.element
-        local header_data = Gui.get_data(element)
-        local values = header_data.values
-        local player_index = header_data.player_index
-
-        local player_panel = element.parent.parent
-        local data = Gui.get_data(player_panel)
-        local element_panel = data.element_panel
-        local selected_player_header = data.selected_player_header
-        local input_text_box = data.input_text_box
-
-        if selected_player_header then
-            selected_player_header.style.font_color = Color.white
-        end
-
-        element.style.font_color = Color.orange
-        data.selected_player_header = element
-        data.selected_player_index = player_index
-        data.selected_element_index = nil
-
-        input_text_box.text = ''
-
-        if not values then
-            return
-        end
-
-        draw_element_headers(element_panel, values)
-    end
-)
-
-Gui.on_click(
-    element_header_name,
-    function(event)
-        local element = event.element
-        local header_data = Gui.get_data(element)
-        local stored_data = header_data.stored_data
-        local element_index = header_data.element_index
-
-        local player_panel = element.parent.parent
-        local data = Gui.get_data(player_panel)
-        local data_panel = data.data_panel
-        local selected_element_header = data.selected_element_header
-        local input_text_box = data.input_text_box
-
-        if selected_element_header then
-            selected_element_header.style.font_color = Color.white
-        end
-
-        element.style.font_color = Color.orange
-        data.selected_element_header = element
-        data.selected_element_index = element_index
-
-        local selected_player_index = data.selected_player_index
-
-        if selected_player_index then
-            input_text_box.text = concat {'storage.tokens[', Gui.token, '].data[', selected_player_index, '][', element_index, ']'}
-        else
-            input_text_box.text = 'missing player'
-        end
-
-        local content = dump(stored_data) or 'nil'
-        data_panel.text = content
-    end
-)
-
 local function update_dump(text_input, data, player)
     local suc, ouput = dump_text(text_input.text, player)
     if not suc then
@@ -231,53 +164,109 @@ local function update_dump(text_input, data, player)
     end
 end
 
-Gui.on_text_changed(
-    input_text_box_name,
-    function(event)
-        local element = event.element
-        local data = Gui.get_data(element)
+GuiDispatcher.register_click(player_header_name, function(event)
+    local element = event.element
+    local header_data = Gui.get_data(element)
+    local values = header_data.values
+    local player_index = header_data.player_index
 
-        update_dump(element, data, event.player)
+    local player_panel = element.parent.parent
+    local data = Gui.get_data(player_panel)
+    local element_panel = data.element_panel
+    local selected_player_header = data.selected_player_header
+    local input_text_box = data.input_text_box
+
+    if selected_player_header then
+        selected_player_header.style.font_color = Color.white
     end
-)
 
-Gui.on_click(
-    refresh_name,
-    function(event)
-        local element = event.element
-        local data = Gui.get_data(element)
+    element.style.font_color = Color.orange
+    data.selected_player_header = element
+    data.selected_player_index = player_index
+    data.selected_element_index = nil
 
-        local input_text_box = data.input_text_box
-        local player_panel = data.player_panel
-        local element_panel = data.element_panel
-        local selected_player_index = data.selected_player_index
-        local selected_element_index = data.selected_element_index
+    input_text_box.text = ''
 
-        Gui.clear(player_panel)
-        local selected_player_header = draw_player_headers(player_panel, selected_player_index)
-        data.selected_player_header = selected_player_header
-        if selected_player_header then
-            selected_player_header.style.font_color = Color.orange
-        end
-
-        Gui.clear(element_panel)
-        if selected_player_header then
-            local player_header_data = Gui.get_data(selected_player_header)
-            local values = player_header_data.values
-
-            local selected_element_header = draw_element_headers(element_panel, values, selected_element_index)
-            data.selected_element_header = selected_element_header
-            if selected_element_header then
-                selected_element_header.style.font_color = Color.orange
-                update_dump(input_text_box, data, event.player)
-
-                return
-            end
-        end
-
-        data.input_text_box.text = ''
-        data.data_panel.text = ''
+    if not values then
+        return
     end
-)
+
+    draw_element_headers(element_panel, values)
+end)
+
+GuiDispatcher.register_click(element_header_name, function(event)
+    local element = event.element
+    local header_data = Gui.get_data(element)
+    local stored_data = header_data.stored_data
+    local element_index = header_data.element_index
+
+    local player_panel = element.parent.parent
+    local data = Gui.get_data(player_panel)
+    local data_panel = data.data_panel
+    local selected_element_header = data.selected_element_header
+    local input_text_box = data.input_text_box
+
+    if selected_element_header then
+        selected_element_header.style.font_color = Color.white
+    end
+
+    element.style.font_color = Color.orange
+    data.selected_element_header = element
+    data.selected_element_index = element_index
+
+    local selected_player_index = data.selected_player_index
+
+    if selected_player_index then
+        input_text_box.text = concat {'storage.tokens[', Gui.token, '].data[', selected_player_index, '][', element_index, ']'}
+    else
+        input_text_box.text = 'missing player'
+    end
+
+    local content = dump(stored_data) or 'nil'
+    data_panel.text = content
+end)
+
+GuiDispatcher.register_click(refresh_name, function(event)
+    local element = event.element
+    local data = Gui.get_data(element)
+
+    local input_text_box = data.input_text_box
+    local player_panel = data.player_panel
+    local element_panel = data.element_panel
+    local selected_player_index = data.selected_player_index
+    local selected_element_index = data.selected_element_index
+
+    Gui.clear(player_panel)
+    local selected_player_header = draw_player_headers(player_panel, selected_player_index)
+    data.selected_player_header = selected_player_header
+    if selected_player_header then
+        selected_player_header.style.font_color = Color.orange
+    end
+
+    Gui.clear(element_panel)
+    if selected_player_header then
+        local player_header_data = Gui.get_data(selected_player_header)
+        local values = player_header_data.values
+
+        local selected_element_header = draw_element_headers(element_panel, values, selected_element_index)
+        data.selected_element_header = selected_element_header
+        if selected_element_header then
+            selected_element_header.style.font_color = Color.orange
+            update_dump(input_text_box, data, event.player)
+
+            return
+        end
+    end
+
+    data.input_text_box.text = ''
+    data.data_panel.text = ''
+end)
+
+GuiDispatcher.register_text_changed(input_text_box_name, function(event)
+    local element = event.element
+    local data = Gui.get_data(element)
+
+    update_dump(element, data, event.player)
+end)
 
 return Public

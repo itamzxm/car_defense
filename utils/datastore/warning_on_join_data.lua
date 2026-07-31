@@ -3,12 +3,13 @@ local Token = require 'utils.token'
 local Server = require 'utils.server'
 local Event = require 'utils.event'
 local Gui = require 'utils.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 
 local dataset = 'warnings'
 local set_data = Server.set_data
 local try_get_data = Server.try_get_data
-local warning_frame_name = Gui.uid_name()
-local discard_button_name = Gui.uid_name()
+local warning_frame_name = 'warn_join_warning_frame'
+local discard_button_name = 'warn_join_discard_button'
 
 local Public = {}
 
@@ -107,22 +108,20 @@ Event.add(
     end
 )
 
-Gui.on_click(
-    discard_button_name,
-    function(event)
-        local player = event.player
-        local screen = player.gui.screen
-        local frame = screen[warning_frame_name]
-        if not player or not player.valid then
-            return
-        end
-
-        if frame and frame.valid then
-            frame.destroy()
-            set_data(dataset, player.name)
-        end
+GuiDispatcher.register_click(discard_button_name, function(event)
+    local player = event.player
+    if not player or not player.valid then
+        return
     end
-)
+
+    local screen = player.gui.screen
+    local frame = screen[warning_frame_name]
+
+    if frame and frame.valid then
+        frame.destroy()
+        set_data(dataset, player.name)
+    end
+end)
 
 Server.on_data_set_changed(
     dataset,

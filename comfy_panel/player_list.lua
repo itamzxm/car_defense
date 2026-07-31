@@ -13,7 +13,7 @@ to your scenario control.lua.
 Minor changes by ~~~Gerkiz~~~
 --]]
 local Event = require 'utils.event'
-local Where = require 'commands.where'
+local Where = require 'utils.commands.where'
 local Session = require 'utils.datastore.session_data'
 local Jailed = require 'utils.datastore.jail_data'
 local Tabs = require 'comfy_panel.main'
@@ -21,6 +21,9 @@ local Global = require 'utils.global'
 local SpamProtection = require 'utils.spam_protection'
 local RPG = require 'modules.rpg.table'
 local Token = require 'utils.token'
+local GuiDispatcher = require 'utils.gui_dispatcher'
+local Config = require 'comfy_panel.config'
+local Color = require 'utils.color_presets'
 
 local Public = {}
 
@@ -33,7 +36,8 @@ local this = {
         sorting_method = {}
     },
     rpg_enabled = false,
-    show_roles_in_list = false
+    show_roles_in_list = false,
+    player_settings = {}
 }
 
 Global.register(
@@ -42,6 +46,44 @@ Global.register(
         this = t
     end
 )
+
+Config.register_scenario_module(
+    {
+        id = "player_list",
+        admin_only = true,
+        gui_rows = Config.register_token(
+            function(player, frame)
+                local label = frame.add({type = 'label', caption = {'gui.player_list_settings'}})
+                label.style.font = 'default-bold'
+                label.style.padding = 0
+                label.style.left_padding = 10
+                label.style.top_padding = 10
+                label.style.horizontal_align = 'left'
+                label.style.vertical_align = 'bottom'
+                label.style.font_color = Color.green
+
+                local switch_state = 'right'
+                if this.player_settings[player.index] and this.player_settings[player.index].show_all_players then
+                    switch_state = 'left'
+                end
+                Config.add_switch(frame, switch_state, 'show_all_players', {'gui.show_all_players'}, {'gui-description.show_all_players'})
+
+                frame.add({type = 'line'})
+            end),
+        handlers =
+        {
+            ['show_all_players'] = Config.register_token(
+                function(player, event)
+                    if event.element.switch_state == 'left' then
+                        this.player_settings[player.index] = {show_all_players = true}
+                        player.print({'gui.show_all_players_enabled'}, {color = Color.green})
+                    else
+                        this.player_settings[player.index] = {show_all_players = false}
+                        player.print({'gui.show_all_players_disabled'}, {color = Color.green})
+                    end
+                end)
+        }
+    })
 
 local symbol_asc = '▲'
 local symbol_desc = '▼'
@@ -369,10 +411,10 @@ local function get_comparator(sort_by)
     return comparators[sort_by]
 end
 
-local function get_sorted_list(sort_by)
+local function get_sorted_list(sort_by, show_all_players)
     local play_table = Session.get_session_table()
     local player_list = {}
-    local players = game.connected_players
+    local players = show_all_players and game.players or game.connected_players
     for i, player in pairs(players) do
         player_list[i] = {}
         player_list[i].rank = get_rank(player)
@@ -426,7 +468,7 @@ local function player_list_show(data)
     local header_modifier
 
     if this.rpg_enabled then
-        t = frame.add {type = 'table', name = 'player_list_panel_header_table', column_count = 6}
+        t = frame.add {type = 'table', name = 'cp_pl_header_table', column_count = 6}
         column_widths = {
             ['first_space'] = tonumber(40),
             ['name_label'] = tonumber(155),
@@ -496,7 +538,7 @@ local function player_list_show(data)
             end
         }
     else
-        t = frame.add {type = 'table', name = 'player_list_panel_header_table', column_count = 5}
+        t = frame.add {type = 'table', name = 'cp_pl_header_table', column_count = 5}
         column_widths = {
             ['first_space'] = tonumber(40),
             ['name_label'] = tonumber(218),
@@ -572,7 +614,7 @@ local function player_list_show(data)
         local header_label =
             t.add {
             type = 'label',
-            name = 'player_list_panel_header_' .. k,
+            name = 'cp_pl_header_' .. k,
             caption = v
         }
         header_label.style.font = 'default-bold'
@@ -580,36 +622,36 @@ local function player_list_show(data)
     end
 
     -- special style on first header
-    local label = t['player_list_panel_header_1']
+    local label = t['cp_pl_header_1']
     label.style.minimal_width = 36
     label.style.maximal_width = 36
     label.style.horizontal_align = 'right'
 
     -- List management
-    local player_list_panel_table =
+    local cp_pl_table =
         frame.add {
         type = 'scroll-pane',
-        name = 'scroll_pane',
+        name = 'cp_pl_scroll_pane',
         direction = 'vertical',
         horizontal_scroll_policy = 'never',
         vertical_scroll_policy = 'auto'
     }
-    player_list_panel_table.style.maximal_height = 530
+    cp_pl_table.style.maximal_height = 530
 
     if this.rpg_enabled then
-        player_list_panel_table = player_list_panel_table.add {type = 'table', name = 'player_list_panel_table', column_count = 6}
+        cp_pl_table = cp_pl_table.add {type = 'table', name = 'cp_pl_table', column_count = 6}
     else
-        player_list_panel_table = player_list_panel_table.add {type = 'table', name = 'player_list_panel_table', column_count = 5}
+        cp_pl_table = cp_pl_table.add {type = 'table', name = 'cp_pl_table', column_count = 5}
     end
 
-    local player_list = get_sorted_list(sort_by)
+    local player_list = get_sorted_list(sort_by, this.player_settings[player.index] and this.player_settings[player.index].show_all_players or false)
     for i = 1, #player_list, 1 do
 
         -- Icon
         local sprite =
-            player_list_panel_table.add {
+            cp_pl_table.add {
             type = 'sprite',
-            name = 'player_rank_sprite_' .. i,
+            name = 'cp_pl_rank_sprite_' .. i,
             sprite = player_list[i].rank
         }
         sprite.style.height = 32
@@ -649,7 +691,7 @@ local function player_list_show(data)
         end
 
         local name_label =
-            player_list_panel_table.add {
+            cp_pl_table.add {
             type = 'label',
             name = p.index,
             caption = caption,
@@ -670,9 +712,9 @@ local function player_list_show(data)
         if this.rpg_enabled then
             -- RPG level
             local rpg_level_label =
-                player_list_panel_table.add {
+                cp_pl_table.add {
                 type = 'label',
-                name = 'player_list_panel_RPG_level_' .. i,
+                name = 'cp_pl_rpg_level_' .. i,
                 caption = player_list[i].rpg_level
             }
             rpg_level_label.style.minimal_width = column_widths['rpg_level_label']
@@ -681,9 +723,9 @@ local function player_list_show(data)
 
         -- Total time
         local total_label =
-            player_list_panel_table.add {
+            cp_pl_table.add {
             type = 'label',
-            name = 'player_list_panel_player_total_time_played_' .. i,
+            name = 'cp_pl_total_time_' .. i,
             caption = player_list[i].total_played_time
         }
         total_label.style.minimal_width = column_widths['total_label']
@@ -691,18 +733,18 @@ local function player_list_show(data)
 
         -- Current time
         local current_label =
-            player_list_panel_table.add {
+            cp_pl_table.add {
             type = 'label',
-            name = 'player_list_panel_player_time_played_' .. i,
+            name = 'cp_pl_current_time_' .. i,
             caption = player_list[i].played_time
         }
         current_label.style.minimal_width = column_widths['current_label']
         current_label.style.maximal_width = column_widths['current_label']
 
         -- Poke
-        local flow = player_list_panel_table.add {type = 'flow', name = 'button_flow_' .. i, direction = 'horizontal'}
-        flow.add {type = 'label', name = 'button_spacer_' .. i, caption = ''}
-        local button = flow.add {type = 'button', name = 'poke_player_' .. player_list[i].name, caption = player_list[i].pokes}
+        local flow = cp_pl_table.add {type = 'flow', name = 'cp_pl_button_flow_' .. i, direction = 'horizontal'}
+        flow.add {type = 'label', name = 'cp_pl_button_spacer_' .. i, caption = ''}
+        local button = flow.add {type = 'button', name = 'cp_pl_poke_player_' .. player_list[i].name, caption = player_list[i].pokes}
         button.style.font = 'default'
         button.tooltip = 'Poke ' .. player_list[i].name .. ' with a random message!'
         label.style.font_color = {r = 0.83, g = 0.83, b = 0.83}
@@ -718,6 +760,65 @@ local function player_list_show(data)
 end
 
 local player_list_show_token = Token.register(player_list_show)
+
+local function handle_header_click(event, sort_if_desc, sort_if_asc)
+    local element = event.element
+    local player = game.get_player(event.player_index)
+    local frame = Tabs.comfy_panel_get_active_frame(player)
+    if not frame then
+        return
+    end
+    if frame.name ~= module_name then
+        return
+    end
+
+    local is_spamming = SpamProtection.is_spamming(player, nil, 'PlayerList Gui Click')
+    if is_spamming then
+        return
+    end
+
+    if string.find(element.caption, symbol_desc) then
+        local data = {player = player, frame = frame, sort_by = sort_if_asc}
+        player_list_show(data)
+    else
+        local data = {player = player, frame = frame, sort_by = sort_if_desc}
+        player_list_show(data)
+    end
+end
+
+GuiDispatcher.register_click('cp_pl_header_2', function(event)
+    if this.rpg_enabled then
+        handle_header_click(event, 'name_desc', 'name_asc')
+    else
+        handle_header_click(event, 'name_desc', 'name_asc')
+    end
+end)
+GuiDispatcher.register_click('cp_pl_header_3', function(event)
+    if this.rpg_enabled then
+        handle_header_click(event, 'rpg_desc', 'rpg_asc')
+    else
+        handle_header_click(event, 'total_time_played_desc', 'total_time_played_asc')
+    end
+end)
+GuiDispatcher.register_click('cp_pl_header_4', function(event)
+    if this.rpg_enabled then
+        handle_header_click(event, 'total_time_played_desc', 'total_time_played_asc')
+    else
+        handle_header_click(event, 'time_played_desc', 'time_played_asc')
+    end
+end)
+GuiDispatcher.register_click('cp_pl_header_5', function(event)
+    if this.rpg_enabled then
+        handle_header_click(event, 'time_played_desc', 'time_played_asc')
+    else
+        handle_header_click(event, 'pokes_desc', 'pokes_asc')
+    end
+end)
+GuiDispatcher.register_click('cp_pl_header_6', function(event)
+    if this.rpg_enabled then
+        handle_header_click(event, 'pokes_desc', 'pokes_asc')
+    end
+end)
 
 local function on_gui_click(event)
     local element = event.element
@@ -743,121 +844,19 @@ local function on_gui_click(event)
         return
     end
 
-    local actions
-    if this.rpg_enabled then
-        actions = {
-            ['player_list_panel_header_2'] = function()
-                if string.find(element.caption, symbol_desc) then
-                    local data = {player = player, frame = frame, sort_by = 'name_asc'}
-                    player_list_show(data)
-                else
-                    local data = {player = player, frame = frame, sort_by = 'name_desc'}
-                    player_list_show(data)
-                end
-            end,
-            ['player_list_panel_header_3'] = function()
-                if string.find(event.element.caption, symbol_desc) then
-                    local data = {player = player, frame = frame, sort_by = 'rpg_asc'}
-                    player_list_show(data)
-                else
-                    local data = {player = player, frame = frame, sort_by = 'rpg_desc'}
-                    player_list_show(data)
-                end
-            end,
-            ['player_list_panel_header_4'] = function()
-                if string.find(element.caption, symbol_desc) then
-                    local data = {player = player, frame = frame, sort_by = 'total_time_played_asc'}
-                    player_list_show(data)
-                else
-                    local data = {player = player, frame = frame, sort_by = 'total_time_played_desc'}
-                    player_list_show(data)
-                end
-            end,
-            ['player_list_panel_header_5'] = function()
-                if string.find(element.caption, symbol_desc) then
-                    local data = {player = player, frame = frame, sort_by = 'time_played_asc'}
-                    player_list_show(data)
-                else
-                    local data = {player = player, frame = frame, sort_by = 'time_played_desc'}
-                    player_list_show(data)
-                end
-            end,
-            ['player_list_panel_header_6'] = function()
-                if string.find(element.caption, symbol_desc) then
-                    local data = {player = player, frame = frame, sort_by = 'pokes_asc'}
-                    player_list_show(data)
-                else
-                    local data = {player = player, frame = frame, sort_by = 'pokes_desc'}
-                    player_list_show(data)
-                end
-            end
-        }
-    else
-        actions = {
-            ['player_list_panel_header_2'] = function()
-                if string.find(element.caption, symbol_desc) then
-                    local data = {player = player, frame = frame, sort_by = 'name_asc'}
-                    player_list_show(data)
-                else
-                    local data = {player = player, frame = frame, sort_by = 'name_desc'}
-                    player_list_show(data)
-                end
-            end,
-            ['player_list_panel_header_3'] = function()
-                if string.find(element.caption, symbol_desc) then
-                    local data = {player = player, frame = frame, sort_by = 'total_time_played_asc'}
-                    player_list_show(data)
-                else
-                    local data = {player = player, frame = frame, sort_by = 'total_time_played_desc'}
-                    player_list_show(data)
-                end
-            end,
-            ['player_list_panel_header_4'] = function()
-                if string.find(element.caption, symbol_desc) then
-                    local data = {player = player, frame = frame, sort_by = 'time_played_asc'}
-                    player_list_show(data)
-                else
-                    local data = {player = player, frame = frame, sort_by = 'time_played_desc'}
-                    player_list_show(data)
-                end
-            end,
-            ['player_list_panel_header_5'] = function()
-                if string.find(element.caption, symbol_desc) then
-                    local data = {player = player, frame = frame, sort_by = 'pokes_asc'}
-                    player_list_show(data)
-                else
-                    local data = {player = player, frame = frame, sort_by = 'pokes_desc'}
-                    player_list_show(data)
-                end
-            end
-        }
-    end
-
-    if actions[name] then
-        local is_spamming = SpamProtection.is_spamming(player, nil, 'PlayerList Gui Click')
-        if is_spamming then
-            return
-        end
-
-        actions[name]()
-        return
-    end
-
     if not element.valid then
         return
     end
-    --Locate other players
     local index = tonumber(element.name)
     if index and game.players[index] and index == game.players[index].index then
         local target = game.players[index]
         if not target or not target.valid then
             return
         end
-        Where.create_mini_camera_gui(player, target.name, target.position, target.surface.index)
+        Where.create_mini_camera_gui(player, target)
     end
-    --Poke other players
-    if string.sub(element.name, 1, 11) == 'poke_player' then
-        local poked_player = string.sub(element.name, 13, string.len(element.name))
+    if string.sub(element.name, 1, 18) == 'cp_pl_poke_player_' then
+        local poked_player = string.sub(element.name, 19, string.len(element.name))
         if player.name == poked_player then
             return
         end

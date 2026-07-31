@@ -207,6 +207,26 @@ if not ok then return default_value end
 local result = some_func()
 ```
 
+### 生命周期守卫（desync 防护）
+
+运行时（`_LIFECYCLE == 8`）禁止注册会导致 desync 的操作。相关 API 在运行时调用会主动抛错：
+
+| API | 守卫原因 |
+|-----|---------|
+| `Token.register(fn)` | 运行期注册导致 ID 不同步 |
+| `GuiDispatcher.register_*(name, handler)` | 新连接客户端丢失 GUI 回调 |
+| `Gui.uid_name()` / `Gui.uid()` | Token.uid 运行期生成不持久化 |
+
+```lua
+-- ❌ 禁止：运行时注册
+Event.add(defines.events.on_player_joined_game, function(event)
+    GuiDispatcher.register_click('my_btn', handler)  -- _LIFECYCLE==8，抛错
+end)
+
+-- ✅ 正确：模块加载期（顶层）注册
+GuiDispatcher.register_click(GUI_MY_BTN, function(event) ... end)
+```
+
 ## 8. 性能模式
 
 ### 倒排索引替代全扫描

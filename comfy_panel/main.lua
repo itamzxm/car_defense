@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 Comfy Panel
 
 To add a tab, insert into the "main_gui_tabs" table.
@@ -13,10 +13,39 @@ local Event = require 'utils.event'
 local Server = require 'utils.server'
 local SpamProtection = require 'utils.spam_protection'
 local Token = require 'utils.token'
+local GuiDispatcher = require 'utils.gui_dispatcher'
+local TopBar = require 'utils.top_bar'
+local GuiRebuild = require 'utils.gui_rebuild'
+local LegacyCleanup = require 'utils.legacy_gui_cleanup'
+
+local Task = require 'utils.task'
 
 local main_gui_tabs = {}
 local Public = {}
 local screen_elements = {}
+
+local tab_order = {
+    'Players',
+    'Admin',
+    'Groups',
+    'Scoreboard',
+    'Config',
+    'Map Info'
+}
+
+local function fix_frame_style(event)
+    local frame = event.frame
+    if not frame or not frame.valid then
+        return
+    end
+    frame.style.padding = 10
+end
+
+local fix_frame_style_token = Token.register(fix_frame_style)
+
+-- 旧 GUI 清理已统一归档至 utils/legacy_gui_cleanup.lua
+-- 【过时标记】待兼容工作完毕后移除 LegacyCleanup 引用
+local cleanup_legacy_uid_gui = LegacyCleanup.cleanup_legacy_gui
 
 --- This adds the given gui to the main gui.
 ---@param tbl
@@ -99,6 +128,18 @@ function Public.comfy_panel_refresh_active_tab(player)
         return
     end
 
+    local pane = player.gui.left.comfy_panel
+    if pane then
+        pane = pane.tabbed_pane
+    end
+    if pane then
+        for _, t in pairs(pane.tabs) do
+            if t.content and t.content.valid and t.content.name ~= frame.name then
+                t.content.clear()
+            end
+        end
+    end
+
     local tab = main_gui_tabs[frame.name]
     if not tab then
         return
@@ -118,12 +159,10 @@ function Public.comfy_panel_refresh_active_tab(player)
 end
 
 local function top_button(player)
-    if player.gui.top['comfy_panel_top_button'] then
+    if TopBar.get_button_flow(player)['comfy_panel_top_button'] then
         return
     end
-    local button = player.gui.top.add({type = 'sprite-button', name = 'comfy_panel_top_button', sprite = 'item/raw-fish'})
-    button.style.minimal_height = 38
-    button.style.maximal_height = 38
+    local button = TopBar.add_button(player, {type = 'sprite-button', name = 'comfy_panel_top_button', sprite = 'item/raw-fish'})
     button.style.minimal_width = 40
     button.style.padding = -2
 end
@@ -135,42 +174,73 @@ local function main_frame(player)
     local frame = player.gui.left.comfy_panel
     if not frame or not frame.valid then
         frame = player.gui.left.add({type = 'frame', name = 'comfy_panel'})
+    elseif frame.tabbed_pane and frame.tabbed_pane.valid then
+        frame.tabbed_pane.destroy() -- 旧帧残留时先销毁已有 tabbed_pane，避免名字冲突崩溃
     end
 
-    frame.style.margin = 6
+    frame.style.margin = 0
 
     local tabbed_pane = frame.add({type = 'tabbed-pane', name = 'tabbed_pane'})
 
+    local rendered = {}
+    for i = 1, #tab_order do
+        local name = tab_order[i]
+        local func = tabs[name]
+        if func then
+            rendered[name] = true
+            if func.only_server_sided then
+                local secs = Server.get_current_time()
+                if secs then
+                    local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name, style = 'slightly_smaller_tab'})
+                    local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical', style = 'deep_frame_in_shallow_frame'})
+                    tab.style.padding = 10
+                    Task.set_timeout_in_ticks(10, fix_frame_style_token, {frame = name_frame})
+                    tabbed_pane.add_tab(tab, name_frame)
+                end
+            elseif func.admin == true then
+                if player.admin then
+                    local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name, style = 'slightly_smaller_tab'})
+                    local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical', style = 'deep_frame_in_shallow_frame'})
+                    tab.style.padding = 10
+                    Task.set_timeout_in_ticks(10, fix_frame_style_token, {frame = name_frame})
+                    tabbed_pane.add_tab(tab, name_frame)
+                end
+            else
+                local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name, style = 'slightly_smaller_tab'})
+                local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical', style = 'deep_frame_in_shallow_frame'})
+                tab.style.padding = 10
+                Task.set_timeout_in_ticks(10, fix_frame_style_token, {frame = name_frame})
+                tabbed_pane.add_tab(tab, name_frame)
+            end
+        end
+    end
+
     for name, func in pairs(tabs) do
-        if func.only_server_sided then
-            local secs = Server.get_current_time()
-            if secs then
-                local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name})
-                local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical'})
-                name_frame.style.minimal_height = 480
-                name_frame.style.maximal_height = 480
-                name_frame.style.minimal_width = 800
-                name_frame.style.maximal_width = 800
+        if not rendered[name] then
+            if func.only_server_sided then
+                local secs = Server.get_current_time()
+                if secs then
+                    local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name, style = 'slightly_smaller_tab'})
+                    local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical', style = 'deep_frame_in_shallow_frame'})
+                    tab.style.padding = 10
+                    Task.set_timeout_in_ticks(10, fix_frame_style_token, {frame = name_frame})
+                    tabbed_pane.add_tab(tab, name_frame)
+                end
+            elseif func.admin == true then
+                if player.admin then
+                    local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name, style = 'slightly_smaller_tab'})
+                    local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical', style = 'deep_frame_in_shallow_frame'})
+                    tab.style.padding = 10
+                    Task.set_timeout_in_ticks(10, fix_frame_style_token, {frame = name_frame})
+                    tabbed_pane.add_tab(tab, name_frame)
+                end
+            else
+                local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name, style = 'slightly_smaller_tab'})
+                local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical', style = 'deep_frame_in_shallow_frame'})
+                tab.style.padding = 10
+                Task.set_timeout_in_ticks(10, fix_frame_style_token, {frame = name_frame})
                 tabbed_pane.add_tab(tab, name_frame)
             end
-        elseif func.admin == true then
-            if player.admin then
-                local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name})
-                local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical'})
-                name_frame.style.minimal_height = 480
-                name_frame.style.maximal_height = 480
-                name_frame.style.minimal_width = 800
-                name_frame.style.maximal_width = 800
-                tabbed_pane.add_tab(tab, name_frame)
-            end
-        else
-            local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name})
-            local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical'})
-            name_frame.style.minimal_height = 480
-            name_frame.style.maximal_height = 480
-            name_frame.style.minimal_width = 800
-            name_frame.style.maximal_width = 800
-            tabbed_pane.add_tab(tab, name_frame)
         end
     end
 
@@ -200,43 +270,46 @@ function Public.comfy_panel_call_tab(player, name)
 end
 
 local function on_player_joined_game(event)
-    top_button(game.players[event.player_index])
+    local player = game.players[event.player_index]
+    cleanup_legacy_uid_gui(player)
+    top_button(player)
 end
 
-local function on_gui_click(event)
-    local element = event.element
-    if not element or not element.valid then
+GuiDispatcher.register_click('comfy_panel_top_button', function(event)
+    local player = game.players[event.player_index]
+    local is_spamming = SpamProtection.is_spamming(player, nil, 'Comfy Main GUI Click')
+    if is_spamming then
         return
     end
-
-    local player = game.players[event.player_index]
-
-    local name = element.name
-
-    if name == 'comfy_panel_top_button' then
-        local is_spamming = SpamProtection.is_spamming(player, nil, 'Comfy Main GUI Click')
-        if is_spamming then
-            return
-        end
-        if player.gui.left.comfy_panel then
-            player.gui.left.comfy_panel.destroy()
-            Public.comfy_panel_restore_left_gui(player)
-            Public.comfy_panel_restore_screen_gui(player)
-            return
-        else
-            Public.comfy_panel_clear_screen_gui(player)
-            main_frame(player)
-            return
-        end
+    if player.gui.left.comfy_panel then
+        player.gui.left.comfy_panel.destroy()
+        Public.comfy_panel_restore_left_gui(player)
+        Public.comfy_panel_restore_screen_gui(player)
+        return
+    else
+        Public.comfy_panel_clear_screen_gui(player)
+        main_frame(player)
+        return
     end
+end)
 
-    if element.caption == 'X' and name == 'comfy_panel_close' then
+GuiDispatcher.register_click('comfy_panel_close', function(event)
+    local element = event.element
+    local player = game.players[event.player_index]
+    if element.caption == 'X' then
         local is_spamming = SpamProtection.is_spamming(player, nil, 'Comfy Main Gui Close Button')
         if is_spamming then
             return
         end
         player.gui.left.comfy_panel.destroy()
         Public.comfy_panel_restore_left_gui(player)
+        return
+    end
+end)
+
+local function on_gui_click(event)
+    local element = event.element
+    if not element or not element.valid then
         return
     end
 
@@ -247,11 +320,29 @@ local function on_gui_click(event)
         return
     end
 
+    local player = game.players[event.player_index]
     Public.comfy_panel_refresh_active_tab(player)
 end
 
 Event.add(defines.events.on_player_joined_game, on_player_joined_game)
 Event.add(defines.events.on_player_created, on_player_joined_game)
 Event.add(defines.events.on_gui_click, on_gui_click)
+Event.add(defines.events.on_gui_selected_tab_changed, function(event)
+    local element = event.element
+    if not element or not element.valid then
+        return
+    end
+    if element.name ~= 'tabbed_pane' then
+        return
+    end
+    local player = game.players[event.player_index]
+    Public.comfy_panel_refresh_active_tab(player)
+end)
+
+-- 注册到统一重建入口：场景热更 / 服务器更新时统一清理旧 GUI 并重建按钮
+GuiRebuild.register('comfy_panel', function(player)
+    cleanup_legacy_uid_gui(player)
+    top_button(player)
+end)
 
 return Public

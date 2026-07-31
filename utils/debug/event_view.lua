@@ -1,6 +1,7 @@
-﻿local Event = require 'utils.event'
+local Event = require 'utils.event'
 local table = require 'utils.table'
 local Gui = require 'utils.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Model = require 'utils.debug.model'
 
 local format = string.format
@@ -18,9 +19,9 @@ local Public = {
 local name_lookup = {}
 
 -- GUI names
-local checkbox_name = Gui.uid_name()
-local filter_name = Gui.uid_name()
-local clear_filter_name = Gui.uid_name()
+local checkbox_name = 'dbg_ev_checkbox_name'
+local filter_name = 'dbg_ev_filter_name'
+local clear_filter_name = 'dbg_ev_clear_filter_name'
 
 -- global tables
 local enabled = {}
@@ -70,19 +71,6 @@ local function event_callback(event)
     log(str)
 end
 
-local function on_gui_checked_state_changed(event)
-    local element = event.element
-    local name = element.caption
-    local id = events[name]
-    local state = element.state and true or false
-    element.state = state
-    if state then
-        enabled[id] = true
-    else
-        enabled[id] = false
-    end
-end
-
 -- GUI
 
 -- Create a table with events sorted by their names
@@ -126,39 +114,44 @@ function Public.show(container)
     redraw_event_table(gui_table, filter)
 end
 
-Gui.on_checked_state_changed(checkbox_name, on_gui_checked_state_changed)
-
-Gui.on_text_changed(
-    filter_name,
-    function(event)
-        local element = event.element
-        local gui_table = Gui.get_data(element)
-
-        local filter = element.text:gsub(' ', '_')
-
-        storage.debug_event_view.filter = filter
-        element.text = filter
-
-        gui_table.clear()
-        redraw_event_table(gui_table, filter)
+GuiDispatcher.register_checked_state_changed(checkbox_name, function(event)
+    local element = event.element
+    local name = element.caption
+    local id = events[name]
+    local state = element.state and true or false
+    element.state = state
+    if state then
+        enabled[id] = true
+    else
+        enabled[id] = false
     end
-)
+end)
 
-Gui.on_click(
-    clear_filter_name,
-    function(event)
-        local element = event.element
-        local data = Gui.get_data(element)
-        local filter_textfield = data.filter_textfield
-        local gui_table = data.gui_table
+GuiDispatcher.register_text_changed(filter_name, function(event)
+    local element = event.element
+    local gui_table = Gui.get_data(element)
 
-        filter_textfield.text = ''
-        storage.debug_event_view.filter = ''
+    local filter = element.text:gsub(' ', '_')
 
-        gui_table.clear()
-        redraw_event_table(gui_table, '')
-    end
-)
+    storage.debug_event_view.filter = filter
+    element.text = filter
+
+    gui_table.clear()
+    redraw_event_table(gui_table, filter)
+end)
+
+GuiDispatcher.register_click(clear_filter_name, function(event)
+    local element = event.element
+    local data = Gui.get_data(element)
+    local filter_textfield = data.filter_textfield
+    local gui_table = data.gui_table
+
+    filter_textfield.text = ''
+    storage.debug_event_view.filter = ''
+
+    gui_table.clear()
+    redraw_event_table(gui_table, '')
+end)
 
 -- Event registers (TODO: turn to removable hooks.. maybe)
 for name, id in pairs(events) do

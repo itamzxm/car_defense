@@ -114,6 +114,7 @@ Event.on_nth_tick(300, check_world_boss)
 ### 使用场景
 
 - `Token.register` 在 `_LIFECYCLE == 8`（Runtime）时抛错，因为运行期注册会导致 ID 不同步
+- `GuiDispatcher.register_*` / `Gui.uid_name` / `Gui.uid` 同样在 `_LIFECYCLE == 8` 时抛错（运行时注册 GUI handler 会导致新连接客户端丢失回调，引发 desync）
 - `_LIFECYCLE` 检查确保某些操作只在加载期执行
 
 ### `_STAGE` 常量
@@ -183,6 +184,10 @@ Event.add(defines.events.on_entity_died, on_entity_died)
 
 ### GUI 事件 handler 结构
 
+> **优先使用 GuiDispatcher**：GUI 事件应通过 `GuiDispatcher.register_click(element_name, handler)` 按元素名注册（见 [gui-development-guide](../gui-development-guide/SKILL.md)），而非手写 `Event.add(on_gui_click)` + 元素名分派。GuiDispatcher 已处理 player/element valid 检查与派发，handler 内只需写业务逻辑。
+>
+> 下方手写模式仅用于理解原理或特殊场景（如需在一个 handler 内处理大量动态元素名）。
+
 ```lua
 local function on_gui_click(event)
     -- 1. 玩家验证
@@ -243,7 +248,7 @@ end
 - [ ] handler 内是否做了类型 self-filter（替代 filters 参数）
 - [ ] 副本相关事件是否做了 `Instance.is_dungeon_surface` 隔离
 - [ ] 周期性任务是否用了 `Event.on_nth_tick` 而非 `on_tick` + 计数器
-- [ ] GUI 事件是否做了元素名分派
+- [ ] GUI 事件是否优先用 `GuiDispatcher.register_*` 注册（而非手写 `Event.add(on_gui_click)` + 元素名分派）
 - [ ] 诊断日志是否用 `log()` 而非 `print()`
 - [ ] cause 类型分派是否用了表而非 if-elseif 链
 

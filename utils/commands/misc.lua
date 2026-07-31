@@ -5,11 +5,12 @@ local Server = require 'utils.server'
 local Color = require 'utils.color_presets'
 local Event = require 'utils.event'
 local Global = require 'utils.global'
-local BottomFrame = require 'utils.gui.bottom_frame'
-local Gui = require 'utils.gui'
+local BottomFrame = require 'comfy_panel.bottom_frame'
+local TopBar = require 'utils.top_bar'
 local SpamProtection = require 'utils.spam_protection'
 local Discord = require 'utils.discord_handler'
 local Commands = require 'utils.commands'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 
 local this = {
     enabled = true,
@@ -27,23 +28,13 @@ Global.register(
 local Public = {
 }
 
-local clear_corpse_button_name = Gui.uid_name()
-
-Commands.new('playtime', 'Fetches a player total playtime or nil.')
-    :require_backend()
-    :add_parameter('target', false, 'string')
-    :callback(
-        function (player, target)
-            Session.get_and_print_to_player(player, target)
-        end
-    )
-
+local clear_corpse_button_name = 'cmd_misc_clear_corpse_button'
 
 Commands.new('refresh', 'Reloads game script')
     :require_admin()
     :callback(
         function ()
-            game.print('Reloading game script...', Color.warning)
+            game.print({'commands.reloading_script'}, Color.warning)
             Server.to_discord_bold('Reloading game script...')
             game.reload_script()
         end
@@ -58,7 +49,7 @@ Commands.new('spaghetti', 'Toggle between disabling bots.')
         function (player, args)
             local force = player.force
             if args == 'true' then
-                game.print('The world has been spaghettified!', Color.success)
+                game.print({'commands.spaghettified'}, Color.success)
                 force.technologies['logistic-system'].enabled = false
                 force.technologies['construction-robotics'].enabled = false
                 force.technologies['logistic-robotics'].enabled = false
@@ -76,7 +67,7 @@ Commands.new('spaghetti', 'Toggle between disabling bots.')
                 force.technologies['worker-robots-speed-6'].enabled = false
                 this.spaghetti_enabled = true
             elseif args == 'false' then
-                game.print('The world is no longer spaghett!', Color.yellow)
+                game.print({'commands.spaghetti_disabled'}, Color.yellow)
                 force.technologies['logistic-system'].enabled = true
                 force.technologies['construction-robotics'].enabled = true
                 force.technologies['logistic-robotics'].enabled = true
@@ -106,7 +97,7 @@ Commands.new('generate_map', 'Pregenerates map.')
             local radius = args
             local surface = player.surface
             if surface.is_chunk_generated({ radius, radius }) then
-                player.print('Map generation done')
+                player.print({'commands.map_gen_done'})
                 return true
             end
             surface.request_to_generate_chunks({ 0, 0 }, radius)
@@ -114,7 +105,7 @@ Commands.new('generate_map', 'Pregenerates map.')
             for _, pl in pairs(game.connected_players) do
                 pl.play_sound { path = 'utility/new_objective', volume_modifier = 1 }
             end
-            player.print('Map generation done')
+            player.print({'commands.map_gen_done'})
         end
     )
 
@@ -125,12 +116,12 @@ Commands.new('repair', 'Revives all ghost entities.')
     :callback(
         function (player, args)
             if args < 1 then
-                player.print('[ERROR] Value is too low.')
+                player.print({'commands.error_value_too_low'}, Color.fail)
                 return false
             end
 
             if args > 50 then
-                player.print('[ERROR] Value is too big.')
+                player.print({'commands.error_value_too_big'}, Color.fail)
                 return false
             end
 
@@ -145,12 +136,12 @@ Commands.new('repair', 'Revives all ghost entities.')
             end
 
             if c == 0 then
-                player.print('No entities to repair were found!')
+                player.print({'commands.no_entities_to_repair'}, Color.fail)
                 return false
             end
 
             Discord.send_notification_raw(nil, player.name .. ' repaired ' .. c .. ' entities!')
-            return 'Repaired ' .. c .. ' entities!'
+            return {'commands.repaired_entities', c}
         end
     )
 
@@ -212,7 +203,7 @@ Commands.new('creative', 'Enables creative_mode.')
         function (player, args)
             local force = player.force
             if args == 'true' then
-                game.print('[CREATIVE] ' .. player.name .. ' has activated creative-mode!', Color.warning)
+                game.print({'commands.creative_activated', player.name}, Color.warning)
                 Server.to_discord_bold(table.concat { '[Creative] ' .. player.name .. ' has activated creative-mode!' })
 
                 Modifiers.set('creative_enabled', true)
@@ -227,7 +218,7 @@ Commands.new('creative', 'Enables creative_mode.')
                     end
                 end
             elseif args == 'false' then
-                game.print('[CREATIVE] ' .. player.name .. ' has deactivated creative-mode!', Color.warning)
+                game.print({'commands.creative_deactivated', player.name}, Color.warning)
                 Server.to_discord_bold(table.concat { '[Creative] ' .. player.name .. ' has deactivated creative-mode!' })
 
                 Modifiers.set('creative_enabled', false)
@@ -272,9 +263,9 @@ Commands.new('delete_uncharted_chunks', 'Deletes all chunks that are not charted
                 end
             end
 
-            local message = player.name .. ' deleted ' .. count .. ' uncharted chunks!'
+            local message = {'commands.deleted_uncharted_chunks', player.name, count}
             game.print(message, Color.warning)
-            Server.to_discord_bold(table.concat { message })
+            Server.to_discord_bold(table.concat { player.name .. ' deleted ' .. count .. ' uncharted chunks!' })
         end
     )
 
@@ -296,20 +287,20 @@ local function clear_corpses(cmd)
     local p = player.print
     if not trusted[player.name] then
         if not player.admin then
-            p('[ERROR] Only admins and trusted weebs are allowed to run this command!', Color.fail)
+            p({'commands.error_admins_trusted_only'}, Color.fail)
             return
         end
     end
     if param == nil then
-        player.print('[ERROR] Must specify radius!', Color.fail)
+        player.print({'commands.error_must_specify_radius'}, Color.fail)
         return
     end
     if param < 0 then
-        player.print('[ERROR] Value is too low.', Color.fail)
+        player.print({'commands.error_value_too_low'}, Color.fail)
         return
     end
     if param > 500 then
-        player.print('[ERROR] Value is too big.', Color.fail)
+        player.print({'commands.error_value_too_big'}, Color.fail)
         return
     end
     local pos = player.position
@@ -318,21 +309,18 @@ local function clear_corpses(cmd)
 
     local radius = { { x = (pos.x + -param), y = (pos.y + -param) }, { x = (pos.x + param), y = (pos.y + param) } }
 
-    for _, entity in pairs(player.surface.find_entities_filtered { area = radius, type = 'corpse' }) do
- 
+    for _, entity in pairs(player.surface.find_entities_filtered { area = radius, type = { 'corpse', 'remnant' } }) do
+        if entity.type == 'remnant' or entity.corpse_expires then
             entity.destroy()
             i = i + 1
-    
-    end
-    local corpse = 'corpse'
-
-    if i > 1 then
-        corpse = 'corpses'
+        end
     end
     if i == 0 then
-        player.print('[color=blue][Cleaner][/color] No corpses to clear!', Color.warning)
+        player.print({'commands.clear_corpse_no_corpses'}, Color.warning)
+    elseif i == 1 then
+        player.print({'commands.clear_corpse_cleared_one'}, Color.success)
     else
-        player.print('[color=blue][Cleaner][/color] Cleared ' .. i .. ' ' .. corpse .. '!', Color.success)
+        player.print({'commands.clear_corpse_cleared_many', i}, Color.success)
     end
 end
 
@@ -343,6 +331,22 @@ commands.add_command(
         clear_corpses(cmd)
     end
 )
+
+Commands.new('coins', 'Shows coin count for all players.')
+    :require_admin()
+    :callback(
+        function (player)
+            player.print({'commands.coins_header'}, Color.warning)
+            for i, p in pairs(game.players) do
+                local coin_count = 0
+                if p.character and p.character.valid then
+                    coin_count = p.character.get_item_count('coin')
+                end
+                player.print({'commands.coins_entry', i, p.name, coin_count}, Color.success)
+            end
+            player.print({'commands.coins_footer'}, Color.warning)
+        end
+    )
 
 local on_player_joined_game = function (player)
     Public.insert_all_items(player)
@@ -389,7 +393,7 @@ function Public.insert_all_items(player)
                 if _k and _v.type ~= 'mining-tool' then
                     player.character_inventory_slots_bonus = Modifiers.get_single_modifier(player, 'character_inventory_slots_bonus', 'creative')
                     player.insert { name = _k, count = _v.stack_size }
-                    player.print('[CREATIVE] Inserted all base items.', Color.success)
+                    player.print({'commands.creative_inserted_all_items'}, Color.success)
                 end
             end
         end
@@ -408,53 +412,23 @@ function Public.remove_all_items(player)
 end
 
 local function create_clear_corpse_frame(player, bottom_frame_data)
-    local button
-
     bottom_frame_data = bottom_frame_data or BottomFrame.get_player_data(player)
 
-    if Gui.get_mod_gui_top_frame() then
-        button =
-            Gui.add_mod_button(
-                player,
-                {
-                    type = 'sprite-button',
-                    name = clear_corpse_button_name,
-                    sprite = 'entity/behemoth-biter',
-                    tooltip = { 'commands.clear_corpse' },
-                    style = Gui.button_style
-                }
-            )
-        if button then
-            button.style.font_color = { 165, 165, 165 }
-            button.style.font = 'heading-3'
-            button.style.minimal_height = 36
-            button.style.maximal_height = 36
-            button.style.minimal_width = 40
-            button.style.padding = -2
-        end
+    local flow = TopBar.get_button_flow(player)
+    local button
+
+    if not flow[clear_corpse_button_name] then
+        button = TopBar.add_button(player, {
+            type = 'sprite-button',
+            sprite = 'entity/behemoth-biter',
+            name = clear_corpse_button_name,
+            tooltip = {'commands.clear_corpse'}
+        })
     else
-        button =
-            player.gui.top[clear_corpse_button_name] or
-            player.gui.top.add(
-                {
-                    type = 'sprite-button',
-                    sprite = 'entity/behemoth-biter',
-                    name = clear_corpse_button_name,
-                    tooltip = { 'commands.clear_corpse' },
-                    style = Gui.button_style
-                }
-            )
-        button.style.font_color = { r = 0.11, g = 0.8, b = 0.44 }
-        button.style.font = 'heading-1'
-        button.style.minimal_height = 40
-        button.style.maximal_width = 40
-        button.style.minimal_width = 38
-        button.style.maximal_height = 38
-        button.style.padding = 1
-        button.style.margin = 0
+        button = flow[clear_corpse_button_name]
     end
 
-    if this.bottom_button and bottom_frame_data ~= nil and not bottom_frame_data.top then
+    if this.bottom_button and bottom_frame_data and not bottom_frame_data.top then
         if button and button.valid then
             button.destroy()
         end
@@ -520,19 +494,16 @@ Event.add(
     end
 )
 
-Gui.on_click(
-    clear_corpse_button_name,
-    function (event)
-        if not this.enabled then
-            return
-        end
-        local is_spamming = SpamProtection.is_spamming(event.player, nil, 'Clear Corpse')
-        if is_spamming then
-            return
-        end
-        clear_corpses(event)
+GuiDispatcher.register_click(clear_corpse_button_name, function(event)
+    if not this.enabled then
+        return
     end
-)
+    local is_spamming = SpamProtection.is_spamming(event.player, nil, 'Clear Corpse')
+    if is_spamming then
+        return
+    end
+    clear_corpses(event)
+end)
 
 Event.add(
     BottomFrame.events.bottom_quickbar_location_changed,

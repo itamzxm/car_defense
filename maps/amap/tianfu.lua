@@ -5,12 +5,18 @@ local RPG = require 'modules.rpg.core'
 local TPT = require 'maps.amap.tianfu_table'
 local tianfu_once_skill = require 'maps.amap.tianfu_once_skill'
 local tianfu_time_skill = require 'maps.amap.tianfu_time_skill'
-local tianfu_trigger_skill = require 'maps.amap.tianfu_trigger_skill'  -- 新添加
+local tianfu_trigger_skill = require 'maps.amap.tianfu_trigger_skill'
 local Public = {}
 local WPT = require 'maps.amap.table'
 local WD = require 'modules.wave_defense.table'
 local World = require 'maps.amap.world.framework'
-local TianfuQuality = require 'maps.amap.tianfu_quality'  -- 天赋品质系统 helper（方案 D）
+local TianfuQuality = require 'maps.amap.tianfu_quality'
+local GuiDispatcher = require 'utils.gui_dispatcher'
+
+local TIANFU_SELECT_FRAME = 'tianfu_select_frame'
+local TIANFU_ZHIYE_SELECT_FRAME = 'tianfu_zhiye_select_frame'
+local TIANFU_FRAME = 'amap_tianfu_frame'
+local TIANFU_CARD_BUTTON = 'tianfu_card_button'
 
 -- ===== 天赋黑名单 =====
 -- 黑名单中的天赋：①无法在天赋选择界面被选中；②不会在周期性天赋触发函数（on_tick）中生效。
@@ -691,20 +697,20 @@ end
 -- 职业选择GUI函数
 local function choise_zhiye(player)
     -- 移除可能存在的天赋选择框
-    if player.gui.screen['选择你的天赋'] then
-        player.gui.screen['选择你的天赋'].destroy()
+    if player.gui.screen[TIANFU_SELECT_FRAME] then
+        player.gui.screen[TIANFU_SELECT_FRAME].destroy()
     end
 
     -- 移除可能已存在的职业选择框
-    if player.gui.screen['choise_zhiye_frame'] then
-        player.gui.screen['choise_zhiye_frame'].destroy()
+    if player.gui.screen[TIANFU_ZHIYE_SELECT_FRAME] then
+        player.gui.screen[TIANFU_ZHIYE_SELECT_FRAME].destroy()
     end
 
     -- 显示职业选择界面
     local frame = player.gui.screen.add {
         type = 'frame',
         caption = { 'tianfu.choise_zhiye' },
-        name = 'choise_zhiye_frame',
+        name = TIANFU_ZHIYE_SELECT_FRAME,
         direction = 'vertical'
     }
     frame.force_auto_center()
@@ -739,7 +745,7 @@ local function choise_zhiye(player)
     for _, zhiye_data in pairs(zhiye_with_keys) do
         local button = frame.add({
             type = 'button',
-            name = 'zhiye_' .. zhiye_data.key,
+            name = 'tianfu_zhiye_' .. zhiye_data.key,
             tooltip = zhiye_data.tooltip,
             caption = zhiye_data.name
         })
@@ -775,14 +781,14 @@ end
     end
 
     -- 移除可能已存在的天赋选择框
-    if player.gui.screen['选择你的天赋'] then
-        player.gui.screen['选择你的天赋'].destroy()
+    if player.gui.screen[TIANFU_SELECT_FRAME] then
+        player.gui.screen[TIANFU_SELECT_FRAME].destroy()
     end
 
     local frame = player.gui.screen.add {
         type = 'frame',
         caption = { 'tianfu.choise_skill' },
-        name = '选择你的天赋',
+        name = TIANFU_SELECT_FRAME,
         direction = 'vertical'
     }
     frame.force_auto_center()
@@ -977,7 +983,7 @@ end
         -- vertically_stretchable=true 让卡片等高，配合底部按钮对齐
         local card = cards_flow.add({
             type = 'frame',
-            name = 'card_' .. skill_name,
+            name = 'tianfu_card_' .. skill_name,
             direction = 'vertical'
         })
         card.style.minimal_width = 160
@@ -1029,11 +1035,10 @@ end
         icon_flow.style.bottom_padding = 4
         local icon_btn = icon_flow.add({
             type = 'sprite-button',
-            name = skill_name,
+            name = TIANFU_CARD_BUTTON,
             sprite = get_tianfu_icon(skill_name),
             tooltip = { 'tianfu.' .. skill_name .. '_tip', table.unpack(TianfuQuality.tip_args(skill_name, q_idx)) },
-            -- ★ 把原"选取"按钮的标识与品质 tag 挂到图标上，点击图标即选中
-            tags = { tianfu_card = true, quality = q_idx },
+            tags = { tianfu_card = true, quality = q_idx, skill_name = skill_name },
             mouse_button_filter = { 'left' }
         })
         icon_btn.style.minimal_width = 80
@@ -1129,108 +1134,54 @@ function Public.get_tianfu_categories()
     return tianfu_categories
 end
 
-local function on_gui_click(event)
+local function on_zhiye_click(event)
     local this = TPT.get()
-    if not event then
-        return
-    end
-    if not event.element then
-        return
-    end
-    if not event.element.valid then
-        return
-    end
-    -- 允许普通按钮与 sprite-button（天赋图标）两类点击
-    if event.element.type ~= 'button' and event.element.type ~= 'sprite-button' then
-        return
-    end
     local main_table = WPT.get()
     local player = game.players[event.element.player_index]
     if main_table.tianfu_enabled[player.index] == nil then
         main_table.tianfu_enabled[player.index] = {}
     end
-    -- 处理职业选择按钮点击
-    if event.element.parent.name == 'choise_zhiye_frame' then
-        local element_name = event.element.name
-        -- 提取职业名称（去掉前缀"zhiye_"）
-        local zhiye_name = string.sub(element_name, 7) -- 从第7个字符开始，去掉"zhiye_"
-
-        -- 处理随机职业选项
-        if zhiye_name == '随机' then
-            local zhiye_options = { '战士', '法师', '建造者' }
-            zhiye_name = zhiye_options[random_k(player.index, #zhiye_options)]
-        end
-
-        -- 获取main_table并保存玩家选择的职业
-    
-        main_table.zhiye[player.name] = zhiye_name
-
-        -- 向玩家发送职业选择成功的消息（使用本地化消息）
-        game.print({ 'tianfu.choise_zhiye_msg', player.name, zhiye_name })
-
-        -- 销毁职业选择界面
-        event.element.parent.destroy()
-
-        -- 重置选择状态，然后调用天赋选择函数
-        this.xuanze[player.index] = 0
-        choise_skill(player)
-
-        return
+    local element_name = event.element.name
+    local zhiye_name = string.sub(element_name, 14)
+    if zhiye_name == '随机' then
+        local zhiye_options = { '战士', '法师', '建造者' }
+        zhiye_name = zhiye_options[random_k(player.index, #zhiye_options)]
     end
+    main_table.zhiye[player.name] = zhiye_name
+    game.print({ 'tianfu.choise_zhiye_msg', player.name, zhiye_name })
+    event.element.parent.destroy()
+    this.xuanze[player.index] = 0
+    choise_skill(player)
+end
 
-    -- 处理天赋卡片按钮点击：通过tags识别
-    -- （卡片布局下按钮parent是卡片frame，不再直接是'选择你的天赋'，改用tags标记识别）
-    local elem_tags = event.element.tags
-    if not (elem_tags and elem_tags.tianfu_card) then
-        return
-    end
-
-    local player = game.players[event.element.player_index]
-    this.xuanze[player.index] = 2
-
-    -- tianyu引入代码
+local function on_tianfu_card_click(event)
+    local this = TPT.get()
     local main_table = WPT.get()
-    -- 保存天赋名字到玩家元表
+    local player = game.players[event.element.player_index]
+    if main_table.tianfu_enabled[player.index] == nil then
+        main_table.tianfu_enabled[player.index] = {}
+    end
+    this.xuanze[player.index] = 2
+    local main_table = WPT.get()
     if main_table.skill[player.name] == nil then
         main_table.skill[player.name] = {}
     end
-    local skill_name = event.element.name
-    -- ★ 天赋品质系统（方案 D）：学天赋时 roll 一次品质，所有天赋（含一次性）都进 this.skill 列表
-    -- 卡片已预先 roll 好品质存在 tags.quality 里，保证玩家看到的品质 = 学到的品质
+    local skill_name = event.element.tags.skill_name
     local q_idx = event.element.tags.quality or TianfuQuality.roll()
-
-    -- ★ 天赋品质系统（方案 D 简化版）：直接字典存储 skill_name -> q_idx（O(1) 读写，去掉 once 守卫，所有天赋含一次性都进表）
     main_table.skill[player.name][skill_name] = q_idx
-
-    -- 设置天赋默认启用
-
     main_table.tianfu_enabled[player.index][skill_name] = true
-
     main_table.skill_canchoise[player.name] = 0
-
-    -- 引入结束
-
-    game.print({ 'tianfu.choise_skill_msg', player.name, { 'tianfu.' .. event.element.name }, TianfuQuality.locale_name(q_idx) })
-    -- Server.to_discord_embed(table.concat({'tianfu.choise_skill_msg', player.name, {'tianfu.'..event.element.name}}))
-
-    -- ★ 学成提示带品质颜色（0-255 系需 /255）
+    game.print({ 'tianfu.choise_skill_msg', player.name, { 'tianfu.' .. skill_name }, TianfuQuality.locale_name(q_idx) })
     local q_color = TianfuQuality.color(q_idx) or {r = 200, g = 200, b = 200}
     player.print({ 'tianfu.learn_q', { 'tianfu.' .. skill_name }, TianfuQuality.locale_name(q_idx) },
         { r = q_color.r / 255, g = q_color.g / 255, b = q_color.b / 255 })
-
     this.choise_skill[player.name] = true
-
-    if not tianfu_once_skill.once_skills[event.element.name] then
-        -- 注：已删除 this[skill_name] = {} 死字段写入（无消费者）
-        -- 更新玩家技能索引：记录玩家学习的时间技能
+    if not tianfu_once_skill.once_skills[skill_name] then
         if time_skills[skill_name] then
             if not this.player_time_skills[player.name] then
                 this.player_time_skills[player.name] = {}
             end
             this.player_time_skills[player.name][skill_name] = true
-
-            -- ★ 方案 C：学习 time_skill 后，登记第一次到期到 due_buckets
-            -- 这样 on_tick 会在 game.tick + cooldown 时第一次调用该技能
             local cooldown = time_skills[skill_name].time or 60
             if cooldown <= 0 then cooldown = 1 end
             local next_tick = game.tick + cooldown
@@ -1248,38 +1199,25 @@ local function on_gui_click(event)
             next_player_skills[#next_player_skills + 1] = skill_name
         end
     else
-        -- ★ 一次性天赋：把刚 roll 的品质传入（学的品质 = 生效的品质）
-        tianfu_once_skill.once_skills[event.element.name].name(player, q_idx)
+        tianfu_once_skill.once_skills[skill_name].name(player, q_idx)
     end
-
-    -- ★ 方案 B：倒排索引——所有类型天赋（time/trigger/once）学习后都登记
-    -- 事件 handler 用 skill_owners[skill_id] 直接遍历学过的玩家，避免全玩家扫描
     if not this.skill_owners then this.skill_owners = {} end
     if not this.skill_owners[skill_name] then this.skill_owners[skill_name] = {} end
     this.skill_owners[skill_name][player.index] = true
-    -- 销毁整个天赋选择界面（按钮parent是卡片frame，需销毁外层'选择你的天赋'）
-    player.gui.screen['选择你的天赋'].destroy()
+    player.gui.screen[TIANFU_SELECT_FRAME].destroy()
     local this = WPT.get()
     local rpg_t = rpgtable.get('rpg_t')
-    -- 天赋间隔经 World 框架配置表按世界查询：默认 35；竞技场/世界15 等声明 tianfu_jiange=15
     local jiange = World.get_field(this.world_number, 'tianfu_jiange') or 35
-    -- 检查必要的变量是否存在
     if rpg_t[player.index] and rpg_t[player.index].level and this.tianfu_count and this.tianfu_count[player.index] and this.skill_canchoise and this.skill_canchoise[player.name] == 0 then
         if math.floor(rpg_t[player.index].level / jiange) > this.tianfu_count[player.index] - 1 and is_gui_visible(frame) == false then
-            -- 转移至gui更新天赋颜色显示，再引用天赋选择
             this.skill_canchoise[player.name] = 1
-      
         end
     end
-
-    if player.gui.left['tianfu_frame'] then
-        player.gui.left['tianfu_frame'].destroy()
+    if player.gui.left[TIANFU_FRAME] then
+        player.gui.left[TIANFU_FRAME].destroy()
     end
-    
-    -- 清除天赋缓存，确保下拉框能显示新学习到的天赋
     local main_table = WPT.get()
     local cache_key = player.name
-    
     if main_table.tianfu_names_cache then
         main_table.tianfu_names_cache[cache_key] = nil
     end
@@ -1287,6 +1225,12 @@ local function on_gui_click(event)
         main_table.tianfu_keys_cache[cache_key] = nil
     end
 end
+
+GuiDispatcher.register_click('tianfu_zhiye_随机', on_zhiye_click)
+GuiDispatcher.register_click('tianfu_zhiye_战士', on_zhiye_click)
+GuiDispatcher.register_click('tianfu_zhiye_法师', on_zhiye_click)
+GuiDispatcher.register_click('tianfu_zhiye_建造者', on_zhiye_click)
+GuiDispatcher.register_click(TIANFU_CARD_BUTTON, on_tianfu_card_click)
 
 -- 扳机类代码
 local function have_learn(player, skill)
@@ -1487,7 +1431,7 @@ local function on_tick_learn_skill()
         local rpg_t = rpgtable.get('rpg_t')
         local main_table = WPT.get()
 
-        local frame = player.gui.screen['选择你的天赋']
+        local frame = player.gui.screen[TIANFU_SELECT_FRAME]
         -- 天赋间隔经 World 框架配置表按世界查询：默认 35；竞技场/世界15 等声明 tianfu_jiange=15
         local jiange = World.get_field(main_table.world_number, 'tianfu_jiange') or 35
         -- 检查必要的变量是否存在
@@ -2465,7 +2409,6 @@ Event.on_nth_tick(1, on_tick)
 Event.on_nth_tick(40, on_tick_shengguangzhongji)
 Event.on_nth_tick(60*10, on_tick_learn_skill)  -- 每30秒执行一次学习新天赋逻辑
 Event.add(defines.events.on_player_joined_game, on_player_joined_game)
-Event.add(defines.events.on_gui_click, on_gui_click)
 Event.add(defines.events.on_pre_player_died, on_pre_player_died)
 Event.add(defines.events.on_player_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'simple-entity'},

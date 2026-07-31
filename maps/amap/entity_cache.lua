@@ -93,12 +93,12 @@ function Public.find_entities_cached(surface, filters)
     local position = get_position(filters.position)
     
     if not position then
-        game.print("没有位置，拒绝搜索")
+        game.print({'amap.entity_cache_no_position'})
         return {}
     end
 
     if not filters.radius then
-        game.print("没有半径，拒绝搜索")
+        game.print({'amap.entity_cache_no_radius'})
         return {}
     end
 

@@ -498,14 +498,14 @@ commands.add_command(
         local param = cmd.parameter
         if not param then
           if map.cunkuang[player.name] then 
-            player.print('你的存款为'..map.cunkuang[player.name])
+             player.print({'amap.deposit_balance', map.cunkuang[player.name]})
+          end
+             return
          end
-            return
-        end
 
-        if param == '' then
-          if map.cunkuang[player.name] then 
-            player.print('你的存款为'..map.cunkuang[player.name])
+         if param == '' then
+           if map.cunkuang[player.name] then 
+             player.print({'amap.deposit_balance', map.cunkuang[player.name]})
          end
             return
         end
@@ -520,7 +520,7 @@ commands.add_command(
               return
             end
             if  coin <= 1 then
-              player.print('你的存款为'..map.cunkuang[player.name])
+              player.print({'amap.deposit_balance', map.cunkuang[player.name]})
               return 
             end
             coin = math.floor(coin)
@@ -534,10 +534,10 @@ commands.add_command(
             if map.cunkuang[player.name]>=coin then
               player.insert{name='coin',count=coin}
               map.cunkuang[player.name]=map.cunkuang[player.name]-coin
-              player.print('提款成功,提款金额为：'..coin..'你的存款总额为：'..map.cunkuang[player.name]..'金币')
+              player.print({'amap.withdraw_success', coin, map.cunkuang[player.name]})
          
             else
-player.print('你没有足够的钱,你的存款总额为：'..map.cunkuang[player.name]..'金币')
+ player.print({'amap.insufficient_funds', map.cunkuang[player.name]})
 
             end
            -- player.play_sound {path = 'utility/scenario_message', volume_modifier = 1}
@@ -559,14 +559,14 @@ function()
             local this = WPT.get()
             -- 检查玩家当前天赋次数是否为0
             if not this.tianfu_count[player.index] or this.tianfu_count[player.index] <= 0 then
-              p("你没有可用的天赋次数！", {r = 1, g = 0.5, b = 0})
+              p({'amap.no_talent_charges_available'}, {r = 1, g = 0.5, b = 0})
               return
             end
             if not this.tianfu[player.name] then
               this.tianfu[player.name]= 1
               tianfu.get_new_tianfu(player)
               this.tianfu_count[player.index]=this.tianfu_count[player.index]-1
-              p("成功添加额外天赋！剩余次数："..this.tianfu_count[player.index], {r = 0.5, g = 1, b = 0.5})
+              p({'amap.extra_talent_success', this.tianfu_count[player.index]}, {r = 0.5, g = 1, b = 0.5})
             end
           end 
       end     
@@ -804,10 +804,9 @@ local function on_player_joined_game(event)
   for k,v in pairs(map.record) do
     if  player.name==v.name then
       map.color[#map.color+1]=player
-      text=player.name .. ' ' .. map.record[player.name] .. ' 加入了游戏，你可以输入/itam，多选择1个天赋'
-      eng_text='super player ' .. player.name .. " join the game"
-      game.print(rainbow_text(text))
-      game.print(rainbow_text(eng_text))
+      text=player.name .. ' ' .. map.record[player.name] .. ' '
+      game.print(rainbow_text(text) .. rainbow_text({'amap.itam_join_message'}))
+      game.print(rainbow_text('super player ' .. player.name .. " join the game"))
     end
   end
   changer_color()

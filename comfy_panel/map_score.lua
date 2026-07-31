@@ -33,7 +33,7 @@ local function score_list(data)
     line.style.top_margin = 4
     line.style.bottom_margin = 4
 
-    local scroll_pane = frame.add {type = 'scroll-pane', name = 'scroll_pane', direction = 'vertical', horizontal_scroll_policy = 'never', vertical_scroll_policy = 'auto'}
+    local scroll_pane = frame.add {type = 'scroll-pane', name = 'cp_ms_scroll_pane', direction = 'vertical', horizontal_scroll_policy = 'never', vertical_scroll_policy = 'auto'}
     scroll_pane.style.minimal_width = 780
     scroll_pane.style.maximal_height = 360
     scroll_pane.style.minimal_height = 360

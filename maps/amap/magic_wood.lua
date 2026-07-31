@@ -6,6 +6,7 @@
 local WPT = require 'maps.amap.table'
 local Event = require 'utils.event'
 local Gui = require 'utils.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local World = require 'maps.amap.world.framework'
 
 local Public = {}
@@ -16,11 +17,10 @@ local Public = {}
 -- 设计原则：
 --   1. 不使用 Gui.uid_name()——它底层 Token.uid() 是模块级 local 计数器，
 --      不在 global 中持久化，新连接客户端从初始值开始，会导致 name 不一致 → desync。
---   2. 不使用 Gui.on_click / Gui.on_custom_close——它们的 handler 表是模块级
---      local，函数闭包无法序列化到 global，新连接客户端为空 → desync。
---   3. 所有 GUI 事件用 Event.add 在模块加载时统一注册，
---      通过 element.name 字符串路由到对应处理逻辑。
---   4. 运行时状态（当前操作的箱子 unit_number 等）存 global（WPT.get()），
+--   2. GUI 事件通过 GuiDispatcher 按元素名精确路由，
+--      GuiDispatcher 在 control stage 统一注册 Event.add，handler 表为模块级 local，
+--      所有客户端加载时一致，不会 desync。
+--   3. 运行时状态（当前操作的箱子 unit_number 等）存 global（WPT.get()），
 --      不通过闭包捕获。
 ----------------------------------------------------------------
 
@@ -375,17 +375,13 @@ function Public.show_upgrade_gui(player, chest_entity)
 end
 
 ----------------------------------------------------------------
--- 统一 GUI 事件处理
--- 所有事件在模块加载时用 Event.add 注册（control stage），handler 内通过
--- element.name / player index 查 global 状态路由，不依赖闭包捕获局部变量。
+-- GUI 事件处理（GuiDispatcher 按元素名路由）
+-- handler 内通过 player index 查 global 状态，不依赖闭包捕获局部变量。
 ----------------------------------------------------------------
 
--- on_gui_click：按钮点击
--- 路由顺序：先匹配固定功能按钮，最后用前缀匹配物品选择按钮
-Event.add(defines.events.on_gui_click, function(event)
+local function on_upgrade_click(event)
     local element = event.element
-    if not element or not element.valid then return end
-    local name = element.name
+    local coin_cost = element.name == BTN_UPGRADE_1K and 1000 or 10000
 
     local player = game.get_player(event.player_index)
     if not (player and player.valid) then return end
@@ -394,79 +390,96 @@ Event.add(defines.events.on_gui_click, function(event)
     local gui_state = this.mw_player_gui and this.mw_player_gui[pi]
     if not gui_state then return end
 
-    if name == BTN_UPGRADE_1K or name == BTN_UPGRADE_10K then
-        -- 升级
-        local coin_cost = name == BTN_UPGRADE_1K and 1000 or 10000
-        local chest_data = this.magic_wood_chests[gui_state.chest_un]
-        if not chest_data or not chest_data.entity or not chest_data.entity.valid then
-            player.print({'magic_wood.chest_disappeared'})
-            return
-        end
-        -- 已达生产力上限
-        if chest_data.total_value >= MAX_TOTAL_VALUE then
-            player.print({'magic_wood.max_value_reached', MAX_TOTAL_VALUE})
-            return
-        end
-        if player.get_item_count('coin') < coin_cost then
-            player.print({'magic_wood.not_enough_coins', coin_cost})
-            return
-        end
-        player.remove_item {name = 'coin', count = coin_cost}
-        local ok = Public.upgrade_chest(chest_data.entity, pi, coin_cost)
-        if ok then
-            player.print({'magic_wood.upgrade_success', chest_data.level, chest_data.total_value})
-            Public.show_upgrade_gui(player, chest_data.entity)
-        else
-            -- 升级会超过生产力上限（理论上 GUI 已隐藏按钮，此处兜底）
-            player.print({'magic_wood.upgrade_would_exceed', MAX_TOTAL_VALUE})
-        end
-
-    elseif name == BTN_OPEN_INV then
-        -- 打开仓库
-        local chest_data = this.magic_wood_chests[gui_state.chest_un]
-        if chest_data and chest_data.entity and chest_data.entity.valid then
-            close_player_gui(player)
-            if not this.mw_allow_inventory then this.mw_allow_inventory = {} end
-            this.mw_allow_inventory[pi] = true
-            player.opened = chest_data.entity
-        end
-
-    elseif name == BTN_CLOSE then
-        -- 关闭
-        close_player_gui(player)
-
-    elseif name:sub(1, #BTN_PREFIX) == BTN_PREFIX then
-        -- 物品选择按钮（前缀匹配放最后，避免误捕获功能按钮）
-        local item_name = name:sub(#BTN_PREFIX + 1)
-        close_player_gui(player)
-
-        local chest_data = this.magic_wood_chests[gui_state.chest_un]
-        if not chest_data or not chest_data.entity or not chest_data.entity.valid then
-            player.print({'magic_wood.chest_disappeared'})
-            return
-        end
-        chest_data.selected_item = item_name
-        chest_data.last_production_tick = game.tick
-        Public.update_level_label(chest_data)
-
-        local proto = prototypes.item[item_name]
-        player.print({'magic_wood.item_selected', proto and proto.localised_name or item_name})
+    local chest_data = this.magic_wood_chests[gui_state.chest_un]
+    if not chest_data or not chest_data.entity or not chest_data.entity.valid then
+        player.print({'magic_wood.chest_disappeared'})
+        return
     end
-end)
+    if chest_data.total_value >= MAX_TOTAL_VALUE then
+        player.print({'magic_wood.max_value_reached', MAX_TOTAL_VALUE})
+        return
+    end
+    if player.get_item_count('coin') < coin_cost then
+        player.print({'magic_wood.not_enough_coins', coin_cost})
+        return
+    end
+    player.remove_item {name = 'coin', count = coin_cost}
+    local ok = Public.upgrade_chest(chest_data.entity, pi, coin_cost)
+    if ok then
+        player.print({'magic_wood.upgrade_success', chest_data.level, chest_data.total_value})
+        Public.show_upgrade_gui(player, chest_data.entity)
+    else
+        player.print({'magic_wood.upgrade_would_exceed', MAX_TOTAL_VALUE})
+    end
+end
 
--- on_gui_closed：E键关闭 / player.opened 切换
-Event.add(defines.events.on_gui_closed, function(event)
-    local element = event.element
-    if not element or not element.valid then return end
-    if element.name ~= SELECTION_FRAME and element.name ~= UPGRADE_FRAME then return end
+local function on_open_inv_click(event)
+    local player = game.get_player(event.player_index)
+    if not (player and player.valid) then return end
+    local this = G()
+    local pi = player.index
+    local gui_state = this.mw_player_gui and this.mw_player_gui[pi]
+    if not gui_state then return end
 
+    local chest_data = this.magic_wood_chests[gui_state.chest_un]
+    if chest_data and chest_data.entity and chest_data.entity.valid then
+        close_player_gui(player)
+        if not this.mw_allow_inventory then this.mw_allow_inventory = {} end
+        this.mw_allow_inventory[pi] = true
+        player.opened = chest_data.entity
+    end
+end
+
+local function on_close_click(event)
+    local player = game.get_player(event.player_index)
+    if not (player and player.valid) then return end
+    close_player_gui(player)
+end
+
+local function on_item_select_click(event)
+    local item_name = event.element.name:sub(#BTN_PREFIX + 1)
+
+    local player = game.get_player(event.player_index)
+    if not (player and player.valid) then return end
+    local this = G()
+    local pi = player.index
+    local gui_state = this.mw_player_gui and this.mw_player_gui[pi]
+    if not gui_state then return end
+
+    close_player_gui(player)
+
+    local chest_data = this.magic_wood_chests[gui_state.chest_un]
+    if not chest_data or not chest_data.entity or not chest_data.entity.valid then
+        player.print({'magic_wood.chest_disappeared'})
+        return
+    end
+    chest_data.selected_item = item_name
+    chest_data.last_production_tick = game.tick
+    Public.update_level_label(chest_data)
+
+    local proto = prototypes.item[item_name]
+    player.print({'magic_wood.item_selected', proto and proto.localised_name or item_name})
+end
+
+local function on_frame_closed(event)
     local this = G()
     local pi = event.player_index
     if this.mw_player_gui then
         this.mw_player_gui[pi] = nil
     end
-    Gui.destroy(element)
-end)
+    Gui.destroy(event.element)
+end
+
+GuiDispatcher.register_click(BTN_UPGRADE_1K, on_upgrade_click)
+GuiDispatcher.register_click(BTN_UPGRADE_10K, on_upgrade_click)
+GuiDispatcher.register_click(BTN_OPEN_INV, on_open_inv_click)
+GuiDispatcher.register_click(BTN_CLOSE, on_close_click)
+for _, item_name in ipairs(all_items) do
+    GuiDispatcher.register_click(BTN_PREFIX .. item_name, on_item_select_click)
+end
+
+GuiDispatcher.register_closed(SELECTION_FRAME, on_frame_closed)
+GuiDispatcher.register_closed(UPGRADE_FRAME, on_frame_closed)
 
 ----------------------------------------------------------------
 -- on_gui_opened：右键点击木箱子 → 拦截，显示升级/选择 GUI

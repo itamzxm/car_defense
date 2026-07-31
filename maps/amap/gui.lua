@@ -1,28 +1,31 @@
 -- 模块依赖声明
 local Event = require 'utils.event'
+local GuiDispatcher = require 'utils.gui_dispatcher'
+local TopBar = require 'utils.top_bar'
 local WPT = require 'maps.amap.table'
 local TPT = require 'maps.amap.tianfu_table'
-local Gui = require 'utils.gui'
 local diff = require 'maps.amap.diff'
 local format_number = require 'util'.format_number
 local WD = require 'modules.wave_defense.table'
 local tianfu = require 'maps.amap.tianfu'
 local rpgtable = require 'modules.rpg.table'
-local TianfuQuality = require 'maps.amap.tianfu_quality'  -- 天赋品质系统 helper（方案 D）
+local TianfuQuality = require 'maps.amap.tianfu_quality'
+local GuiStyles = require 'maps.amap.gui_styles'
+local GuiRebuild = require 'utils.gui_rebuild'
+local LegacyCleanup = require 'utils.legacy_gui_cleanup'
 
--- 模块公开接口
 local Public = {}
 
---[[
-    常量定义区
-    使用表结构组织常量，避免魔法字符串，提高代码可维护性
-]]
 local CONST = {
     -- GUI元素标识
-    MAIN_BUTTON = Gui.uid_name(),
-    MAIN_FRAME = Gui.uid_name(),
+    MAIN_BUTTON = 'amap_main_button',
+    MAIN_FRAME = 'amap_main_frame',
     SPELL_FRAME = 'tianfu_gui_frame',
     TALENT_FRAME_CONTAINER = 'tianfu_frame_table',
+    TIANFU_FRAME = 'amap_tianfu_frame',
+    ZHIYE_SELECT = 'amap_zhiye_select',
+    CHOISE_PREFIX = 'amap_choise',
+    TIANFU_FRAME_BUTTON = 'amap_tianfu_frame_button',
     BTN_TIANFU = 'tianfu',
     
     -- 标签页相关
@@ -56,22 +59,15 @@ local CONST = {
         {key = '建造者', name = {'tianfu.zhiye_builder'}, tooltip = {'tianfu.zhiye_builder_tip'}}
     },
     
-    -- 颜色定义
-    COLORS = {
-        GREEN = {0, 255, 0},
-        GREY = {175, 175, 175},
-        CYAN = {0, 175, 175},
-        YELLOW = {255, 255, 0},
-        WHITE = {0.88, 0.88, 0.88},
-        RED = {255, 0, 0},
-        ORANGE = {255, 165, 0},
-        BLACK = {0, 0, 0}
-    },
+    COLORS = GuiStyles.COLORS,
     
     -- 其他常量
     UPDATE_INTERVAL_COOLING = 60,  -- 冷却更新频率（tick）
     UPDATE_INTERVAL_GUI = 600      -- GUI更新频率（tick）
 }
+
+local handle_talent_toggle_click
+local handle_talent_delete_click
 
 --[[
     辅助函数区
@@ -222,30 +218,41 @@ end
 ]]
 
 -- 创建顶部按钮
+-- 旧 GUI 清理已统一归档至 utils/legacy_gui_cleanup.lua
+-- 【过时标记】待兼容工作完毕后移除 LegacyCleanup 引用
+local cleanup_legacy_gui = LegacyCleanup.cleanup_legacy_gui
+
 local function create_button(player)
-    local top = player.gui.top
+    local flow = TopBar.get_button_flow(player)
     
-    if not top[CONST.MAIN_BUTTON] then
-        local button = top.add({
+    for _, old_name in ipairs({'main_button'}) do
+        if flow[old_name] then flow[old_name].destroy() end
+    end
+    
+    if not flow[CONST.MAIN_BUTTON] then
+        local button = TopBar.add_button(player, {
             type = 'sprite-button',
             name = CONST.MAIN_BUTTON,
             sprite = 'utility/map',
             tooltip = {'amap.show_map_info'}
         })
-        button.style.minimal_height = 38
-        button.style.maximal_height = 38
+        button.style.minimal_width = 40
+        button.style.padding = -2
+        button.style.margin = 0
     end
 
-    if not top[CONST.BTN_TIANFU] then
-        local talent_button = top.add({
+    if not flow[CONST.BTN_TIANFU] then
+        local talent_button = TopBar.add_button(player, {
             type = 'sprite-button',
             name = CONST.BTN_TIANFU,
-            caption = {'amap.talent'}
+            caption = {'amap.talent'},
+            tooltip = {'amap.talent_tooltip'}
         })
-        talent_button.style.minimal_height = 38
-        talent_button.style.maximal_height = 38
-        talent_button.style.minimal_width = 100
-        talent_button.style.font_color = CONST.COLORS.GREY
+        talent_button.style.font_color = CONST.COLORS.BLACK
+        talent_button.style.left_padding = 4
+        talent_button.style.right_padding = 4
+        talent_button.style.padding = 0
+        talent_button.style.margin = 0
     end
 end
 
@@ -270,13 +277,18 @@ end
 
 -- 创建主信息面板
 local function create_main_frame(player)
-    local frame = player.gui.top.add({
+    local flow = TopBar.get_button_flow(player)
+
+    if flow[CONST.MAIN_FRAME] then
+        return flow[CONST.MAIN_FRAME]
+    end
+
+    local frame = flow.add({
         type = 'frame', 
         name = CONST.MAIN_FRAME
     })
-    frame.location = {x = 1, y = 40}
-    frame.style.minimal_height = 37
-    frame.style.maximal_height = 37
+    frame.style.minimal_height = 36
+    frame.style.maximal_height = 36
 
     local label = frame.add({
         type = 'label', 
@@ -304,12 +316,13 @@ end
 
 -- 更新天赋按钮状态
 local function update_tianfu_button(player)
-    if not player.gui.top[CONST.BTN_TIANFU] then
+    local flow = TopBar.get_button_flow(player)
+    if not flow[CONST.BTN_TIANFU] then
         create_button(player)
     end
     
     local this = WPT.get()
-    local button = player.gui.top[CONST.BTN_TIANFU]
+    local button = flow[CONST.BTN_TIANFU]
     local can_choose = this.skill_canchoise and (this.skill_canchoise[player.name] or 0) > 0
     
     if can_choose then
@@ -317,7 +330,7 @@ local function update_tianfu_button(player)
         player.print({'amap.new_tianfu'}, {r = 255, b = 0, g = 255})
         clear_tianfu_cache(player)
     else
-        button.style.font_color = CONST.COLORS.GREY
+        button.style.font_color = CONST.COLORS.BLACK
     end
 end
 
@@ -410,6 +423,7 @@ local function draw_talent_tab(player, frame)
         toggle_button.style.minimal_height = 30
         toggle_button.style.font_color = CONST.COLORS.BLACK
         
+        
         if is_blacklisted then
             toggle_button.enabled = false
             toggle_button.style.font_color = CONST.COLORS.GREY
@@ -460,7 +474,7 @@ local function draw_occupation_tab(player, frame)
     
     local dropdown = zhiye_flow.add({
         type = "drop-down",
-        name = "zhiye_select",
+        name = CONST.ZHIYE_SELECT,
         items = items,
         selected_index = selected_index
     })
@@ -490,7 +504,7 @@ local function draw_skill_tab(player, frame)
     if not (this.upgrade_spell[p_index] and next(this.upgrade_spell[p_index])) then
         local empty = skill_flow.add({
             type = "label", 
-            caption = "暂无技能数据，请先升级技能"
+            caption = {'amap.no_spell_data'}
         })
         empty.style.font_color = {150, 150, 150}
         return
@@ -618,7 +632,7 @@ local function draw_cooldown_tab(player, frame)
     for i = 1, 3 do
         local dropdown = table.add({
             type = 'drop-down', 
-            name = 'choise' .. i, 
+            name = CONST.CHOISE_PREFIX .. i, 
             items = names, 
             selected_index = settings['dropdown_select_index' .. i]
         })
@@ -627,7 +641,7 @@ local function draw_cooldown_tab(player, frame)
     
     table.add({
         type = 'sprite-button', 
-        name = 'tianfu_frame_button', 
+        name = CONST.TIANFU_FRAME_BUTTON, 
         sprite = 'item/heat-interface', 
         tooltip = '打开/关闭 冷却监控窗口'
     })
@@ -681,7 +695,7 @@ local function draw_other_players_tab(player, frame)
         local talents = tianfu_names(online_player)
         local count_label = info_flow.add({
             type = "label", 
-            caption = " (" .. #talents .. "个天赋)"
+            caption = {'amap.talent_count_display', #talents}
         })
         count_label.style.font_color = CONST.COLORS.GREY
         
@@ -737,7 +751,7 @@ local function draw_world_bonus_tab(player, frame)
     if not map_data.world_bonus then
         frame.add({
             type = "label",
-            caption = "世界加成数据未初始化"
+            caption = {'amap.world_bonus_not_initialized'}
         })
         return
     end
@@ -819,7 +833,7 @@ local function draw_world_bonus_tab(player, frame)
     -- 添加世界加成列表
     frame.add({
         type = "label",
-        caption = "世界加成列表",
+        caption = {'amap.world_bonus_list'},
         style = "caption_label"
     })
     
@@ -1121,16 +1135,17 @@ local function tianfu_gui(player)
     if not parent.valid then return end
     
     -- 清理旧内容
-    if parent.tianfu_frame then 
-        parent.tianfu_frame.destroy() 
+    if parent[CONST.TIANFU_FRAME] then 
+        parent[CONST.TIANFU_FRAME].destroy() 
     end
 
     local main_frame = parent.add({
         type = "frame",
-        name = "tianfu_frame",
+        name = CONST.TIANFU_FRAME,
         direction = "vertical"
     })
     main_frame.style.width = 550
+    main_frame.style.margin = 0
 
     -- 创建标签页容器
     local tabbed_pane = main_frame.add({
@@ -1634,7 +1649,7 @@ local function update_gui(player)
         return 
     end
     
-    local frame = player.gui.top[CONST.MAIN_FRAME]
+    local frame = TopBar.get_button_flow(player)[CONST.MAIN_FRAME]
     if not (frame and frame.visible) then 
         return 
     end
@@ -1648,26 +1663,22 @@ local function update_gui(player)
     
     local car_name = "  "
     if this.silo and this.silo.valid then
-        car_name = this.silo.name
+        car_name = {'entity-name.' .. this.silo.name}
     elseif this.start_game == 2 and this.car_index and game.players[this.car_index] then
         car_name = game.players[this.car_index].name
     end
 
     -- 更新UI元素
-    frame.best_record.caption = ' [img=item.submachine-gun]: ' .. best_record
+    frame.best_record.caption = {'amap.map_info_bar_best_record', best_record}
     frame.best_record.tooltip = {'amap.best_record', best_record}
 
-    frame.biter_target.caption = ' [img=entity.car]: ' .. car_name
+    frame.biter_target.caption = {'amap.map_info_bar_biter_target', car_name}
     frame.biter_target.tooltip = {'amap.biter_target'}
 
-    frame.landmine.caption = ' [img=entity.land-mine]: ' .. 
-                             format_number(this.now_mine, true) .. ' / ' .. 
-                             format_number(this.max_mine, true)
+    frame.landmine.caption = {'amap.map_info_bar_landmine', format_number(this.now_mine, true), format_number(this.max_mine, true)}
     frame.landmine.tooltip = {'amap.land_mine_placed'}
 
-    frame.flame_turret.caption = ' [img=entity.flamethrower-turret]: ' .. 
-                                 format_number(this.flame, true) .. ' / ' .. 
-                                 format_number(this.max_flame, true)
+    frame.flame_turret.caption = {'amap.map_info_bar_flame_turret', format_number(this.flame, true), format_number(this.max_flame, true)}
     frame.flame_turret.tooltip = {'amap.flamethrowers_placed'}
 end
 
@@ -1696,126 +1707,132 @@ end
 -- 玩家加入游戏事件
 local function on_player_joined_game(event)
     local player = game.players[event.player_index]
+    cleanup_legacy_gui(player)
     if validate_player(player) then
         create_button(player)
     end
 end
 
 -- GUI点击事件处理
-local function on_gui_click(event)
-    local element = event.element
-    if not element.valid then 
-        return 
-    end
+handle_talent_toggle_click = function(event)
+    local name = event.element.name
+    local player = game.players[event.player_index]
+    local skill_id = string.sub(name, #CONST.TALENT_TOGGLE_BUTTON_PREFIX + 1)
+    toggle_talent_state(player, skill_id)
+end
 
-    local name = element.name
+handle_talent_delete_click = function(event)
+    local name = event.element.name
+    local player = game.players[event.player_index]
+    local talent_id = string.sub(name, #CONST.TALENT_DELETE_BUTTON_PREFIX + 1)
+    delete_talent(player, talent_id)
+end
+
+local function handle_tianfu_frame_button_click(event)
+    local player = game.players[event.player_index]
+    tianfu_lengque_gui(player)
+end
+
+local function handle_btn_tianfu_click(event)
     local player = game.players[event.player_index]
     local this = WPT.get()
 
-    -- 处理天赋开关按钮点击
-    if string.sub(name, 1, #CONST.TALENT_TOGGLE_BUTTON_PREFIX) == CONST.TALENT_TOGGLE_BUTTON_PREFIX then
-        local skill_id = string.sub(name, #CONST.TALENT_TOGGLE_BUTTON_PREFIX + 1)
-        toggle_talent_state(player, skill_id)
-        return
+    this.skill_canchoise[player.name] = this.skill_canchoise[player.name] or 0
+
+    if this.skill_canchoise[player.name] > 0 then
+        tianfu.get_new_tianfu(player)
     end
 
-    -- 处理天赋删除按钮点击
-    if string.sub(name, 1, #CONST.TALENT_DELETE_BUTTON_PREFIX) == CONST.TALENT_DELETE_BUTTON_PREFIX then
-        local talent_id = string.sub(name, #CONST.TALENT_DELETE_BUTTON_PREFIX + 1)
-        delete_talent(player, talent_id)
-        return
-    end
-
-    -- 处理冷却监控按钮
-    if name == 'tianfu_frame_button' then
-        tianfu_lengque_gui(player)
-        return
-    end
-
-    -- 处理天赋主界面按钮
-    if name == CONST.BTN_TIANFU then
-        -- 初始化
-        this.skill_canchoise[player.name] = this.skill_canchoise[player.name] or 0
-
-        if this.skill_canchoise[player.name] > 0 then
-            tianfu.get_new_tianfu(player)
-        end
-
-        if player.gui.left.tianfu_frame then
-            player.gui.left.tianfu_frame.destroy()
-        elseif not this.skill[player.name] then
-            player.print({'amap.no_talent_selected'}, {r = 255, b = 0, g = 0})
-        else
-            tianfu_gui(player)
-        end
-        return
-    end
-
-    -- 处理主按钮（切换统计条）
-    if name == CONST.MAIN_BUTTON then
-        if not validate_player(player) then 
-            return 
-        end
-        
-        local top = player.gui.top
-        if top[CONST.MAIN_FRAME] then
-            local info = top[CONST.MAIN_FRAME]
-            if info.visible then
-                info.visible = false
-            else
-                -- 显示前清理左侧无关GUI（保护天赋窗口）
-                for _, child in pairs(player.gui.left.children) do
-                    if child.name ~= 'tianfu_frame' then
-                        child.destroy()
-                    end
-                end
-                info.visible = true
-                update_gui(player)
-            end
-        else
-            create_main_frame(player)
-            update_gui(player)
-        end
+    if player.gui.left[CONST.TIANFU_FRAME] then
+        player.gui.left[CONST.TIANFU_FRAME].destroy()
+    elseif not this.skill[player.name] then
+        player.print({'amap.no_talent_selected'}, {r = 255, b = 0, g = 0})
+    else
+        tianfu_gui(player)
     end
 end
 
--- GUI选择状态改变事件处理
-local function on_gui_selection_state_changed(event)
-    local element = event.element
-    if not element.valid then 
-        return 
+local function handle_main_button_click(event)
+    local player = game.players[event.player_index]
+    if not validate_player(player) then
+        return
     end
-    
+
+    local flow = TopBar.get_button_flow(player)
+    if flow[CONST.MAIN_FRAME] then
+        local info = flow[CONST.MAIN_FRAME]
+        if info.visible then
+            info.visible = false
+            TopBar.set_button_visible(player.index, CONST.MAIN_FRAME, false)
+        else
+            for _, child in pairs(player.gui.left.children) do
+                if child.name ~= CONST.TIANFU_FRAME then
+                    child.destroy()
+                end
+            end
+            info.visible = true
+            TopBar.set_button_visible(player.index, CONST.MAIN_FRAME, true)
+            update_gui(player)
+        end
+    else
+        create_main_frame(player)
+        TopBar.set_button_visible(player.index, CONST.MAIN_FRAME, true)
+        update_gui(player)
+    end
+end
+
+local function handle_choise_selection(event)
+    local element = event.element
     local player = game.players[event.player_index]
     local this = WPT.get()
     local name = element.name
-
-    -- 处理冷却监控下拉框
-    if name:match('^choise[1-3]$') then
-        local idx = tonumber(name:sub(-1))
-        local names = tianfu_names(player)
-        if element.selected_index >= 1 and element.selected_index <= #names then
-            this.tianfu_lengque[player.name]['dropdown_select_index' .. idx] = element.selected_index
-            update_tianfu_lengque_gui(player)
-        end
-        return
+    local idx = tonumber(name:sub(-1))
+    local names = tianfu_names(player)
+    if element.selected_index >= 1 and element.selected_index <= #names then
+        this.tianfu_lengque[player.name]['dropdown_select_index' .. idx] = element.selected_index
+        update_tianfu_lengque_gui(player)
     end
+end
 
-    -- 处理职业选择
-    if name == 'zhiye_select' then
-        if element.selected_index >= 1 and element.selected_index <= #CONST.OCCUPATIONS then
-            local selected_key = CONST.OCCUPATIONS[element.selected_index].key or '随机'
-            this.zhiye[player.name] = selected_key
-            player.print({'amap.occupation_changed', selected_key}, {r = 0, g = 255, b = 0})
+local function handle_zhiye_selection(event)
+    local element = event.element
+    local player = game.players[event.player_index]
+    local this = WPT.get()
+    if element.selected_index >= 1 and element.selected_index <= #CONST.OCCUPATIONS then
+        local selected_key = CONST.OCCUPATIONS[element.selected_index].key or '随机'
+        this.zhiye[player.name] = selected_key
+        player.print({'amap.occupation_changed', selected_key}, {r = 0, g = 255, b = 0})
+    end
+end
+
+GuiDispatcher.register_click(CONST.TIANFU_FRAME_BUTTON, handle_tianfu_frame_button_click)
+GuiDispatcher.register_click(CONST.BTN_TIANFU, handle_btn_tianfu_click)
+GuiDispatcher.register_click(CONST.MAIN_BUTTON, handle_main_button_click)
+GuiDispatcher.register_selection_state_changed(CONST.CHOISE_PREFIX .. '1', handle_choise_selection)
+GuiDispatcher.register_selection_state_changed(CONST.CHOISE_PREFIX .. '2', handle_choise_selection)
+GuiDispatcher.register_selection_state_changed(CONST.CHOISE_PREFIX .. '3', handle_choise_selection)
+GuiDispatcher.register_selection_state_changed(CONST.ZHIYE_SELECT, handle_zhiye_selection)
+
+do
+    local categories = tianfu.get_tianfu_categories()
+    for _, talent_ids in pairs(categories) do
+        for _, talent_id in ipairs(talent_ids) do
+            GuiDispatcher.register_click(CONST.TALENT_TOGGLE_BUTTON_PREFIX .. talent_id, handle_talent_toggle_click)
+            GuiDispatcher.register_click(CONST.TALENT_DELETE_BUTTON_PREFIX .. talent_id, handle_talent_delete_click)
         end
-        return
     end
 end
 
 Event.add(defines.events.on_player_joined_game, on_player_joined_game)
-Event.add(defines.events.on_gui_click, on_gui_click)
-Event.add(defines.events.on_gui_selection_state_changed, on_gui_selection_state_changed)
 Event.on_nth_tick(CONST.UPDATE_INTERVAL_COOLING, update_cooling_panel)
 Event.on_nth_tick(CONST.UPDATE_INTERVAL_GUI, update_gui_loop)
+
+-- 注册到统一重建入口：场景热更 / 服务器更新时统一清理旧 GUI 并重建按钮
+GuiRebuild.register('amap_gui', function(player)
+    cleanup_legacy_gui(player)
+    create_button(player)
+end)
+
+Public.CONST = CONST
 
 return Public

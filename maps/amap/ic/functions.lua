@@ -510,7 +510,7 @@ local function kick_player_from_surface(player, target)
                 else
                     target.teleport(main_surface.find_non_colliding_position('character', game.forces.player.get_spawn_position(main_surface), 3, 0, 5), main_surface)
                 end
-                target.print('You were kicked out of ' .. player.name .. ' vehicle.', Color.warning)
+                target.print({'amap.ic_kicked_from_vehicle', player.name}, Color.warning)
             end
         end
     end
@@ -808,7 +808,7 @@ else
     if car.owner == player.index then
         save_surface(entity, player)
         if not players[player.index].notified then
-            player.print(player.name .. ', the ' .. car.name .. ' surface has been saved.', Color.success)
+            player.print({'amap.ic_surface_saved', player.name, car.name}, Color.success)
             players[player.index].notified = true
         end
     else
@@ -829,8 +829,8 @@ else
 
         log_err('Owner of this vehicle is: ' .. p.name)
         save_surface(entity, p)
-        Utils.action_warning('[Car]', player.name .. ' has looted ' .. p.name .. '´s car.')
-        player.print('This car was not yours to keep.', Color.warning)
+        Utils.action_warning('[Car]', {'amap.ic_car_looted', player.name, p.name})
+        player.print({'amap.ic_car_not_yours'}, Color.warning)
         local params = {
             player = player,
             car = car
@@ -842,7 +842,7 @@ else
             restore_surface(p, e)
         elseif p.can_insert({name = car.name, count = 1}) then
             p.insert({name = car.name, count = 1, health = health})
-            p.print('Your car was stolen from you - the gods foresaw this and granted you a new one.', Color.info)
+            p.print({'amap.ic_car_stolen_replaced'}, Color.info)
         end
     end
 end
@@ -917,7 +917,7 @@ function Public.validate_owner(player, entity)
                 if car.owner ~= player.index and player.driving then
                     player.driving = false
                     if not player.admin then
-                        return Utils.print_to(nil, '[Car] ' .. player.name .. ' tried to drive ' .. p.name .. '´s car.')
+                        return Utils.print_to(nil, {'amap.ic_tried_drive_other_car', player.name, p.name})
                     end
                 end
             end
@@ -1072,7 +1072,7 @@ function Public.create_car(event)
     local name, mined = get_player_entity(player)
 
     if entity_type[name] and not mined then
-        return player.print('Multiple vehicles are not supported at the moment.', Color.warning)
+        return player.print({'amap.ic_multiple_vehicles_not_supported'}, Color.warning)
     end
     local this=WPT.get()
     local yiciyuan=false
@@ -1099,7 +1099,7 @@ end
     
     
     if not is_allowed_planet and yiciyuan==false then
-        return player.print('Multi-surface is not supported at the moment.', Color.warning)
+        return player.print({'amap.ic_multi_surface_not_supported'}, Color.warning)
    
     end
 
@@ -1109,7 +1109,7 @@ end
      then
         upgrade_surface(player, ce)
         render_owner_text(renders, player, ce)
-        player.print('Your car-surface has been upgraded!', Color.success)
+        player.print({'amap.ic_car_surface_upgraded'}, Color.success)
         return
     end
 
@@ -1216,7 +1216,7 @@ function Public.use_door_with_entity(player, door)
         if list.allow_anyone == 'right' then
             if not list.players[player.name] and not player.admin then
                 player.driving = false
-                return player.print('You have not been approved by ' .. owner.name .. ' to enter their vehicle.', Color.warning)
+                return player.print({'amap.ic_not_approved_to_enter', owner.name}, Color.warning)
             end
         end
     end

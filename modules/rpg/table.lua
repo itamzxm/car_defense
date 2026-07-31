@@ -2,31 +2,28 @@
 local Global = require 'utils.global'
 local Spells = require 'modules.rpg.spells'
 local Event = require 'utils.event'
-local Gui = require 'utils.gui'
-
 local this = {
     rpg_extra = {},
     rpg_t = {},
     rpg_spells = Spells.conjure_items()
 }
 
---! Gui Frames
-local settings_frame_name = Gui.uid_name()
-local save_button_name = Gui.uid_name()
-local discard_button_name = Gui.uid_name()
-local draw_main_frame_name = Gui.uid_name()
-local main_frame_name = Gui.uid_name()
-local settings_button_name = Gui.uid_name()
-local transfer_button_name = Gui.uid_name()
-local transfer_frame_name = Gui.uid_name()
-local spell_gui_button_name = Gui.uid_name()
-local spell_gui_frame_name = Gui.uid_name()
-local enable_spawning_frame_name = Gui.uid_name()
-local spell1_button_name = Gui.uid_name()
-local spell2_button_name = Gui.uid_name()
-local spell3_button_name = Gui.uid_name()
-local spell_info_button_name = Gui.uid_name()
-local spell_info_frame_name = Gui.uid_name()
+local settings_frame_name = 'rpg_settings_frame'
+local save_button_name = 'rpg_save_button'
+local discard_button_name = 'rpg_discard_button'
+local draw_main_frame_name = 'rpg_draw_main_frame'
+local main_frame_name = 'rpg_main_frame'
+local settings_button_name = 'rpg_settings_button'
+local transfer_button_name = 'rpg_transfer_button'
+local transfer_frame_name = 'rpg_transfer_frame'
+local spell_gui_button_name = 'rpg_spell_gui_button'
+local spell_gui_frame_name = 'rpg_spell_gui_frame'
+local enable_spawning_frame_name = 'rpg_enable_spawning_frame'
+local spell1_button_name = 'rpg_spell1_button'
+local spell2_button_name = 'rpg_spell2_button'
+local spell3_button_name = 'rpg_spell3_button'
+local spell_info_button_name = 'rpg_spell_info_button'
+local spell_info_frame_name = 'rpg_spell_info_frame'
 
 Global.register(
     this,

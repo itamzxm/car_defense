@@ -1,4 +1,5 @@
-﻿local Gui = require 'utils.gui'
+local Gui = require 'utils.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Color = require 'utils.color_presets'
 local Model = require 'utils.debug.model'
 
@@ -23,12 +24,12 @@ local ignore = {
     ['mod-gui'] = true
 }
 
-local file_label_name = Gui.uid_name()
-local left_panel_name = Gui.uid_name()
-local breadcrumbs_name = Gui.uid_name()
-local top_panel_name = Gui.uid_name()
-local variable_label_name = Gui.uid_name()
-local text_box_name = Gui.uid_name()
+local file_label_name = 'dbg_pv_file_label_name'
+local left_panel_name = 'dbg_pv_left_panel_name'
+local breadcrumbs_name = 'dbg_pv_breadcrumbs_name'
+local top_panel_name = 'dbg_pv_top_panel_name'
+local variable_label_name = 'dbg_pv_variable_label_name'
+local text_box_name = 'dbg_pv_text_box_name'
 
 Public.name = 'package'
 
@@ -79,84 +80,78 @@ function Public.show(container)
     Gui.set_data(top_panel, data)
 end
 
-Gui.on_click(
-    file_label_name,
-    function(event)
-        local element = event.element
-        local file = Gui.get_data(element)
+GuiDispatcher.register_click(file_label_name, function(event)
+    local element = event.element
+    local file = Gui.get_data(element)
 
-        local left_panel = element.parent.parent
-        local data = Gui.get_data(left_panel)
+    local left_panel = element.parent.parent
+    local data = Gui.get_data(left_panel)
 
-        local selected_file_label = data.selected_file_label
+    local selected_file_label = data.selected_file_label
 
-        if selected_file_label then
-            selected_file_label.style.font_color = Color.white
+    if selected_file_label then
+        selected_file_label.style.font_color = Color.white
+    end
+
+    element.style.font_color = Color.orange
+    data.selected_file_label = element
+
+    local top_panel = data.top_panel
+    local text_box = data.text_box
+
+    Gui.clear(top_panel)
+
+    local file_type = type(file)
+
+    if file_type == 'table' then
+        for k, v in pairs(file) do
+            local label = top_panel.add({type = 'flow'}).add {type = 'label', name = variable_label_name, caption = k}
+            Gui.set_data(label, v)
         end
+    elseif file_type == 'function' then
+        text_box.text = dump_function(file)
+    else
+        text_box.text = tostring(file)
+    end
+end)
 
-        element.style.font_color = Color.orange
-        data.selected_file_label = element
+GuiDispatcher.register_click(variable_label_name, function(event)
+    local element = event.element
+    local variable = Gui.get_data(element)
 
-        local top_panel = data.top_panel
-        local text_box = data.text_box
+    local top_panel = element.parent.parent
+    local data = Gui.get_data(top_panel)
+    if not data or not data.valid then
+        return
+    end
 
+    local text_box = data.text_box
+
+    local variable_type = type(variable)
+
+    if variable_type == 'table' then
         Gui.clear(top_panel)
-
-        local file_type = type(file)
-
-        if file_type == 'table' then
-            for k, v in pairs(file) do
-                local label = top_panel.add({type = 'flow'}).add {type = 'label', name = variable_label_name, caption = k}
-                Gui.set_data(label, v)
-            end
-        elseif file_type == 'function' then
-            text_box.text = dump_function(file)
-        else
-            text_box.text = tostring(file)
+        for k, v in pairs(variable) do
+            local label = top_panel.add({type = 'flow'}).add {type = 'label', name = variable_label_name, caption = k}
+            Gui.set_data(label, v)
         end
+        return
     end
-)
 
-Gui.on_click(
-    variable_label_name,
-    function(event)
-        local element = event.element
-        local variable = Gui.get_data(element)
+    local selected_label = data.selected_variable_label
 
-        local top_panel = element.parent.parent
-        local data = Gui.get_data(top_panel)
-        if not data or not data.valid then
-            return
-        end
-
-        local text_box = data.text_box
-
-        local variable_type = type(variable)
-
-        if variable_type == 'table' then
-            Gui.clear(top_panel)
-            for k, v in pairs(variable) do
-                local label = top_panel.add({type = 'flow'}).add {type = 'label', name = variable_label_name, caption = k}
-                Gui.set_data(label, v)
-            end
-            return
-        end
-
-        local selected_label = data.selected_variable_label
-
-        if selected_label and selected_label.valid then
-            selected_label.style.font_color = Color.white
-        end
-
-        element.style.font_color = Color.orange
-        data.selected_variable_label = element
-
-        if variable_type == 'function' then
-            text_box.text = dump_function(variable)
-        else
-            text_box.text = tostring(variable)
-        end
+    if selected_label and selected_label.valid then
+        selected_label.style.font_color = Color.white
     end
-)
+
+    element.style.font_color = Color.orange
+    data.selected_variable_label = element
+
+    if variable_type == 'function' then
+        text_box.text = dump_function(variable)
+    else
+        text_box.text = tostring(variable)
+    end
+end)
 
 return Public

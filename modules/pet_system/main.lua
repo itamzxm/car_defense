@@ -1,7 +1,9 @@
 -- 虫子宠物系统 - 主入口，事件处理
 local Event = require 'utils.event'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Gui = require 'utils.gui'
 local SpamProtection = require 'utils.spam_protection'
+local GuiRebuild = require 'utils.gui_rebuild'
 
 local GuiDraw = require 'modules.pet_system.gui'
 local Public = require 'modules.pet_system.table'
@@ -339,7 +341,137 @@ local function apply_skill_book(player, pet_index, book_type)
 end
 
 -- ============================================================
--- GUI 点击事件处理
+-- GuiDispatcher 注册（精确匹配的元素名）
+-- ============================================================
+
+local function on_toggle_main_panel(event)
+    local player = game.players[event.player_index]
+    local is_spam = SpamProtection.is_spamming(player, nil, 'Pet System Toggle')
+    if is_spam then return end
+
+    local pet_data = Public.get_player_pet_data(player)
+    if not pet_data.free_pet_given and #pet_data.pets < 3 then
+        local rpg_t = RPG.get_value_from_player(player.index)
+        if rpg_t and (rpg_t.magicka or 0) >= 50 then
+            pet_data.free_pet_given = true
+            local free_pet = {
+                name = Public.generate_pet_name(),
+                type = 'small-biter',
+                quality = 1,
+                level = 1,
+                hunger = 100,
+                max_hunger = 100,
+                hp = 5,
+                max_hp = 5,
+                attack = 5,
+                base_attack = 5,
+                base_hp = 5,
+                exp = 0,
+                skill_points = 3,
+                allocated_attack = 0,
+                allocated_hp = 0,
+                skills = {nil, nil, nil, nil},
+                created_tick = game.tick,
+            }
+            pet_data.pets[#pet_data.pets + 1] = free_pet
+
+            Skills.assign_exclusive_skill(free_pet)
+
+            local born_skill = Skills.roll_skill_from_book('low')
+            if born_skill then
+                free_pet.skills[2] = born_skill
+            end
+
+            player.print({'pet_system.free_pet_received', free_pet.name}, {r = 100, g = 255, b = 100})
+            if born_skill then
+                player.print({'pet_system.born_skill', free_pet.name, born_skill.name, Public.quality_locale(born_skill.quality)}, {r = 100, g = 200, b = 255})
+            end
+        end
+    end
+
+    GuiDraw.toggle(player)
+end
+
+GuiDispatcher.register_click(draw_main_button_name, on_toggle_main_panel)
+
+local function on_help_toggle(event)
+    local player = game.players[event.player_index]
+    if player.gui.screen[help_frame_name] then
+        GuiDraw.hide_help(player)
+    else
+        GuiDraw.draw_help_popup(player)
+    end
+end
+
+GuiDispatcher.register_click(main_frame_name .. '_help', on_help_toggle)
+
+local function on_help_close(event)
+    local player = game.players[event.player_index]
+    GuiDraw.hide_help(player)
+end
+
+GuiDispatcher.register_click(help_frame_name .. '_close', on_help_close)
+
+local function on_buy_low_egg(event)
+    purchase_egg(game.players[event.player_index], 'low')
+end
+
+GuiDispatcher.register_click(main_frame_name .. '_buy_low_egg', on_buy_low_egg)
+
+local function on_buy_mid_egg(event)
+    purchase_egg(game.players[event.player_index], 'mid')
+end
+
+GuiDispatcher.register_click(main_frame_name .. '_buy_mid_egg', on_buy_mid_egg)
+
+local function on_buy_high_egg(event)
+    purchase_egg(game.players[event.player_index], 'high')
+end
+
+GuiDispatcher.register_click(main_frame_name .. '_buy_high_egg', on_buy_high_egg)
+
+local function on_exp_transfer_cancel(event)
+    local player = game.players[event.player_index]
+    local popup = player.gui.screen[exp_transfer_frame_name]
+    if popup and popup.valid then
+        Gui.remove_data_recursively(popup)
+        popup.destroy()
+    end
+end
+
+GuiDispatcher.register_click(exp_transfer_frame_name .. '_cancel', on_exp_transfer_cancel)
+
+local function on_confirm_eat_cancel(event)
+    local player = game.players[event.player_index]
+    local popup = player.gui.screen[confirm_frame_name]
+    if popup and popup.valid then
+        Gui.remove_data_recursively(popup)
+        popup.destroy()
+    end
+end
+
+GuiDispatcher.register_click(confirm_frame_name .. '_cancel', on_confirm_eat_cancel)
+
+local function on_skill_replace_cancel(event)
+    local player = game.players[event.player_index]
+    local popup = player.gui.screen[skill_replace_frame_name]
+    if popup and popup.valid then
+        Gui.remove_data_recursively(popup)
+        popup.destroy()
+    end
+end
+
+GuiDispatcher.register_click(skill_replace_frame_name .. '_cancel', on_skill_replace_cancel)
+
+local function on_rename_cancel(event)
+    local player = game.players[event.player_index]
+    GuiDraw.hide_rename_popup(player)
+end
+
+GuiDispatcher.register_click(rename_frame_name .. '_cancel', on_rename_cancel)
+
+-- ============================================================
+-- GUI 点击事件处理（模式匹配分支）
 -- ============================================================
 
 local function recall_pet(player, pet)
@@ -385,59 +517,6 @@ local function on_gui_click(event)
     if not player or not player.valid then return end
 
     local name = element.name
-
-    -- 顶部按钮：打开/关闭主面板
-    if name == draw_main_button_name then
-        local is_spam = SpamProtection.is_spamming(player, nil, 'Pet System Toggle')
-        if is_spam then return end
-
-        -- 首次免费宠物：magicka ≥ 50 时检测
-        local pet_data = Public.get_player_pet_data(player)
-        if not pet_data.free_pet_given and #pet_data.pets < 3 then
-            local rpg_t = RPG.get_value_from_player(player.index)
-            if rpg_t and (rpg_t.magicka or 0) >= 50 then
-                pet_data.free_pet_given = true
-                -- 赠送普通 small-biter，Lv.1
-                local free_pet = {
-                    name = Public.generate_pet_name(),
-                    type = 'small-biter',
-                    quality = 1,
-                    level = 1,
-                    hunger = 100,
-                    max_hunger = 100,
-                    hp = 5,
-                    max_hp = 5,
-                    attack = 5,
-                    base_attack = 5,
-                    base_hp = 5,
-                    exp = 0,
-                    skill_points = 3,
-                    allocated_attack = 0,
-                    allocated_hp = 0,
-                    skills = {nil, nil, nil, nil},
-                    created_tick = game.tick,
-                }
-                pet_data.pets[#pet_data.pets + 1] = free_pet
-
-                -- 分配专属技能（Biter 专属）
-                Skills.assign_exclusive_skill(free_pet)
-
-                -- 自带一个低级技能（非专属，放在槽位2）
-                local born_skill = Skills.roll_skill_from_book('low')
-                if born_skill then
-                    free_pet.skills[2] = born_skill
-                end
-
-                player.print({'pet_system.free_pet_received', free_pet.name}, {r = 100, g = 255, b = 100})
-                if born_skill then
-                    player.print({'pet_system.born_skill', free_pet.name, born_skill.name, Public.quality_locale(born_skill.quality)}, {r = 100, g = 200, b = 255})
-                end
-            end
-        end
-
-        GuiDraw.toggle(player)
-        return
-    end
 
     -- 点击宠物卡片
     if name and string.find(name, '^' .. card_button_prefix .. '_') then
@@ -564,22 +643,6 @@ local function on_gui_click(event)
         return
     end
 
-    -- 帮助按钮（toggle）
-    if name == main_frame_name .. '_help' then
-        if player.gui.screen[help_frame_name] then
-            GuiDraw.hide_help(player)
-        else
-            GuiDraw.draw_help_popup(player)
-        end
-        return
-    end
-
-    -- 帮助弹窗关闭
-    if name == help_frame_name .. '_close' then
-        GuiDraw.hide_help(player)
-        return
-    end
-
     -- 宠物名字单击改名
     if name and string.find(name, '^' .. main_frame_name .. '_rename_') then
         local pet_index = tonumber(string.match(name, '_(%d+)$'))
@@ -592,30 +655,8 @@ local function on_gui_click(event)
         return
     end
 
-    -- ============= 商店按钮 =============
-    if name == main_frame_name .. '_buy_low_egg' then
-        purchase_egg(player, 'low')
-        return
-    end
-    if name == main_frame_name .. '_buy_mid_egg' then
-        purchase_egg(player, 'mid')
-        return
-    end
-    if name == main_frame_name .. '_buy_high_egg' then
-        purchase_egg(player, 'high')
-        return
-    end
-
 
     -- ============= 经验转移弹窗 =============
-    if name == exp_transfer_frame_name .. '_cancel' then
-        local popup = player.gui.screen[exp_transfer_frame_name]
-        if popup and popup.valid then
-            Gui.remove_data_recursively(popup)
-            popup.destroy()
-        end
-        return
-    end
 
     if name and string.find(name, '^' .. exp_transfer_frame_name .. '_confirm_') then
         local pet_index = tonumber(string.match(name, '_(%d+)$'))
@@ -650,14 +691,6 @@ local function on_gui_click(event)
     end
 
     -- ============= 吞噬确认弹窗 =============
-    if name == confirm_frame_name .. '_cancel' then
-        local popup = player.gui.screen[confirm_frame_name]
-        if popup and popup.valid then
-            Gui.remove_data_recursively(popup)
-            popup.destroy()
-        end
-        return
-    end
 
     if name and string.find(name, '^' .. confirm_frame_name .. '_yes_') then
         local pet_index = tonumber(string.match(name, '_(%d+)$'))
@@ -704,14 +737,6 @@ local function on_gui_click(event)
     end
 
     -- ============= 技能替换选择弹窗 =============
-    if name == skill_replace_frame_name .. '_cancel' then
-        local popup = player.gui.screen[skill_replace_frame_name]
-        if popup and popup.valid then
-            Gui.remove_data_recursively(popup)
-            popup.destroy()
-        end
-        return
-    end
 
     if name and string.find(name, '^' .. skill_replace_frame_name .. '_pick_') then
         local slot = tonumber(string.match(name, '_(%d+)$'))
@@ -736,11 +761,6 @@ local function on_gui_click(event)
         return
     end
 
-    -- ============= 改名弹窗 =============
-    if name == rename_frame_name .. '_cancel' then
-        GuiDraw.hide_rename_popup(player)
-        return
-    end
 
     if name and string.find(name, '^' .. rename_frame_name .. '_confirm_') then
         local pet_index = tonumber(string.match(name, '_(%d+)$'))
@@ -1496,5 +1516,9 @@ Event.add(defines.events.on_entity_died, on_entity_died)
 Event.add(defines.events.on_entity_damaged, on_entity_damaged)
 Event.add(defines.events.on_research_finished, on_research_finished)
 Event.add(defines.events.on_player_crafted_item, on_player_crafted_item)
+
+GuiRebuild.register('pet_system', function(player)
+    GuiDraw.draw_top_button(player)
+end)
 
 return Public

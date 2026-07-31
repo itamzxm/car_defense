@@ -477,7 +477,7 @@ local function set_next_wave()
             local ok, err = pcall(boss_fn, wave_number)
             if not ok then
                 log('[world' .. tostring(this.world_number) .. '] spawn_boss 错误: ' .. tostring(err))
-                game.print('[world' .. tostring(this.world_number) .. '] spawn_boss 错误: ' .. tostring(err))
+                game.print({'amap.spawn_boss_error', this.world_number, tostring(err)})
             end
         end
     end

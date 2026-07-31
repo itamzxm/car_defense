@@ -129,7 +129,7 @@ local launch_nuclear_missile = Token.register(function(data)
     }
     
     game.print({'amap.enemy_atomic_rocket', target.position.x, target.position.y, surface.name})
-    game.print('虫子已经发射核弹！', {255, 0, 0})
+    game.print({'amap.nuke_already_fired'}, {255, 0, 0})
     
     -- 发射后清除发射井
 end)
@@ -224,9 +224,9 @@ function Public.find_available_stronghold_position(car_pos, sh_dis, surface, car
     -- 如果火箭发射井已存在，不再处理（等待倒计时发射）
     if table.rocket_silo and table.rocket_silo.valid then
                       -- 添加3分钟倒计时警告
-                game.print('警告：敌方核弹发射井将在3分钟后发射核弹！', {255, 0, 0})
-                game.print('警告：敌方核弹发射井将在3分钟后发射核弹！！', {255, 0, 0})
-                game.print('警告：敌方核弹发射井将在3分钟后发射核弹！！！', {255, 0, 0})
+                game.print({'amap.nuke_silo_warning_1'}, {255, 0, 0})
+                game.print({'amap.nuke_silo_warning_2'}, {255, 0, 0})
+                game.print({'amap.nuke_silo_warning_3'}, {255, 0, 0})
                 
                 -- 设置3分钟后发射核弹
                 --重复10次
@@ -360,7 +360,7 @@ local function on_entity_died(event)
             -- 取消火箭发射井的无敌状态
             if table.rocket_silo and table.rocket_silo.valid then
                 table.rocket_silo.destructible = true
-                game.print('敌方堡垒已被摧毁！核弹发射井失去保护！', {255, 255, 0})
+                game.print({'amap.stronghold_destroyed_silo_exposed'}, {255, 255, 0})
             end
             -- 清除机器人平台引用
             table.robot_platform = nil

@@ -6,6 +6,7 @@ _DUMP_ENV = false
 require 'utils.event_core'
 require 'utils.token'
 require 'utils.global'
+require 'utils.gui_dispatcher'
 require 'utils.server'
 require 'utils.server_commands'
 require 'utils.utils'
@@ -238,6 +239,9 @@ require 'modules.pet_system.main'
 --require 'terrain_layouts.tree_01'
 --require 'terrain_layouts.scrap_towny_ffa'
 ---------------------------------------------------------------
+
+require 'utils.top_bar'
+require 'utils.top_button_order'
 
 if _DUMP_ENV then
     require 'utils.dump_env'

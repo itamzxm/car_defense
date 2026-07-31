@@ -1,6 +1,8 @@
 local Public = require 'modules.rpg.table'
 local Task = require 'utils.task'
 local Gui = require 'utils.gui'
+local Event = require 'utils.event'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Color = require 'utils.color_presets'
 local Token = require 'utils.token'
 local Alert = require 'utils.alert'
@@ -1019,6 +1021,45 @@ end
 
 Public.add_to_global_pool = add_to_global_pool
 
+GuiDispatcher.register_click('transfer_cancel_button', function(event)
+    local player = event.player
+    local frame = player.gui.screen[Public.transfer_frame_name]
+    if frame and frame.valid then
+        frame.destroy()
+    end
+end)
+
+-- 使用裸 Event.add(on_gui_click) + 前缀匹配，而非 GuiDispatcher.register_click。
+-- 原因：按钮名含动态玩家 index（transfer_to_<index>），GuiDispatcher 仅支持精确匹配。
+-- 同事件的 GuiDispatcher handler 也会触发，但因查表无对应键会直接 return，不会冲突。
+-- 若未来 GuiDispatcher 新增 register_click_prefix，可迁移至此。
+local TRANSFER_PREFIX = 'transfer_to_'
+
+Event.add(defines.events.on_gui_click, function(event)
+    local element = event.element
+    if not element or not element.valid then
+        return
+    end
+    local name = element.name
+    if name:sub(1, #TRANSFER_PREFIX) == TRANSFER_PREFIX then
+        local player = game.get_player(event.player_index)
+        if not player or not player.valid then
+            return
+        end
+        local target_index = tonumber(name:sub(#TRANSFER_PREFIX + 1))
+        if target_index then
+            local target_player = game.get_player(target_index)
+            if target_player and target_player.valid then
+                Public.execute_transfer(player, target_player)
+            end
+            local frame = player.gui.screen[Public.transfer_frame_name]
+            if frame and frame.valid then
+                frame.destroy()
+            end
+        end
+    end
+end)
+
 -- 创建属性点和天赋转移界面
 function Public.create_transfer_gui(player)
   local rpg_t = Public.get_value_from_player(player.index)
@@ -1061,11 +1102,6 @@ function Public.create_transfer_gui(player)
     local close_button = frame.add({type = "button", caption = "关闭"})
     close_button.style.font = "default-bold"
     close_button.name = "transfer_cancel_button"
-    Gui.on_click("transfer_cancel_button", function(event)
-      if frame and frame.valid then
-        frame.destroy()
-      end
-    end)
     return
   end
   
@@ -1078,28 +1114,12 @@ function Public.create_transfer_gui(player)
     })
     button.style.font = "default-bold"
     button.style.minimal_width = 200
-    
-    -- 添加点击事件
-    Gui.on_click("transfer_to_" .. target_player.index, function(event)
-      -- 执行转移操作
-      Public.execute_transfer(player, target_player)
-      
-      -- 关闭界面
-      if frame and frame.valid then
-        frame.destroy()
-      end
-    end)
   end
   
   -- 添加关闭按钮
   local close_button = frame.add({type = "button", caption = "取消"})
   close_button.style.font = "default-bold"
   close_button.name = "transfer_cancel_button"
-  Gui.on_click("transfer_cancel_button", function(event)
-    if frame and frame.valid then
-      frame.destroy()
-    end
-  end)
 end
 
 -- 执行属性点和天赋转移

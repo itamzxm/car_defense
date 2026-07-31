@@ -42,7 +42,7 @@
 - **核心玩法**：保护载具 + RPG 成长 + 天赋系统 + 13 个异次元世界 + 20 个副本小游戏
 - **主地图模块**：`maps/amap/`（地形、天赋、世界、副本、伪建筑、平衡、难度等）
 - **功能模块**：`modules/`（RPG 属性/法术、宠物系统、波次防御等）
-- **工具库**：`utils/`（事件系统核心、Global 持久化、Token 闭包、GUI 组件等）
+- **工具库**：`utils/`（事件系统核心、Global 持久化、Token 闭包、GuiDispatcher/TopBar/GuiRebuild 等）
 - **本地化**：`locale/`（zh-CN + en，所有文本修改必须同步）
 - **场景入口**：`control.lua`（加载所有模块，唯一可含事件 filters 的文件）
 
@@ -65,6 +65,13 @@
 | `utils/event_core.lua` | 事件系统核心（Event.add 实现，filters 禁令的根源） |
 | `utils/global.lua` | 全局数据持久化（Global.register 三步曲） |
 | `utils/token.lua` | 闭包持久化（Token.register，运行时禁止 require） |
+| `utils/gui_dispatcher.lua` | GUI 事件派发器（按元素名注册 handler，取代 Gui.on_click） |
+| `utils/top_bar.lua` | 顶栏管理（mod_gui button_flow、折叠/展开、统一按钮样式） |
+| `utils/top_button_order.lua` | 顶栏按钮排序（TOP_BUTTON_ORDER 顺序表） |
+| `utils/gui_rebuild.lua` | GUI 热更/存档兼容统一重建入口（GuiRebuild.register） |
+| `utils/legacy_gui_cleanup.lua` | 旧 GUI 元素名/清理归档（过时标记，待移除） |
+| `maps/amap/gui_styles.lua` | GUI 颜色/样式集中定义（COLORS/DIFFICULTY_COLOR/apply_style） |
+| `comfy_panel/` | GUI 面板实现（取代旧 utils/gui/*，含 poll/player_list/admin 等） |
 | `locale/zh-CN/amap.cfg` | 中文项目文本（UTF-8 编码） |
 | `locale/en/amap.cfg` | 英文项目文本（必须与中文同步） |
 | `.agents/skills/` | 12 个开发规范 skill 文件 |
@@ -135,6 +142,7 @@ Event.add(defines.events.on_entity_died, handler)
 
 - **禁止 filters**：`Event.add(event_id, handler)` 不传第三个参数；handler 内 self-filter
 - **注册方式**：`Event.add` / `Event.on_init` / `Event.on_load` / `Event.on_nth_tick`
+- **GUI 事件**：通过 `GuiDispatcher.register_click(name, handler)` 注册，不直接 `Event.add(on_gui_click)`；运行时（`_LIFECYCLE==8`）禁止注册
 - **handler 结构**：实体验证 → 类型过滤 → 副本隔离 → 业务逻辑
 - **cause 分派**：用表替代 if-elseif 链
 
@@ -172,9 +180,21 @@ Event.add(defines.events.on_entity_died, handler)
 > 详见 [locale-i18n-guide](.agents/skills/locale-i18n-guide/SKILL.md)
 
 - **中英同步**：所有文本修改必须同步 `locale/zh-CN/` 和 `locale/en/`
-- **键名格式**：`amap.<功能域>_<描述>`，统一 section `[amap]`
+- **一文件一 section**：文件名与 section 名对应（`amap.cfg`→`[amap]`、`icw.cfg`→`[icw]`），禁止追加到文件末尾
+- **键名格式**：`amap.<功能域>_<描述>`，按功能域加 `# ── 功能域名 ──` 分组注释
 - **参数占位**：`__1__`, `__2__`
 - **禁止硬编码文本**：用 `{'amap.xxx'}` 而非 `'中文文本'`
+
+### 7. GUI 开发
+
+> 详见 [gui-development-guide](.agents/skills/gui-development-guide/SKILL.md)
+
+- **事件派发**：`GuiDispatcher.register_click(name, handler)` 按元素名注册（取代旧 `Gui.on_click`），运行时禁止注册
+- **顶栏按钮**：`TopBar.add_button(player, definition)` 添加按钮，顺序由 `TOP_BUTTON_ORDER` 统一排
+- **热更重建**：各模块通过 `GuiRebuild.register(name, fn)` 注册清理+重建函数，`on_configuration_changed` 时统一重建
+- **颜色/样式**：集中定义在 `maps/amap/gui_styles.lua`（`COLORS`/`DIFFICULTY_COLOR`/`QUALITY_COLOR`/`apply_style`）
+- **元素名常量**：局部常量（非内联字符串），格式 `dungeon_<缩写>_<功能>`
+- **旧 GUI 清理**：`utils/legacy_gui_cleanup.lua` 归档旧元素名（过时标记，待移除）
 
 ---
 
@@ -266,7 +286,10 @@ python rcon_driver.py "_TEST.run_all()"
 - **错误掩盖**：是否过度 pcall / 默认值兜底 / 注释绕过
 - **代码复用**：新增代码是否复用了已有结构（而非新建独立函数/文件）
 - **locale 同步**：中英 locale 是否同步修改，键名格式是否为 `amap.<功能域>_<描述>`
+- **GUI 事件注册**：是否通过 `GuiDispatcher.register_*` 而非直接 `Event.add(on_gui_*)`
 - **GUI 元素名**：是否为局部常量（非内联字符串），格式是否为 `dungeon_<缩写>_<功能>`
+- **GUI 热更重建**：新增 GUI 模块是否注册了 `GuiRebuild.register` 重建函数
+- **GUI 颜色**：是否引用 `gui_styles.lua` 集中定义（而非内联 RGB）
 - **文本本地化**：是否用 `{'amap.xxx'}` 而非硬编码字符串
 - **副本数据隔离**：私有数据是否在 `data.module_data` 中
 - **require 位置**：是否仅在文件顶层
@@ -307,7 +330,7 @@ python rcon_driver.py "_TEST.run_all()"
 | [talent-addition-guide](.agents/skills/talent-addition-guide/SKILL.md) | 新天赋添加（4池分类、魔法伤害、品质系数、黑名单） |
 | [difficulty-design-guide](.agents/skills/difficulty-design-guide/SKILL.md) | 难度设计（2~3条参数改动、首选/禁止维度、梯度分析） |
 | [magic-damage-guide](.agents/skills/magic-damage-guide/SKILL.md) | 魔法伤害计算（科技加成、品质系数、24米上限） |
-| [gui-development-guide](.agents/skills/gui-development-guide/SKILL.md) | GUI 开发（元素名常量、本地化文本、颜色、样式） |
+| [gui-development-guide](.agents/skills/gui-development-guide/SKILL.md) | GUI 开发（GuiDispatcher 派发、TopBar 顶栏、GuiRebuild 热更、元素名常量、颜色样式） |
 | [locale-i18n-guide](.agents/skills/locale-i18n-guide/SKILL.md) | 本地化（键名格式、中英同步、参数占位、Rich text） |
 | [offline-testing-guide](.agents/skills/offline-testing-guide/SKILL.md) | 离线测试（无头加载、RCON、能力边界） |
 

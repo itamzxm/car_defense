@@ -9,6 +9,9 @@ local BottomFrame = require 'comfy_panel.bottom_frame'
 local Token = require 'utils.token'
 local Global = require 'utils.global'
 local Gui = require 'utils.gui'
+local Task = require 'utils.task_token'
+
+local insert = table.insert
 
 local module_name = 'Config'
 
@@ -20,7 +23,8 @@ local this = {
             undo = {}
         },
         poll_trusted = false
-    }
+    },
+    scenario_registry = {}
 }
 
 Global.register(
@@ -35,6 +39,30 @@ local spaghett_entity_blacklist = {
     ['buffer-chest'] = true,
     ['active-provider-chest'] = true
 }
+
+function Public.register_scenario_module(data)
+    assert(data.id, "Scenario module requires id")
+    for i = 1, #this.scenario_registry do
+        if this.scenario_registry[i].id == data.id then
+            this.scenario_registry[i] = data
+            return
+        end
+    end
+    insert(this.scenario_registry, data)
+end
+
+local function handle_registered_event(event, player)
+    for i = 1, #this.scenario_registry do
+        local mod = this.scenario_registry[i]
+        if mod.handlers and mod.handlers[event.element.name] then
+            local handler = Task.get(mod.handlers[event.element.name])
+            if handler then
+                handler(player, event)
+                return
+            end
+        end
+    end
+end
 
 local function get_actor(event, prefix, msg, admins_only)
     local player = game.get_player(event.player_index)
@@ -132,6 +160,14 @@ local functions = {
             BottomFrame.set_location(player, 'bottom_right')
         end
     end,
+    ['comfy_panel_top_location'] = function(event)
+        local player = game.get_player(event.player_index)
+        if event.element.switch_state == 'left' then
+            BottomFrame.set_top(player, true)
+        else
+            BottomFrame.set_top(player, false)
+        end
+    end,
     ['comfy_panel_middle_location'] = function(event)
         local player = game.get_player(event.player_index)
         local data = BottomFrame.get_player_data(player)
@@ -217,27 +253,6 @@ local functions = {
             Gui.set_disable_clear_invalid_data(true)
         else
             Gui.set_disable_clear_invalid_data(false)
-        end
-    end
-}
-
-local poll_function = {
-    ['comfy_panel_poll_trusted_toggle'] = function(event)
-        if event.element.switch_state == 'left' then
-            this.gui_config.poll_trusted = true
-            get_actor(event, '[Poll Mode]', 'has disabled non-trusted people to do polls.')
-        else
-            this.gui_config.poll_trusted = false
-            get_actor(event, '[Poll Mode]', 'has allowed non-trusted people to do polls.')
-        end
-    end,
-    ['comfy_panel_poll_no_notify_toggle'] = function(event)
-        local poll = is_loaded('comfy_panel.poll')
-        local poll_table = poll.get_no_notify_players()
-        if event.element.switch_state == 'left' then
-            poll_table[event.player_index] = false
-        else
-            poll_table[event.player_index] = true
         end
     end
 }
@@ -408,7 +423,7 @@ local function build_config_gui(data)
     scroll_style.right_padding = 2
     scroll_style.top_padding = 2
 
-    label = scroll_pane.add({type = 'label', caption = 'Player Settings'})
+    label = scroll_pane.add({type = 'label', caption = {'gui.player_settings'}})
     label.style.font = 'default-bold'
     label.style.padding = 0
     label.style.left_padding = 10
@@ -426,8 +441,8 @@ local function build_config_gui(data)
         scroll_pane,
         switch_state,
         'comfy_panel_spectator_switch',
-        'SpectatorMode',
-        'Toggles zoom-to-world view noise effect.\nEnvironmental sounds will be based on map view.'
+        {'gui.spectator_mode'},
+        {'gui-description.spectator_mode'}
     )
 
     scroll_pane.add({type = 'line'})
@@ -437,29 +452,22 @@ local function build_config_gui(data)
         if storage.auto_hotbar_enabled[player.index] then
             switch_state = 'left'
         end
-        add_switch(scroll_pane, switch_state, 'comfy_panel_auto_hotbar_switch', 'AutoHotbar', 'Automatically fills your hotbar with placeable items.')
+        add_switch(scroll_pane, switch_state, 'comfy_panel_auto_hotbar_switch', {'gui.auto_hotbar'}, {'gui-description.auto_hotbar'})
         scroll_pane.add({type = 'line'})
     end
 
-    local poll = is_loaded('comfy_panel.poll')
-    if poll then
-        local poll_table = poll.get_no_notify_players()
-        switch_state = 'right'
-        if not poll_table[player.index] then
-            switch_state = 'left'
+    for i = 1, #this.scenario_registry do
+        local mod = this.scenario_registry[i]
+        if mod.gui_rows and not mod.admin_only then
+            local handler = Task.get(mod.gui_rows)
+            if handler then
+                handler(player, scroll_pane)
+            end
         end
-        add_switch(
-            scroll_pane,
-            switch_state,
-            'comfy_panel_poll_no_notify_toggle',
-            'Notify on polls',
-            'Receive a message when new polls are created and popup the poll.'
-        )
-        scroll_pane.add({type = 'line'})
     end
 
     if BottomFrame.is_custom_buttons_enabled() then
-        label = scroll_pane.add({type = 'label', caption = 'Bottom Buttons Settings'})
+        label = scroll_pane.add({type = 'label', caption = {'gui.bottom_buttons_settings'}})
         label.style.font = 'default-bold'
         label.style.padding = 0
         label.style.left_padding = 10
@@ -472,6 +480,20 @@ local function build_config_gui(data)
 
         switch_state = 'right'
         local bottom_frame = BottomFrame.get_player_data(player)
+        if bottom_frame and bottom_frame.top then
+            switch_state = 'left'
+        end
+        add_switch(
+            scroll_pane,
+            switch_state,
+            'comfy_panel_top_location',
+            {'gui.position_top'},
+            {'gui-description.position_top'}
+        )
+
+        scroll_pane.add({type = 'line'})
+
+        switch_state = 'right'
         if bottom_frame and bottom_frame.bottom_state == 'bottom_left' then
             switch_state = 'left'
         end
@@ -479,8 +501,8 @@ local function build_config_gui(data)
             scroll_pane,
             switch_state,
             'comfy_panel_bottom_location',
-            'Position - bottom',
-            'Toggle to select if you want the bottom button on the left side or the right side.'
+            {'gui.position_bottom'},
+            {'gui-description.position_bottom'}
         )
 
         scroll_pane.add({type = 'line'})
@@ -493,8 +515,8 @@ local function build_config_gui(data)
             scroll_pane,
             switch_state,
             'comfy_panel_middle_location',
-            'Position - middle',
-            'Toggle to select if you want the bottom button above the quickbar or the side of the quickbar.'
+            {'gui.position_middle'},
+            {'gui-description.position_middle'}
         )
 
         scroll_pane.add({type = 'line'})
@@ -507,14 +529,14 @@ local function build_config_gui(data)
             scroll_pane,
             switch_state,
             'comfy_panel_portable_button',
-            'Position - portable',
-            'Toggle to select if you want the bottom button to be portable or not.'
+            {'gui.position_portable'},
+            {'gui-description.position_portable'}
         )
         scroll_pane.add({type = 'line'})
     end
 
     if admin then
-        label = scroll_pane.add({type = 'label', caption = 'Admin Settings'})
+        label = scroll_pane.add({type = 'label', caption = {'gui.admin_settings'}})
         label.style.font = 'default-bold'
         label.style.padding = 0
         label.style.left_padding = 10
@@ -525,11 +547,21 @@ local function build_config_gui(data)
 
         scroll_pane.add({type = 'line'})
 
+        for i = 1, #this.scenario_registry do
+            local mod = this.scenario_registry[i]
+            if mod.gui_rows and mod.admin_only then
+                local handler = Task.get(mod.gui_rows)
+                if handler then
+                    handler(player, scroll_pane)
+                end
+            end
+        end
+
         switch_state = 'right'
         if game.permissions.get_group('Default').allows_action(defines.input_action.open_blueprint_library_gui) then
             switch_state = 'left'
         end
-        add_switch(scroll_pane, switch_state, 'comfy_panel_blueprint_toggle', 'Blueprint Library', 'Toggles the usage of blueprint strings and the library.')
+        add_switch(scroll_pane, switch_state, 'comfy_panel_blueprint_toggle', {'gui.blueprint_library'}, {'gui-description.blueprint_library'})
 
         scroll_pane.add({type = 'line'})
 
@@ -537,7 +569,7 @@ local function build_config_gui(data)
         if Gui.get_disable_clear_invalid_data() then
             switch_state = 'left'
         end
-        add_switch(scroll_pane, switch_state, 'disable_cleaning', 'Gui Data Cleaning', 'Toggles the Gui data cleaning.')
+        add_switch(scroll_pane, switch_state, 'disable_cleaning', {'gui.gui_data_cleaning'}, {'gui-description.gui_data_cleaning'})
 
         scroll_pane.add({type = 'line'})
 
@@ -549,22 +581,13 @@ local function build_config_gui(data)
             scroll_pane,
             switch_state,
             'comfy_panel_spaghett_toggle',
-            'Spaghett Mode',
-            'Disables the Logistic System research.\nRequester, buffer or active-provider containers can not be built.'
+            {'gui.spaghett_mode'},
+            {'gui-description.spaghett_mode'}
         )
-
-        if poll then
-            scroll_pane.add({type = 'line'})
-            switch_state = 'right'
-            if this.gui_config.poll_trusted then
-                switch_state = 'left'
-            end
-            add_switch(scroll_pane, switch_state, 'comfy_panel_poll_trusted_toggle', 'Poll mode', 'Disables non-trusted plebs to create polls.')
-        end
 
         scroll_pane.add({type = 'line'})
 
-        label = scroll_pane.add({type = 'label', caption = 'Antigrief Settings'})
+        label = scroll_pane.add({type = 'label', caption = {'gui.antigrief_settings'}})
         label.style.font = 'default-bold'
         label.style.padding = 0
         label.style.left_padding = 10
@@ -577,11 +600,11 @@ local function build_config_gui(data)
         if AG.enabled then
             switch_state = 'left'
         end
-        add_switch(scroll_pane, switch_state, 'comfy_panel_disable_antigrief', 'Antigrief', 'Toggle antigrief function.')
+        add_switch(scroll_pane, switch_state, 'comfy_panel_disable_antigrief', {'gui.antigrief'}, {'gui-description.antigrief'})
         scroll_pane.add({type = 'line'})
 
         if is_loaded('maps.biter_battles_v2.main') then
-            label = scroll_pane.add({type = 'label', caption = 'Biter Battles Settings'})
+            label = scroll_pane.add({type = 'label', caption = {'gui.biter_battles_settings'}})
             label.style.font = 'default-bold'
             label.style.padding = 0
             label.style.left_padding = 10
@@ -601,8 +624,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 team_balancing_state,
                 'bb_team_balancing_toggle',
-                'Team Balancing',
-                'Players can only join a team that has less or equal players than the opposing.'
+                {'gui.team_balancing'},
+                {'gui-description.team_balancing'}
             )
             if not admin then
                 switch.ignored_by_interaction = true
@@ -619,8 +642,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 only_admins_vote_state,
                 'bb_only_admins_vote',
-                'Admin Vote',
-                'Only admins can vote for map difficulty. Clears all currently existing votes.'
+                {'gui.admin_vote'},
+                {'gui-description.admin_vote'}
             )
             if not admin then
                 only_admins_vote_switch.ignored_by_interaction = true
@@ -630,7 +653,7 @@ local function build_config_gui(data)
         end
 
         if is_loaded('maps.mountain_fortress_v3.main') then
-            label = scroll_pane.add({type = 'label', caption = 'Mountain Fortress Settings'})
+            label = scroll_pane.add({type = 'label', caption = {'gui.mountain_fortress_settings'}})
             label.style.font = 'default-bold'
             label.style.padding = 0
             label.style.left_padding = 10
@@ -649,8 +672,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_disable_fullness',
-                'Inventory Fullness',
-                'On = Enables inventory fullness.\nOff = Disables inventory fullness.'
+                {'gui.inventory_fullness'},
+                {'gui-description.inventory_fullness'}
             )
 
             scroll_pane.add({type = 'line'})
@@ -665,8 +688,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_offline_players',
-                'Offline Players',
-                'On = Enables offline player inventory drop.\nOff = Disables offline player inventory drop.'
+                {'gui.offline_players'},
+                {'gui-description.offline_players'}
             )
 
             scroll_pane.add({type = 'line'})
@@ -679,8 +702,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_collapse_grace',
-                'Collapse',
-                'On = Enables collapse after wave 100.\nOff = Disables collapse - you must breach the first zone for collapse to occur.'
+                {'gui.collapse'},
+                {'gui-description.collapse'}
             )
 
             scroll_pane.add({type = 'line'})
@@ -693,8 +716,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_spill_items_to_surface',
-                'Spill Ores',
-                'On = Enables ore spillage to surface when mining.\nOff = Disables ore spillage to surface when mining.'
+                {'gui.spill_ores'},
+                {'gui-description.spill_ores'}
             )
             scroll_pane.add({type = 'line'})
 
@@ -706,8 +729,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_void_or_tile',
-                'Void Tiles',
-                'On = Changes the tiles to out-of-map.\nOff = Changes the tiles to lab-dark-2'
+                {'gui.void_tiles'},
+                {'gui-description.void_tiles'}
             )
             scroll_pane.add({type = 'line'})
 
@@ -719,8 +742,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_trusted_only_car_tanks',
-                'Market Purchase',
-                'On = Allows only trusted people to buy car/tanks.\nOff = Allows everyone to buy car/tanks.'
+                {'gui.market_purchase'},
+                {'gui-description.market_purchase'}
             )
             scroll_pane.add({type = 'line'})
 
@@ -732,14 +755,14 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_allow_decon',
-                'Deconstruct',
-                'On = Allows decon on car/tanks/trains.\nOff = Disables decon on car/tanks/trains.'
+                {'gui.deconstruct'},
+                {'gui-description.deconstruct'}
             )
             scroll_pane.add({type = 'line'})
             if Module.christmas_mode then
                 switch_state = 'left'
             end
-            add_switch(scroll_pane, switch_state, 'comfy_panel_christmas_mode', 'Wintery Mode', 'On = Enables wintery mode.\nOff = Disables wintery mode.')
+            add_switch(scroll_pane, switch_state, 'comfy_panel_christmas_mode', {'gui.wintery_mode'}, {'gui-description.wintery_mode'})
             scroll_pane.add({type = 'line'})
         end
     end
@@ -787,16 +810,9 @@ local function on_gui_switch_state_changed(event)
         end
         fortress_functions[event.element.name](event)
         return
-    elseif is_loaded('comfy_panel.poll') then
-        local is_spamming = SpamProtection.is_spamming(player, nil, 'Config Poll Elem')
-        if is_spamming then
-            return
-        end
-        if poll_function[event.element.name] then
-            poll_function[event.element.name](event)
-            return
-        end
     end
+
+    handle_registered_event(event, player)
 end
 
 local function on_force_created()
@@ -836,5 +852,9 @@ function Public.set(key, value)
         return this
     end
 end
+
+Public.add_switch = add_switch
+Public.get_actor = get_actor
+Public.register_token = Task.register
 
 return Public

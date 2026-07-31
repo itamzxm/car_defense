@@ -3,6 +3,7 @@ local Global = require 'utils.global'
 local Gui = require 'utils.gui'
 local Token = require 'utils.token'
 local Color = require 'utils.color_presets'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 
 local pairs = pairs
 local next = next
@@ -11,7 +12,7 @@ local Public = {}
 
 local active_alerts = {}
 local id_counter = {0}
-local alert_zoom_to_pos = Gui.uid_name()
+local alert_zoom_to_pos = 'alert_alert_zoom_to_pos'
 
 local on_tick
 
@@ -24,10 +25,10 @@ Global.register(
     'alert'
 )
 
-local alert_frame_name = Gui.uid_name()
-local alert_container_name = Gui.uid_name()
-local alert_progress_name = Gui.uid_name()
-local close_alert_name = Gui.uid_name()
+local alert_frame_name = 'alert_alert_frame'
+local alert_container_name = 'alert_alert_container'
+local alert_progress_name = 'alert_alert_progress'
+local close_alert_name = 'alert_close_alert'
 
 --- Apply this name to an element to have it close the alert when clicked.
 -- Two elements in the same parent cannot have the same name. If you need your
@@ -135,11 +136,11 @@ local function on_click_close_alert(event)
     close_alert(event.element)
 end
 
-Gui.on_click(alert_zoom_to_pos, zoom_to_pos)
-Gui.on_click(alert_frame_name, on_click_close_alert)
-Gui.on_click(alert_container_name, on_click_close_alert)
-Gui.on_click(alert_progress_name, on_click_close_alert)
-Gui.on_click(close_alert_name, on_click_close_alert)
+GuiDispatcher.register_click(alert_zoom_to_pos, zoom_to_pos)
+GuiDispatcher.register_click(alert_frame_name, on_click_close_alert)
+GuiDispatcher.register_click(alert_container_name, on_click_close_alert)
+GuiDispatcher.register_click(alert_progress_name, on_click_close_alert)
+GuiDispatcher.register_click(close_alert_name, on_click_close_alert)
 
 local function update_alert(id, frame, tick)
     if not frame.valid then

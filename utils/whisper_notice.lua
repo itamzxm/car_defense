@@ -3,10 +3,11 @@ local Event = require 'utils.event'
 local Gui = require 'utils.gui'
 local Server = require 'utils.server'
 local Task = require 'utils.task_token'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 
 local this = {}
-local notice_frame_name = Gui.uid_name()
-local save_button_name = Gui.uid_name()
+local notice_frame_name = 'whisper_notice_frame'
+local save_button_name = 'whisper_save_button'
 local whisper_dataset = 'whisper_tos'
 local set_data = Server.set_data
 local try_get_data = Server.try_get_data
@@ -158,33 +159,30 @@ Event.add(
     end
 )
 
-Gui.on_click(
-    save_button_name,
-    function(event)
-        local player = event.player
-        if not player or not player.valid then
-            return
-        end
-
-        local screen = player.gui.screen
-        local frame = screen[notice_frame_name]
-
-        local gui_data = get_player_data(player)
-
-        if not gui_data.accepted_whisper_tos then
-            gui_data.accepted_whisper_tos = true
-        end
-
-        if player.character ~= nil then
-            player.character.disabled_by_script = false
-        end
-        local date = Server.get_current_date_with_time()
-        set_data(whisper_dataset, player.name, {accepted = true, date = date})
-
-        if frame and frame.valid then
-            remove_target_frame(frame)
-        end
+GuiDispatcher.register_click(save_button_name, function(event)
+    local player = event.player
+    if not player or not player.valid then
+        return
     end
-)
+
+    local screen = player.gui.screen
+    local frame = screen[notice_frame_name]
+
+    local gui_data = get_player_data(player)
+
+    if not gui_data.accepted_whisper_tos then
+        gui_data.accepted_whisper_tos = true
+    end
+
+    if player.character ~= nil then
+        player.character.disabled_by_script = false
+    end
+    local date = Server.get_current_date_with_time()
+    set_data(whisper_dataset, player.name, {accepted = true, date = date})
+
+    if frame and frame.valid then
+        remove_target_frame(frame)
+    end
+end)
 
 return Public

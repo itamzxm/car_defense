@@ -18,7 +18,9 @@ local Map = require 'modules.map_info'
 local WPT = require 'maps.amap.table'
 local WorldTable = require 'maps.amap.world.world_table'
 local Autostash = require 'modules.autostash'
+local ChargingStation = require 'modules.charging_station'
 local BottomFrame = require 'comfy_panel.bottom_frame'
+local Misc = require 'utils.commands.misc'
 local rock = require 'maps.amap.rock'
 local Loot = require 'maps.amap.loot'
 local Modifiers = require 'player_modifiers'
@@ -476,6 +478,7 @@ function Public.reset_map()
     local wave_defense_table = WD.get_table()
     local world_number = diff.get("world")
 
+    Collapse.start_now(false)
 
     if this.yiciyuan_surface and this.yiciyuan_surface.valid then
         game.delete_surface(this.yiciyuan_surface.name)
@@ -516,6 +519,8 @@ function Public.reset_map()
 
     Autostash.insert_into_furnace(true)
     Autostash.bottom_button(true)
+    ChargingStation.bottom_button(true)
+    Misc.bottom_button(true)
 
     BottomFrame.reset()
     BottomFrame.activate_custom_buttons(true)

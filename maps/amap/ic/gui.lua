@@ -4,6 +4,8 @@ local Color = require 'utils.color_presets'
 local Gui = require 'utils.gui'
 local Tabs = require 'comfy_panel.main'
 local Event = require 'utils.event'
+local GuiDispatcher = require 'utils.gui_dispatcher'
+local TopBar = require 'utils.top_bar'
 local WD = require 'modules.wave_defense.table'
 local diff = require 'maps.amap.diff'
 local World = require 'maps.amap.world.framework'
@@ -12,19 +14,19 @@ local insert = table.insert
 local Collapse = require 'modules.collapse'
 
 -- ! Gui Frames
-local save_add_player_button_name = Gui.uid_name()
-local save_transfer_car_button_name = Gui.uid_name()
-local discard_add_player_button_name = Gui.uid_name()
-local transfer_player_select_name = Gui.uid_name()
-local discard_transfer_car_button_name = Gui.uid_name()
-local main_frame_name = Gui.uid_name()
-local draw_add_player_frame_name = Gui.uid_name()
-local draw_transfer_car_frame_name = Gui.uid_name()
-local main_toolbar_name = Gui.uid_name()
-local add_player_name = Gui.uid_name()
-local transfer_car_name = Gui.uid_name()
-local allow_anyone_to_enter_name = Gui.uid_name()
-local kick_player_name = Gui.uid_name()
+local save_add_player_button_name = 'ic_save_add_player_button'
+local save_transfer_car_button_name = 'ic_save_transfer_car_button'
+local discard_add_player_button_name = 'ic_discard_add_player_button'
+local transfer_player_select_name = 'ic_transfer_player_select'
+local discard_transfer_car_button_name = 'ic_discard_transfer_car_button'
+local main_frame_name = 'ic_main_frame'
+local draw_add_player_frame_name = 'ic_draw_add_player_frame'
+local draw_transfer_car_frame_name = 'ic_draw_transfer_car_frame'
+local main_toolbar_name = 'ic_main_toolbar'
+local add_player_name = 'ic_add_player'
+local transfer_car_name = 'ic_transfer_car'
+local allow_anyone_to_enter_name = 'ic_allow_anyone_to_enter'
+local kick_player_name = 'ic_kick_player'
 
 local rpgtable = require 'modules.rpg.table'
 local Alert = require 'utils.alert'
@@ -32,16 +34,16 @@ local Loot = require 'maps.amap.loot'
 local WPT = require 'maps.amap.table'
 local TPT = require 'maps.amap.tianfu_table'
 
-local cool = Gui.uid_name()
-local buyxp = Gui.uid_name()
-local stop_wave = Gui.uid_name()
+local cool = 'ic_cool'
+local buyxp = 'ic_buyxp'
+local stop_wave = 'ic_stop_wave'
 
-local up_coin = Gui.uid_name()
-local up_xp = Gui.uid_name()
-local up_jijing = Gui.uid_name()
+local up_coin = 'ic_up_coin'
+local up_xp = 'ic_up_xp'
+local up_jijing = 'ic_up_jijing'
 
-local integration_button_name = Gui.uid_name()
-local integration_frame_name = Gui.uid_name()
+local integration_button_name = 'ic_integration_button'
+local integration_frame_name = 'ic_integration_frame'
 
 local raise_event = script.raise_event
 local add_toolbar
@@ -185,7 +187,7 @@ local function get_players(player, frame, all)
             insert(tbl, tostring(p.name))
         end
     end
-    insert(tbl, 'Select Player')
+    insert(tbl, {'amap.ic_select_player'})
 
     local selected_index = #tbl
 
@@ -318,7 +320,7 @@ local function draw_add_player(player, frame)
     local close_button = left_flow.add({
         type = 'button',
         name = discard_add_player_button_name,
-        caption = 'Discard'
+        caption = {'amap.ic_discard'}
     })
     close_button.style = 'back_button'
     close_button.style.maximal_width = 100
@@ -331,7 +333,7 @@ local function draw_add_player(player, frame)
     local save_button = right_flow.add({
         type = 'button',
         name = save_add_player_button_name,
-        caption = 'Save'
+        caption = {'amap.ic_save'}
     })
     save_button.style = 'confirm_button'
     save_button.style.maximal_width = 100
@@ -393,7 +395,7 @@ local function draw_transfer_car(player, frame)
     local close_button = left_flow.add({
         type = 'button',
         name = discard_transfer_car_button_name,
-        caption = 'Discard'
+        caption = {'amap.ic_discard'}
     })
     close_button.style = 'back_button'
     close_button.style.maximal_width = 100
@@ -406,7 +408,7 @@ local function draw_transfer_car(player, frame)
     local save_button = right_flow.add({
         type = 'button',
         name = save_transfer_car_button_name,
-        caption = 'Save'
+        caption = {'amap.ic_save'}
     })
     save_button.style = 'confirm_button'
     save_button.style.maximal_width = 100
@@ -816,12 +818,12 @@ local function draw_main_frame(player)
 
     local add_player_frame = inside_table.add({
         type = 'button',
-        caption = 'Add Player',
+        caption = {'amap.ic_add_player'},
         name = add_player_name
     })
     local transfer_car_frame = inside_table.add({
         type = 'button',
-        caption = 'Transfer Car',
+        caption = {'amap.ic_transfer_car'},
         name = transfer_car_name
     })
     local allow_anyone_to_enter = inside_table.add({
@@ -893,7 +895,7 @@ local function add_stop_botton(player)
         pirce_wave = 100000
     end
     if stop_function then
-        player.gui.top.add({
+        TopBar.add_button(player, {
             type = 'sprite-button',
             sprite = 'entity/behemoth-biter',
             name = stop_wave,
@@ -922,18 +924,18 @@ local function toggle(player, recreate)
 end
 
 add_toolbar = function(player, remove)
+    local flow = TopBar.get_button_flow(player)
     if remove then
-        if player.gui.top[integration_button_name] then
-            player.gui.top[integration_button_name].destroy()
+        if flow[integration_button_name] then
+            flow[integration_button_name].destroy()
             return
         end
     end
-    if player.gui.top[integration_button_name] then
+    if flow[integration_button_name] then
         return
     end
     
-    -- 只添加整合功能按钮（唯一保留的按钮）
-    player.gui.top.add({
+    TopBar.add_button(player, {
         type = 'sprite-button',
         sprite = 'item/rocket-silo',
         name = integration_button_name,
@@ -949,8 +951,8 @@ remove_toolbar = function(player)
         remove_main_frame(main_frame)
     end
 
-    if player.gui.top[integration_button_name] then
-        player.gui.top[integration_button_name].destroy()
+    if TopBar.get_button_flow(player)[integration_button_name] then
+        TopBar.get_button_flow(player)[integration_button_name].destroy()
         
 
          
@@ -984,7 +986,8 @@ local function trigger_on_used_car_door(data)
     end
 end
 
-Gui.on_click(cool, function(event)
+
+GuiDispatcher.register_click(cool, function(event)
 
     local player = event.player
     local can_buy = false
@@ -1010,7 +1013,7 @@ Gui.on_click(cool, function(event)
 end)
 
 -- 品质开箱按钮点击处理
-Gui.on_click('integration_chest_quality', function(event)
+GuiDispatcher.register_click('integration_chest_quality', function(event)
     local player = event.player
     if not player or not player.valid then return end
     
@@ -1070,7 +1073,7 @@ Gui.on_click('integration_chest_quality', function(event)
 end)
 
 -- 整合面板内的按钮处理
-Gui.on_click('integration_car_settings', function(event)
+GuiDispatcher.register_click('integration_car_settings', function(event)
     local player = event.player
     if not player or not player.valid then return end
     
@@ -1085,7 +1088,7 @@ Gui.on_click('integration_car_settings', function(event)
     draw_main_frame(player)
 end)
 
-Gui.on_click('integration_chest', function(event)
+GuiDispatcher.register_click('integration_chest', function(event)
     local player = event.player
     if not player or not player.valid then return end
     
@@ -1114,7 +1117,7 @@ Gui.on_click('integration_chest', function(event)
     end
 end)
 
-Gui.on_click('integration_buy_xp', function(event)
+GuiDispatcher.register_click('integration_buy_xp', function(event)
     local player = event.player
     if not player or not player.valid then return end
     
@@ -1135,14 +1138,14 @@ Gui.on_click('integration_buy_xp', function(event)
     end
 end)
 
-Gui.on_click('integration_buy_resources', function(event)
+GuiDispatcher.register_click('integration_buy_resources', function(event)
     local player = event.player
     if not player or not player.valid then return end
 
     -- 当前世界禁用汽车内生成矿物（纯塔防无矿设计）
     local map = diff.get()
     if World.get_field(map.world, 'disable_car_resource_generation') then
-        player.print("塔防世界禁止在汽车内生成矿物！", {r=1, g=0.3, b=0.3})
+        player.print({'amap.td_world_no_resource_gen'}, {r=1, g=0.3, b=0.3})
         return
     end
 
@@ -1183,7 +1186,7 @@ Gui.on_click('integration_buy_resources', function(event)
     end
 end)
 
-Gui.on_click('integration_stop_wave', function(event)
+GuiDispatcher.register_click('integration_stop_wave', function(event)
     local player = event.player
     if not player or not player.valid then return end
     
@@ -1193,7 +1196,7 @@ Gui.on_click('integration_stop_wave', function(event)
     -- 当前世界禁用暂停波防
     local map = diff.get()
     if World.get_field(map.world, 'disable_stop_wave') then
-        player.print("塔防世界无法暂停波防！", {r=1, g=0.3, b=0.3})
+        player.print({'amap.td_world_no_pause_wave'}, {r=1, g=0.3, b=0.3})
         return false
     end
 
@@ -1229,8 +1232,8 @@ Gui.on_click('integration_stop_wave', function(event)
         }
         this.last_stop_time = game.tick
         Collapse.start_now(false)
-        if player.gui.top[stop_wave] then
-            player.gui.top[stop_wave].destroy()
+        if TopBar.get_button_flow(player)[stop_wave] then
+            TopBar.get_button_flow(player)[stop_wave].destroy()
             add_stop_botton(player)
         end
     else
@@ -1238,7 +1241,7 @@ Gui.on_click('integration_stop_wave', function(event)
     end
 end)
 
-Gui.on_click('integration_chaoshikongshangdian', function(event)
+GuiDispatcher.register_click('integration_chaoshikongshangdian', function(event)
     local player = event.player
     if not player or not player.valid then return end
     
@@ -1259,7 +1262,7 @@ Gui.on_click('integration_chaoshikongshangdian', function(event)
     draw_chaoshikongshangdian_frame(player)
 end)
 
-Gui.on_click('integration_close', function(event)
+GuiDispatcher.register_click('integration_close', function(event)
     local player = event.player
     if not player or not player.valid then return end
     
@@ -1271,7 +1274,7 @@ Gui.on_click('integration_close', function(event)
     end
 end)
 
-Gui.on_click('chaoshikongshangdian_close', function(event)
+GuiDispatcher.register_click('chaoshikongshangdian_close', function(event)
     local player = event.player
     if not player or not player.valid then return end
     
@@ -1283,7 +1286,7 @@ Gui.on_click('chaoshikongshangdian_close', function(event)
     end
 end)
 
-Gui.on_click('chaoshikongshangdian_purchase_btn', function(event)
+GuiDispatcher.register_click('chaoshikongshangdian_purchase_btn', function(event)
     local player = event.player
     if not player or not player.valid then return end
     
@@ -1353,7 +1356,7 @@ Gui.on_click('chaoshikongshangdian_purchase_btn', function(event)
 end)
 
 -- 整合按钮点击处理
-Gui.on_click(integration_button_name, function(event)
+GuiDispatcher.register_click(integration_button_name, function(event)
     local player = event.player
     if not player or not player.valid or not player.character then
         return
@@ -1368,7 +1371,8 @@ Gui.on_click(integration_button_name, function(event)
         draw_integration_frame(player)
     end
 end)
-Gui.on_click(buyxp, function(event)
+
+GuiDispatcher.register_click(buyxp, function(event)
     local player = event.player
     local can_buy = false
     local need_coin = 5000
@@ -1386,7 +1390,8 @@ Gui.on_click(buyxp, function(event)
     end
 
 end)
-Gui.on_click(up_coin, function(event)
+
+GuiDispatcher.register_click(up_coin, function(event)
     local player = event.player
     local can_buy = false
     local this = WPT.get()
@@ -1419,7 +1424,8 @@ Gui.on_click(up_coin, function(event)
     end
 
 end)
-Gui.on_click(up_xp, function(event)
+
+GuiDispatcher.register_click(up_xp, function(event)
     local player = event.player
     local can_buy = false
     local index = player.index
@@ -1450,7 +1456,8 @@ Gui.on_click(up_xp, function(event)
     end
 
 end)
-Gui.on_click(up_jijing, function(event)
+
+GuiDispatcher.register_click(up_jijing, function(event)
     local player = event.player
     local can_buy = false
     local index = player.index
@@ -1481,13 +1488,13 @@ Gui.on_click(up_jijing, function(event)
 
 end)
 
-Gui.on_click(stop_wave, function(event)
+GuiDispatcher.register_click(stop_wave, function(event)
     local player = event.player
 
     -- 当前世界禁用暂停波防
     local map = diff.get()
     if World.get_field(map.world, 'disable_stop_wave') then
-        player.print("塔防世界无法暂停波防！", {r=1, g=0.3, b=0.3})
+        player.print({'amap.td_world_no_pause_wave'}, {r=1, g=0.3, b=0.3})
         return false
     end
 
@@ -1525,8 +1532,8 @@ Gui.on_click(stop_wave, function(event)
         }
         this.last_stop_time = game.tick
         Collapse.start_now(false)
-        if player.gui.top[stop_wave] then
-            player.gui.top[stop_wave].destroy()
+        if TopBar.get_button_flow(player)[stop_wave] then
+            TopBar.get_button_flow(player)[stop_wave].destroy()
             add_stop_botton(player)
         end
     else
@@ -1534,7 +1541,7 @@ Gui.on_click(stop_wave, function(event)
     end
 end)
 
-Gui.on_click(add_player_name, function(event)
+GuiDispatcher.register_click(add_player_name, function(event)
     local player = event.player
     if not player or not player.valid or not player.character then
         return
@@ -1553,7 +1560,7 @@ Gui.on_click(add_player_name, function(event)
     end
 end)
 
-Gui.on_click(transfer_car_name, function(event)
+GuiDispatcher.register_click(transfer_car_name, function(event)
     local player = event.player
     if not player or not player.valid or not player.character then
         return
@@ -1572,7 +1579,7 @@ Gui.on_click(transfer_car_name, function(event)
     end
 end)
 
-Gui.on_click(allow_anyone_to_enter_name, function(event)
+GuiDispatcher.register_click(allow_anyone_to_enter_name, function(event)
     local player = event.player
 
     if not player or not player.valid or not player.character then
@@ -1601,7 +1608,7 @@ Gui.on_click(allow_anyone_to_enter_name, function(event)
     end
 end)
 
-Gui.on_click(save_add_player_button_name, function(event)
+GuiDispatcher.register_click(save_add_player_button_name, function(event)
     local player = event.player
     if not player or not player.valid or not player.character then
         return
@@ -1633,7 +1640,7 @@ Gui.on_click(save_add_player_button_name, function(event)
                 player_to_add.print({'ic.player_allowed_notify', player.name}, Color.info)
                 increment(player_list.players, name)
             else
-                return player.print('[IC] Target player is already trusted.', Color.warning)
+                return player.print({'amap.ic_player_already_trusted'}, Color.warning)
             end
 
             remove_main_frame(event.element)
@@ -1645,7 +1652,7 @@ Gui.on_click(save_add_player_button_name, function(event)
     end
 end)
 
-Gui.on_click(save_transfer_car_button_name, function(event)
+GuiDispatcher.register_click(save_transfer_car_button_name, function(event)
     local player = event.player
     if not player or not player.valid or not player.character then
         return
@@ -1691,7 +1698,7 @@ Gui.on_click(save_transfer_car_button_name, function(event)
     end
 end)
 
-Gui.on_click(kick_player_name, function(event)
+GuiDispatcher.register_click(kick_player_name, function(event)
     local player = event.player
     if not player or not player.valid or not player.character then
         return
@@ -1731,7 +1738,7 @@ Gui.on_click(kick_player_name, function(event)
     end
 end)
 
-Gui.on_click(discard_add_player_button_name, function(event)
+GuiDispatcher.register_click(discard_add_player_button_name, function(event)
     local player = event.player
     if not player or not player.valid or not player.character then
         return
@@ -1749,7 +1756,7 @@ Gui.on_click(discard_add_player_button_name, function(event)
     end
 end)
 
-Gui.on_click(discard_transfer_car_button_name, function(event)
+GuiDispatcher.register_click(discard_transfer_car_button_name, function(event)
     local player = event.player
     if not player or not player.valid or not player.character then
         return
@@ -1767,7 +1774,7 @@ Gui.on_click(discard_transfer_car_button_name, function(event)
     end
 end)
 
-Gui.on_click(main_toolbar_name, function(event)
+GuiDispatcher.register_click(main_toolbar_name, function(event)
     local player = event.player
     if not player or not player.valid or not player.character then
         return
@@ -1783,7 +1790,7 @@ Gui.on_click(main_toolbar_name, function(event)
     end
 end)
 
-Gui.on_selection_state_changed(transfer_player_select_name, function(event)
+GuiDispatcher.register_selection_state_changed(transfer_player_select_name, function(event)
     local player = event.player
     if not player or not player.valid or not player.character then
         return
@@ -1821,25 +1828,24 @@ Gui.on_selection_state_changed(transfer_player_select_name, function(event)
     player_gui_data[player.name] = selected
 end)
 
+
+
 Public.draw_main_frame = draw_main_frame
 Public.toggle = toggle
 Public.add_toolbar = add_toolbar
 Public.remove_toolbar = remove_toolbar
 Public.integration_frame_name = integration_frame_name
 
-Event.add(defines.events.on_gui_closed, function(event)
+GuiDispatcher.register_closed(main_frame_name, function(event)
     local player = game.get_player(event.player_index)
     if not player or not player.valid or not player.character then
         return
     end
 
-    local element = event.element
-    if element and element.valid and element.name == main_frame_name then
-        local screen = player.gui.screen
-        local frame = screen[main_frame_name]
-        if frame and frame.valid then
-            frame.destroy()
-        end
+    local screen = player.gui.screen
+    local frame = screen[main_frame_name]
+    if frame and frame.valid then
+        frame.destroy()
     end
 end)
 

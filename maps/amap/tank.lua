@@ -18,6 +18,7 @@ local Dungeon = require 'maps.amap.dungeon'
 
 local refresh_shop = require"maps.amap.rock".refresh_shop
 local ft = require"maps.amap.rock".ft
+local vote_choise_map = require"maps.amap.vote_choise_map"
 local Collapse = require 'modules.collapse'
 
 local Reset_map = require 'maps.amap.main'.reset_map
@@ -366,7 +367,7 @@ local function on_player_build_entity(event)
             ICWLinkChestGui.update_link_chest_label(entity, entity.link_id)
         else
             rendering.draw_text {
-                text = player.name .. '的箱子',
+                text = player.name .. {'amap.possive_chest_suffix'},
                 surface = player.physical_surface,
                 target = entity,
                 target_offset = {0, -1},
@@ -776,6 +777,7 @@ local function game_over()
 
     -- 恢复投票结果
     this.vote_map_number = saved_vote_map_number
+    vote_choise_map.refresh_all()
     
     rpg_t = RPG.get('rpg_t')
     for index, settings in pairs(saved_auto_cast_settings) do
@@ -1039,7 +1041,7 @@ end
 local tpshop = function()
     local this = WPT.get()
     if this.world_number == 7 and this.silo and this.silo.valid then
-        game.print('一分钟后市场将转移到蜘蛛所在位置!')
+        game.print({'amap.market_move_to_spider'})
         Task.set_timeout_in_ticks(60 * 60, zysc)
     end
 end
@@ -1333,10 +1335,10 @@ local function daojishi()
             local player = this.silo.get_driver()
             local passenger = this.silo.get_passenger()
             if player and player.player then
-                player.player.print('蜘蛛正处于危险位置', {255, 0, 0})
+                player.player.print({'amap.spider_in_danger'}, {255, 0, 0})
             end
             if passenger and passenger.player then
-                passenger.player.print('蜘蛛正处于危险位置', {255, 0, 0})
+                passenger.player.print({'amap.spider_in_danger'}, {255, 0, 0})
             end
         end
 

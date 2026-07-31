@@ -206,7 +206,7 @@ local function enforce_initial_terrain()
     end
 
     this.world15_terrain_fixed = true
-    game.print("[世界15] 已校正开局地形并清除海面残留陆地/虫子", {r = 0.5, g = 1, b = 0.5})
+    game.print({'amap.world15_terrain_fixed'}, {r = 0.5, g = 1, b = 0.5})
 end
 
 -- 运行期安全网：每 10 秒清除整表面海面上的敌人（Boss 除外）。绝不改地块，保留玩家填海。
@@ -384,7 +384,7 @@ local function command_boss_to_center(boss, center)
     end)
     if not ok_b then
         log('[world15] Boss 指挥失败 A:' .. tostring(err_a) .. ' B:' .. tostring(err_b))
-        game.print('[world15] Boss 指挥失败: ' .. tostring(err_b), {r = 1, g = 0.4, b = 0.4})
+        game.print({'amap.world15_boss_command_failed', tostring(err_b)}, {r = 1, g = 0.4, b = 0.4})
     end
 end
 
@@ -459,7 +459,7 @@ local function spawn_boss(wave_number)
         }
         game.print({"amap.world15_boss_spawn", wave_number, math.floor(boss_hp)},
             {r = 1, g = 0.3, b = 0})
-        game.print("Boss 出生通道：" .. channel_name, {r = 1, g = 0.6, b = 0})
+        game.print({'amap.world15_boss_channel', channel_name}, {r = 1, g = 0.6, b = 0})
     end
 end
 
@@ -527,8 +527,7 @@ local function on_boss_died(event)
         if entity.name == "big-stomper-pentapod" then
             local keys = {}
             for k in pairs(this.world15_bosses) do keys[#keys + 1] = tostring(k) end
-            game.print("[世界15诊断] Boss 死亡但未匹配记录 died_un=" ..
-                tostring(entity.unit_number) .. " 记录键=[" .. table.concat(keys, ",") .. "]",
+            game.print({'amap.world15_boss_diagnostic', tostring(entity.unit_number), table.concat(keys, ",")},
                 {r = 1, g = 0.3, b = 0.3})
         end
         return

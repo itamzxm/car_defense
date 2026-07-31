@@ -3,8 +3,8 @@
 local Color = require 'utils.color_presets'
 local Event = require 'utils.event'
 local Global = require 'utils.global'
-local Gui = require 'utils.gui'
 local SpamProtection = require 'utils.spam_protection'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Commands = require 'utils.commands'
 
 local this = {
@@ -21,8 +21,8 @@ Global.register(
 
 local Public = {}
 
-local locate_player_frame_name = Gui.uid_name()
-local player_frame_name = Gui.uid_name()
+local locate_player_frame_name = 'cmd_where_locate_player_frame'
+local player_frame_name = 'cmd_where_player_frame'
 
 local function create_player_data(player)
     local player_data = this.players[player.index]
@@ -161,6 +161,7 @@ Commands.new('where', 'Locates a player')
 
 
 local function on_nth_tick()
+    if not this.players then this.players = {} end
     for p, data in pairs(this.players) do
         if data and data.target and data.target.valid then
             local target = data.target
@@ -185,43 +186,34 @@ local function on_nth_tick()
     end
 end
 
-Gui.on_click(
-    locate_player_frame_name,
-    function (event)
-        local is_spamming = SpamProtection.is_spamming(event.player, nil, 'Where Locate Player')
-        if is_spamming then
-            return
-        end
-        remove_camera_frame(event.player)
+GuiDispatcher.register_click(locate_player_frame_name, function(event)
+    local is_spamming = SpamProtection.is_spamming(event.player, nil, 'Where Locate Player')
+    if is_spamming then
+        return
     end
-)
+    remove_camera_frame(event.player)
+end)
 
-Gui.on_custom_close(
-    locate_player_frame_name,
-    function (event)
-        local is_spamming = SpamProtection.is_spamming(event.player, nil, 'Where Locate Player')
-        if is_spamming then
-            return
-        end
-        remove_camera_frame(event.player)
+GuiDispatcher.register_click(player_frame_name, function(event)
+    local is_spamming = SpamProtection.is_spamming(event.player, nil, 'Where Player Frame')
+    if is_spamming then
+        return
     end
-)
+    local button = event.button
+    local shift = event.shift
+    if button == defines.mouse_button_type.left and shift then
+        return
+    end
+    remove_camera_frame(event.player)
+end)
 
-Gui.on_click(
-    player_frame_name,
-    function (event)
-        local is_spamming = SpamProtection.is_spamming(event.player, nil, 'Where Player Frame')
-        if is_spamming then
-            return
-        end
-        local button = event.button
-        local shift = event.shift
-        if button == defines.mouse_button_type.left and shift then
-            return
-        end
-        remove_camera_frame(event.player)
+GuiDispatcher.register_closed(locate_player_frame_name, function(event)
+    local is_spamming = SpamProtection.is_spamming(event.player, nil, 'Where Locate Player')
+    if is_spamming then
+        return
     end
-)
+    remove_camera_frame(event.player)
+end)
 
 --- Disables the module.
 ---@param state boolean

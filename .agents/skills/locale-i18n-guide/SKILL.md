@@ -14,27 +14,59 @@ description: 坦克保卫战本地化/国际化指南。规范 locale 键命名�
 ```
 locale/
 ├── en/                    -- 英文
-│   ├── amap.cfg          -- 项目自定义文本（主要）
-│   ├── locale.cfg        -- Factorio 内置模块文本
+│   ├── amap.cfg          -- 项目主文本（仅 [amap] section）
+│   ├── icw.cfg            -- 关联箱系统（[icw]）
+│   ├── magic_wood.cfg     -- 魔法木箱系统（[magic_wood]）
 │   ├── commands.cfg      -- 命令文本
-│   ├── rpg.cfg           -- RPG 系统文本
+│   ├── gui.cfg            -- GUI 设置文本
+│   ├── ic.cfg             -- 载具内部空间文本
+│   ├── locale.cfg        -- Factorio 内置模块文本
+│   ├── modules.cfg        -- 通用模块文本
 │   ├── pet_system.cfg    -- 宠物系统文本
-│   ├── tianfu.cfg        -- 天赋系统文本
-│   └── ...               -- 其他模块
+│   ├── rpg.cfg           -- RPG 系统文本
+│   └── tianfu.cfg        -- 天赋系统文本
 └── zh-CN/                -- 中文
-    ├── amap.cfg          -- 项目自定义文本（主要）
-    ├── locale.cfg        -- Factorio 内置模块文本
+    ├── amap.cfg          -- 项目主文本（仅 [amap] section）
+    ├── icw.cfg            -- 关联箱系统（[icw]）
+    ├── magic_wood.cfg     -- 魔法木箱系统（[magic_wood]）
     ├── commands.cfg      -- 命令文本
-    ├── rpg.cfg           -- RPG 系统文本
+    ├── gui.cfg            -- GUI 设置文本
+    ├── ic.cfg             -- 载具7内部空间文本
+    ├── locale.cfg        -- Factorio 内置模块文本
+    ├── modules.cfg        -- 通用模块文本
     ├── pet_system.cfg    -- 宠物系统文本
-    ├── tianfu.cfg        -- 天赋系统文本
-    └── ...               -- 其他模块
+    ├── rpg.cfg           -- RPG 系统文本
+    └── tianfu.cfg        -- 天赋系统文本
 ```
 
 ### 主要工作文件
 
 - `locale/zh-CN/amap.cfg` — 中文项目文本
 - `locale/en/amap.cfg` — 英文项目文本
+
+## 文件组织原则
+
+| 原则 | 说明 |
+|------|------|
+| **一文件一 section** | 文件名与 section 名对应，如 `icw.cfg` 只含 `[icw]` |
+| **禁止多 section 混杂** | 不要把不相关的 section 塞在同一文件（`[icw]`、`[magic_wood]` 已从 `amap.cfg` 拆分） |
+| **禁止追加到文件末尾** | 新增键必须放在对应 section 内，不能直接追加到文件末尾（会导致键名前缀错误） |
+| **按功能域分组注释** | 新增键前用 `# ── 功能域名 ──` 注释标明分组 |
+| **多 section 文件声明** | 若文件确需多 section，开头必须注释声明所有 section 名称 |
+
+### 分组注释格式
+
+```ini
+[amap]
+...
+# ── 顶栏按钮 ──
+top_bar_hide=点击折叠顶栏
+top_bar_show=点击展开顶栏
+# ── 小地图 ──
+minimap_toggle=打开或关闭小地图。
+minimap_frame_title=小地图
+...
+```
 
 ## 2. locale 文件格式
 
@@ -149,10 +181,12 @@ boss_location=Boss 位置：[gps=__1__,__2__,__3__]
 
 ### 添加新文本
 
-1. 在 `locale/zh-CN/amap.cfg` 的 `[amap]` section 末尾添加中文键值对
-2. 在 `locale/en/amap.cfg` 的 `[amap]` section **相同位置**添加英文键值对
-3. 确保键名完全一致
-4. 确保参数占位符数量和顺序一致
+1. 确定键属于哪个 section/文件（如 `[amap]`→`amap.cfg`、`[icw]`→`icw.cfg`、`[commands]`→`commands.cfg`）
+2. 在对应文件的对应 section 内添加键值对（**禁止追加到文件末尾**）
+3. 若为新功能域，在键前添加 `# ── 功能域名 ──` 分组注释
+4. 在中英两个文件中同步添加
+5. 确保键名完全一致
+6. 确保参数占位符数量和顺序一致
 
 ### 修改已有文本
 
@@ -212,7 +246,8 @@ boss_location=Boss 位置：[gps=__1__,__2__,__3__]
 - [ ] 文件编码是否为 UTF-8（无 BOM）
 - [ ] 是否使用 `edit` 工具修改（而非 PowerShell Set-Content）
 - [ ] 代码中引用的 locale 键是否与文件中定义的一致
-- [ ] 新键是否添加在 `[amap]` section 中
+- [ ] 新键是否放在正确的 section 和文件中（而非文件末尾）
+- [ ] 新功能域是否添加了 `# ── 功能域名 ──` 分组注释
 
 ## 参考
 

@@ -1,10 +1,15 @@
 --scoreboard by mewmew
 
 local Event = require 'utils.event'
-local Global = require 'utils.global'
+local Where = require 'utils.commands.where'
+local Session = require 'utils.datastore.session_data'
+local Jailed = require 'utils.datastore.jail_data'
 local Tabs = require 'comfy_panel.main'
+local Global = require 'utils.global'
 local SpamProtection = require 'utils.spam_protection'
+local RPG = require 'modules.rpg.table'
 local Token = require 'utils.token'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 
 local Public = {}
 local this = {
@@ -26,6 +31,21 @@ local building_and_mining_blacklist = {
     ['tile-ghost'] = true,
     ['entity-ghost'] = true,
     ['item-entity'] = true
+}
+
+local mined_entity_whitelist = {
+    ['simple-entity'] = true,
+    ['linked-chest'] = true,
+    ['car'] = true,
+    ['wall'] = true,
+    ['artillery-wagon'] = true,
+    ['artillery-turret'] = true,
+    ['land-mine'] = true,
+    ['spider-vehicle'] = true,
+    ['ammo-turret'] = true,
+    ['electric-turret'] = true,
+    ['fluid-turret'] = true,
+    ['tree'] = true
 }
 
 function Public.get_table()
@@ -162,11 +182,11 @@ local function show_score(data)
 
     -- Score headers
     local headers = {
-        {name = 'score_player', caption = '玩家'},
-        {column = 'killscore', name = 'score_killscore', caption = '击杀得分'},
-        {column = 'deaths', name = 'score_deaths', caption = '死亡次数'},
-        {column = 'built_entities', name = 'score_built_entities', caption = '建筑数'},
-        {column = 'mined_entities', name = 'score_mined_entities', caption = '挖掘数量'}
+        {name = 'cp_score_player', caption = '玩家'},
+        {column = 'killscore', name = 'cp_score_killscore', caption = '击杀得分'},
+        {column = 'deaths', name = 'cp_score_deaths', caption = '死亡次数'},
+        {column = 'built_entities', name = 'cp_score_built_entities', caption = '建筑数'},
+        {column = 'mined_entities', name = 'cp_score_mined_entities', caption = '挖掘数量'}
     }
 
     local sorting_pref = this.sort_by[player.name]
@@ -204,7 +224,7 @@ local function show_score(data)
         frame.add(
         {
             type = 'scroll-pane',
-            name = 'score_scroll_pane',
+            name = 'cp_score_scroll_pane',
             direction = 'vertical',
             horizontal_scroll_policy = 'never',
             vertical_scroll_policy = 'auto'
@@ -281,7 +301,10 @@ local function on_gui_click(event)
             return
         end
     end
+end
 
+local function toggle_sort(column_name, event)
+    local player = game.get_player(event.player_index)
     local frame = Tabs.comfy_panel_get_active_frame(player)
     if not frame then
         return
@@ -295,28 +318,28 @@ local function on_gui_click(event)
         return
     end
 
-    -- Handles click on a score header
-    local element_to_column = {
-        ['score_killscore'] = 'killscore',
-        ['score_deaths'] = 'deaths',
-        ['score_built_entities'] = 'built_entities',
-        ['score_mined_entities'] = 'mined_entities'
-    }
-    local column = element_to_column[name]
-    if column then
-        local sorting_pref = this.sort_by[player.name]
-        if sorting_pref.column == column and sorting_pref.method == 'descending' then
-            sorting_pref.method = 'ascending'
-        else
-            sorting_pref.method = 'descending'
-            sorting_pref.column = column
-        end
-        show_score({player = player, frame = frame})
-        return
+    local sorting_pref = this.sort_by[player.name]
+    if sorting_pref.column == column_name and sorting_pref.method == 'descending' then
+        sorting_pref.method = 'ascending'
+    else
+        sorting_pref.method = 'descending'
+        sorting_pref.column = column_name
     end
-
-    -- No more to handle
+    show_score({player = player, frame = frame})
 end
+
+GuiDispatcher.register_click('cp_score_killscore', function(event)
+    toggle_sort('killscore', event)
+end)
+GuiDispatcher.register_click('cp_score_deaths', function(event)
+    toggle_sort('deaths', event)
+end)
+GuiDispatcher.register_click('cp_score_built_entities', function(event)
+    toggle_sort('built_entities', event)
+end)
+GuiDispatcher.register_click('cp_score_mined_entities', function(event)
+    toggle_sort('mined_entities', event)
+end)
 
 local function on_rocket_launched()
     refresh_score_full()
@@ -435,6 +458,9 @@ local function on_player_mined_entity(event)
     if not event.entity.valid then
         return
     end
+    if not mined_entity_whitelist[event.entity.type] then
+        return
+    end
     if building_and_mining_blacklist[event.entity.type] then
         return
     end
@@ -463,20 +489,7 @@ end
 
 Tabs.add_tab_to_gui({name = module_name, id = show_score_token, admin = false})
 
-Event.add(defines.events.on_player_mined_entity, on_player_mined_entity,{
-    {filter = "type", type = 'simple-entity'},
-    {filter = "type", type = 'linked-chest'},
-    {filter = "type", type = 'car'},
-    {filter = "type", type = 'wall'},
-    {filter = "type", type = 'artillery-wagon'},
-    {filter = "type", type = 'artillery-turret'},
-    {filter = "type", type = 'land-mine'},
-    {filter = "type", type = 'spider-vehicle'},
-    {filter = "type", type = 'ammo-turret'},
-    {filter = "type", type = 'electric-turret'},
-    {filter = "type", type = 'fluid-turret'},
-	{filter = "type", type = 'tree'}
-})
+Event.add(defines.events.on_player_mined_entity, on_player_mined_entity)
 Event.add(defines.events.on_player_died, on_player_died)
 Event.add(defines.events.on_built_entity, on_built_entity)
 Event.add(defines.events.on_entity_died, on_entity_died)

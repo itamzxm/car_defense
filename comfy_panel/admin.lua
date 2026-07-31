@@ -6,6 +6,7 @@ local Tabs = require 'comfy_panel.main'
 local AntiGrief = require 'antigrief'
 local SpamProtection = require 'utils.spam_protection'
 local Token = require 'utils.token'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 
 local lower = string.lower
 local module_name = 'Admin'
@@ -188,10 +189,10 @@ local function delete_all_blueprints(player)
 end
 
 local function create_mini_camera_gui(player, caption, position, surface)
-    if player.gui.center['mini_camera'] then
-        player.gui.center['mini_camera'].destroy()
+    if player.gui.center['cp_adm_mini_camera'] then
+        player.gui.center['cp_adm_mini_camera'].destroy()
     end
-    local frame = player.gui.center.add({type = 'frame', name = 'mini_camera', caption = caption})
+    local frame = player.gui.center.add({type = 'frame', name = 'cp_adm_mini_camera', caption = caption})
     surface = tonumber(surface)
     surface = game.surfaces[surface]
     if not surface or not surface.valid then
@@ -202,7 +203,7 @@ local function create_mini_camera_gui(player, caption, position, surface)
         frame.add(
         {
             type = 'camera',
-            name = 'mini_cam_element',
+            name = 'cp_adm_mini_cam_element',
             position = position,
             zoom = 0.6,
             surface_index = surface.index
@@ -254,14 +255,14 @@ local function draw_events(data)
     }
 
     local scroll_pane
-    if frame.datalog then
-        frame.datalog.clear()
+    if frame.cp_adm_datalog then
+        frame.cp_adm_datalog.clear()
     else
         scroll_pane =
             frame.add(
             {
                 type = 'scroll-pane',
-                name = 'datalog',
+                name = 'cp_adm_datalog',
                 direction = 'vertical',
                 horizontal_scroll_policy = 'never',
                 vertical_scroll_policy = 'auto'
@@ -273,7 +274,7 @@ local function draw_events(data)
 
     local tooltip = 'Click to open mini camera.'
 
-    local target_player_name = frame['admin_player_select'].items[frame['admin_player_select'].selected_index]
+    local target_player_name = frame['cp_adm_player_select'].items[frame['cp_adm_player_select'].selected_index]
     if game.players[target_player_name] then
         if not history_index or not history_index[history] or #history_index[history] <= 0 then
             return
@@ -292,7 +293,7 @@ local function draw_events(data)
                     tooltip = ''
                 end
 
-                frame.datalog.add(
+                frame.cp_adm_datalog.add(
                     {
                         type = 'label',
                         caption = history_index[history][i],
@@ -311,7 +312,7 @@ local function draw_events(data)
                 end
             end
 
-            frame.datalog.add(
+            frame.cp_adm_datalog.add(
                 {
                     type = 'label',
                     caption = history_index[history][i],
@@ -323,7 +324,7 @@ local function draw_events(data)
     end
 end
 
-local function text_changed(event)
+GuiDispatcher.register_text_changed('cp_adm_search_textfield', function(event)
     local element = event.element
     if not element then
         return
@@ -355,7 +356,7 @@ local function text_changed(event)
     }
 
     draw_events(data)
-end
+end)
 
 local function create_admin_panel(data)
     local player = data.player
@@ -378,7 +379,7 @@ local function create_admin_panel(data)
         end
     end
 
-    local drop_down = frame.add({type = 'drop-down', name = 'admin_player_select', items = player_names, selected_index = selected_index})
+    local drop_down = frame.add({type = 'drop-down', name = 'cp_adm_player_select', items = player_names, selected_index = selected_index})
     drop_down.style.minimal_width = 326
     drop_down.style.right_padding = 12
     drop_down.style.left_padding = 12
@@ -389,16 +390,16 @@ local function create_admin_panel(data)
             {
                 type = 'button',
                 caption = 'Jail',
-                name = 'jail',
+                name = 'cp_adm_jail',
                 tooltip = 'Jails the player, they will no longer be able to perform any actions except writing in chat.'
             }
         ),
-        t.add({type = 'button', caption = 'Free', name = 'free', tooltip = 'Frees the player from jail.'}),
+        t.add({type = 'button', caption = 'Free', name = 'cp_adm_free', tooltip = 'Frees the player from jail.'}),
         t.add(
             {
                 type = 'button',
                 caption = 'Bring Player',
-                name = 'bring_player',
+                name = 'cp_adm_bring_player',
                 tooltip = 'Teleports the selected player to your position.'
             }
         ),
@@ -406,7 +407,7 @@ local function create_admin_panel(data)
             {
                 type = 'button',
                 caption = 'Make Enemy',
-                name = 'enemy',
+                name = 'cp_adm_enemy',
                 tooltip = 'Sets the selected players force to enemy_players.          DO NOT USE IN PVP MAPS!!'
             }
         ),
@@ -414,7 +415,7 @@ local function create_admin_panel(data)
             {
                 type = 'button',
                 caption = 'Make Ally',
-                name = 'ally',
+                name = 'cp_adm_ally',
                 tooltip = 'Sets the selected players force back to the default player force.           DO NOT USE IN PVP MAPS!!'
             }
         ),
@@ -422,7 +423,7 @@ local function create_admin_panel(data)
             {
                 type = 'button',
                 caption = 'Go to Player',
-                name = 'go_to_player',
+                name = 'cp_adm_go_to_player',
                 tooltip = 'Teleport yourself to the selected player.'
             }
         ),
@@ -430,7 +431,7 @@ local function create_admin_panel(data)
             {
                 type = 'button',
                 caption = 'Spank',
-                name = 'spank',
+                name = 'cp_adm_spank',
                 tooltip = 'Hurts the selected player with minor damage. Can not kill the player.'
             }
         ),
@@ -438,11 +439,11 @@ local function create_admin_panel(data)
             {
                 type = 'button',
                 caption = 'Damage',
-                name = 'damage',
+                name = 'cp_adm_damage',
                 tooltip = 'Damages the selected player with greater damage. Can not kill the player.'
             }
         ),
-        t.add({type = 'button', caption = 'Kill', name = 'kill', tooltip = 'Kills the selected player instantly.'})
+        t.add({type = 'button', caption = 'Kill', name = 'cp_adm_kill', tooltip = 'Kills the selected player instantly.'})
     }
     for _, button in pairs(buttons) do
         button.style.font = 'default-bold'
@@ -462,7 +463,7 @@ local function create_admin_panel(data)
             {
                 type = 'button',
                 caption = 'Destroy global speakers',
-                name = 'turn_off_global_speakers',
+                name = 'cp_adm_turn_off_speakers',
                 tooltip = 'Destroys all speakers that are set to play sounds globally.'
             }
         ),
@@ -470,7 +471,7 @@ local function create_admin_panel(data)
             {
                 type = 'button',
                 caption = 'Delete blueprints',
-                name = 'delete_all_blueprints',
+                name = 'cp_adm_delete_blueprints',
                 tooltip = 'Deletes all placed blueprints on the map.'
             }
         )
@@ -518,7 +519,7 @@ local function create_admin_panel(data)
 
     local search_table = frame.add({type = 'table', column_count = 2})
     search_table.add({type = 'label', caption = 'Search: '})
-    local search_text = search_table.add({type = 'textfield'})
+    local search_text = search_table.add({type = 'textfield', name = 'cp_adm_search_textfield'})
     search_text.style.width = 140
 
     local bottomLine2 = frame.add({type = 'label', caption = '----------------------------------------------'})
@@ -532,7 +533,7 @@ local function create_admin_panel(data)
         end
     end
 
-    local drop_down_2 = frame.add({type = 'drop-down', name = 'admin_history_select', items = histories, selected_index = selected_index_2})
+    local drop_down_2 = frame.add({type = 'drop-down', name = 'cp_adm_history_select', items = histories, selected_index = selected_index_2})
     drop_down_2.style.right_padding = 12
     drop_down_2.style.left_padding = 12
 
@@ -547,20 +548,20 @@ end
 local create_admin_panel_token = Token.register(create_admin_panel)
 
 local admin_functions = {
-    ['jail'] = jail,
-    ['free'] = free,
-    ['bring_player'] = bring_player,
-    ['spank'] = spank,
-    ['damage'] = damage,
-    ['kill'] = kill,
-    ['enemy'] = enemy,
-    ['ally'] = ally,
-    ['go_to_player'] = go_to_player
+    ['cp_adm_jail'] = jail,
+    ['cp_adm_free'] = free,
+    ['cp_adm_bring_player'] = bring_player,
+    ['cp_adm_spank'] = spank,
+    ['cp_adm_damage'] = damage,
+    ['cp_adm_kill'] = kill,
+    ['cp_adm_enemy'] = enemy,
+    ['cp_adm_ally'] = ally,
+    ['cp_adm_go_to_player'] = go_to_player
 }
 
 local admin_global_functions = {
-    ['turn_off_global_speakers'] = turn_off_global_speakers,
-    ['delete_all_blueprints'] = delete_all_blueprints
+    ['cp_adm_turn_off_speakers'] = turn_off_global_speakers,
+    ['cp_adm_delete_blueprints'] = delete_all_blueprints
 }
 
 local function get_surface_from_string(str)
@@ -632,6 +633,70 @@ local function get_position_from_string(str)
     return position
 end
 
+local function handle_admin_action(name, event)
+    local player = game.get_player(event.player_index)
+    local frame = Tabs.comfy_panel_get_active_frame(player)
+    if not frame then
+        return
+    end
+    if frame.name ~= module_name then
+        return
+    end
+
+    local is_spamming = SpamProtection.is_spamming(player, nil, 'Admin Gui Click')
+    if is_spamming then
+        return
+    end
+
+    local target_player_name = frame['cp_adm_player_select'].items[frame['cp_adm_player_select'].selected_index]
+    if not target_player_name then
+        return
+    end
+    if target_player_name == 'Select Player' then
+        player.print('No target player selected.', {r = 0.88, g = 0.88, b = 0.88})
+        return
+    end
+    local target_player = game.players[target_player_name]
+    if target_player.connected == true then
+        admin_functions[name](target_player, player)
+    end
+end
+
+for name, _ in pairs(admin_functions) do
+    GuiDispatcher.register_click(name, function(event)
+        handle_admin_action(name, event)
+    end)
+end
+
+for name, func in pairs(admin_global_functions) do
+    GuiDispatcher.register_click(name, function(event)
+        local player = game.get_player(event.player_index)
+        local frame = Tabs.comfy_panel_get_active_frame(player)
+        if not frame then
+            return
+        end
+        if frame.name ~= module_name then
+            return
+        end
+
+        local is_spamming = SpamProtection.is_spamming(player, nil, 'Admin Gui Click')
+        if is_spamming then
+            return
+        end
+
+        func(player)
+    end)
+end
+
+GuiDispatcher.register_click('cp_adm_mini_camera', function(event)
+    local player = game.get_player(event.player_index)
+    player.gui.center['cp_adm_mini_camera'].destroy()
+end)
+GuiDispatcher.register_click('cp_adm_mini_cam_element', function(event)
+    local player = game.get_player(event.player_index)
+    player.gui.center['cp_adm_mini_camera'].destroy()
+end)
+
 local function on_gui_click(event)
     local element = event.element
     if not element or not element.valid then
@@ -653,38 +718,12 @@ local function on_gui_click(event)
         return
     end
 
-    if name == 'mini_camera' or name == 'mini_cam_element' then
-        player.gui.center['mini_camera'].destroy()
-        return
-    end
-
     if frame.name ~= module_name then
         return
     end
 
     local is_spamming = SpamProtection.is_spamming(player, nil, 'Admin Gui Click')
     if is_spamming then
-        return
-    end
-
-    if admin_functions[name] then
-        local target_player_name = frame['admin_player_select'].items[frame['admin_player_select'].selected_index]
-        if not target_player_name then
-            return
-        end
-        if target_player_name == 'Select Player' then
-            player.print('No target player selected.', {r = 0.88, g = 0.88, b = 0.88})
-            return
-        end
-        local target_player = game.players[target_player_name]
-        if target_player.connected == true then
-            admin_functions[name](target_player, player)
-        end
-        return
-    end
-
-    if admin_global_functions[name] then
-        admin_global_functions[name](player)
         return
     end
 
@@ -704,9 +743,9 @@ local function on_gui_click(event)
         return
     end
 
-    if player.gui.center['mini_camera'] then
-        if player.gui.center['mini_camera'].caption == element.caption then
-            player.gui.center['mini_camera'].destroy()
+    if player.gui.center['cp_adm_mini_camera'] then
+        if player.gui.center['cp_adm_mini_camera'].caption == element.caption then
+            player.gui.center['cp_adm_mini_camera'].destroy()
             return
         end
     end
@@ -714,57 +753,53 @@ local function on_gui_click(event)
     create_mini_camera_gui(player, element.caption, position, surface)
 end
 
-local function on_gui_selection_state_changed(event)
+GuiDispatcher.register_selection_state_changed('cp_adm_history_select', function(event)
     local player = game.players[event.player_index]
-    local name = event.element.name
-
-    if name == 'admin_history_select' then
-        if not storage.admin_panel_selected_history_index then
-            storage.admin_panel_selected_history_index = {}
-        end
-        storage.admin_panel_selected_history_index[player.name] = event.element.selected_index
-
-        local frame = Tabs.comfy_panel_get_active_frame(player)
-        if not frame then
-            return
-        end
-        if frame.name ~= module_name then
-            return
-        end
-
-        local is_spamming = SpamProtection.is_spamming(player, nil, 'Admin Selection Changed')
-        if is_spamming then
-            return
-        end
-        local data = {player = player, frame = frame}
-        create_admin_panel(data)
+    if not storage.admin_panel_selected_history_index then
+        storage.admin_panel_selected_history_index = {}
     end
-    if name == 'admin_player_select' then
-        if not storage.admin_panel_selected_player_index then
-            storage.admin_panel_selected_player_index = {}
-        end
-        storage.admin_panel_selected_player_index[player.name] = event.element.selected_index
+    storage.admin_panel_selected_history_index[player.name] = event.element.selected_index
 
-        local frame = Tabs.comfy_panel_get_active_frame(player)
-        if not frame then
-            return
-        end
-        if frame.name ~= module_name then
-            return
-        end
-
-        local is_spamming = SpamProtection.is_spamming(player, nil, 'Admin Player Select')
-        if is_spamming then
-            return
-        end
-
-        local data = {player = player, frame = frame}
-        create_admin_panel(data)
+    local frame = Tabs.comfy_panel_get_active_frame(player)
+    if not frame then
+        return
     end
-end
+    if frame.name ~= module_name then
+        return
+    end
+
+    local is_spamming = SpamProtection.is_spamming(player, nil, 'Admin Selection Changed')
+    if is_spamming then
+        return
+    end
+    local data = {player = player, frame = frame}
+    create_admin_panel(data)
+end)
+
+GuiDispatcher.register_selection_state_changed('cp_adm_player_select', function(event)
+    local player = game.players[event.player_index]
+    if not storage.admin_panel_selected_player_index then
+        storage.admin_panel_selected_player_index = {}
+    end
+    storage.admin_panel_selected_player_index[player.name] = event.element.selected_index
+
+    local frame = Tabs.comfy_panel_get_active_frame(player)
+    if not frame then
+        return
+    end
+    if frame.name ~= module_name then
+        return
+    end
+
+    local is_spamming = SpamProtection.is_spamming(player, nil, 'Admin Player Select')
+    if is_spamming then
+        return
+    end
+
+    local data = {player = player, frame = frame}
+    create_admin_panel(data)
+end)
 
 Tabs.add_tab_to_gui({name = module_name, id = create_admin_panel_token, admin = true})
 
-Event.add(defines.events.on_gui_text_changed, text_changed)
 Event.add(defines.events.on_gui_click, on_gui_click)
-Event.add(defines.events.on_gui_selection_state_changed, on_gui_selection_state_changed)

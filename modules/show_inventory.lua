@@ -1,6 +1,7 @@
 local Global = require 'utils.global'
 local Color = require 'utils.color_presets'
 local Event = require 'utils.event'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 
 local this = {
     data = {}
@@ -21,6 +22,7 @@ local space = {
 }
 
 local function get_player_data(player, remove)
+    if not this.data then this.data = {} end
     if remove and this.data[player.index] then
         this.data[player.index] = nil
         return
@@ -283,28 +285,9 @@ local function open_inventory(source, target)
     source.opened = frame
 end
 
-local function on_gui_click(event)
+local function on_tab_click(event)
     local player = game.players[event.player_index]
-
-    local element = event.element
-
-    if not element or not element.valid then
-        return
-    end
-
-    local types = {
-        ['Main'] = true,
-        ['Armor'] = true,
-        ['Guns'] = true,
-        ['Ammo'] = true,
-        ['Trash'] = true
-    }
-
-    local name = element.name
-
-    if not types[name] then
-        return
-    end
+    local name = event.element.name
 
     local data = get_player_data(player)
     if not data then
@@ -334,19 +317,23 @@ local function on_gui_click(event)
         redraw_inventory(frame, player, target, name, panel_type)
     end
 end
-local function gui_closed(event)
+
+GuiDispatcher.register_click('Main', on_tab_click)
+GuiDispatcher.register_click('Armor', on_tab_click)
+GuiDispatcher.register_click('Guns', on_tab_click)
+GuiDispatcher.register_click('Ammo', on_tab_click)
+GuiDispatcher.register_click('Trash', on_tab_click)
+
+local function on_inventory_gui_closed(event)
     local player = game.players[event.player_index]
-
-    local type = event.gui_type
-
-    if type == defines.gui_type.custom then
-        local data = get_player_data(player)
-        if not data then
-            return
-        end
-        close_player_inventory(player)
+    local data = get_player_data(player)
+    if not data then
+        return
     end
+    close_player_inventory(player)
 end
+
+GuiDispatcher.register_closed('inventory_gui', on_inventory_gui_closed)
 
 local function on_pre_player_left_game(event)
     local player = game.players[event.player_index]
@@ -439,8 +426,6 @@ function Public.get(key)
 end
 
 Event.add(defines.events.on_player_main_inventory_changed, update_gui)
-Event.add(defines.events.on_gui_closed, gui_closed)
-Event.add(defines.events.on_gui_click, on_gui_click)
 Event.add(defines.events.on_pre_player_left_game, on_pre_player_left_game)
 
 return Public

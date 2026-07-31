@@ -3,6 +3,7 @@ local Functions = require 'maps.amap.ic.functions'
 local IC = require 'maps.amap.ic.table'
 local Minimap = require 'maps.amap.ic.minimap'
 local GuiIC = require 'maps.amap.ic.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Public = {}
 local WPT = require 'maps.amap.table'
 
@@ -197,24 +198,27 @@ local function on_tick()
 
 end
 
-local function on_gui_closed(event)
+GuiDispatcher.register_closed('chaoshikongshangdian_frame', function(event)
     local player = game.get_player(event.player_index)
     if not player or not player.valid then return end
-    
     local screen = player.gui.screen
-    local element = event.element
-    
-    local chaoshikongshangdian_frame = screen['chaoshikongshangdian_frame']
-    local integration_frame = screen[GuiIC.integration_frame_name]
-    
-    if element and element.valid then
-        if element.name == 'chaoshikongshangdian_frame' and chaoshikongshangdian_frame and chaoshikongshangdian_frame.valid then
-            chaoshikongshangdian_frame.destroy()
-        elseif element.name == GuiIC.integration_frame_name and integration_frame and integration_frame.valid then
-            integration_frame.destroy()
-        end
+    local frame = screen['chaoshikongshangdian_frame']
+    if frame and frame.valid then
+        frame.destroy()
     end
-    
+end)
+
+GuiDispatcher.register_closed(GuiIC.integration_frame_name, function(event)
+    local player = game.get_player(event.player_index)
+    if not player or not player.valid then return end
+    local screen = player.gui.screen
+    local frame = screen[GuiIC.integration_frame_name]
+    if frame and frame.valid then
+        frame.destroy()
+    end
+end)
+
+local function on_gui_closed_entity(event)
     local entity = event.entity
     if not entity then
         return
@@ -263,25 +267,25 @@ local function on_gui_opened(event)
     )
 end
 
-local function on_gui_click(event)
-    local element = event.element
-    if not element or not element.valid then
-        return
-    end
-
+GuiDispatcher.register_click('minimap_button', function(event)
     local player = game.get_player(event.player_index)
-    if not player or not player.valid then
-        return
-    end
+    if not player or not player.valid then return end
+    Minimap.minimap(player, false)
+end)
 
-    if event.element.name == 'minimap_button' then
-        Minimap.minimap(player, false)
-    elseif event.element.name == 'minimap_frame' or event.element.name == 'minimap_toggle_frame' then
-        Minimap.toggle_minimap(event)
-    elseif event.element.name == 'switch_auto_map' then
-        Minimap.toggle_auto(player)
-    end
-end
+GuiDispatcher.register_click('minimap_frame', function(event)
+    Minimap.toggle_minimap(event)
+end)
+
+GuiDispatcher.register_click('minimap_toggle_frame', function(event)
+    Minimap.toggle_minimap(event)
+end)
+
+GuiDispatcher.register_click('switch_auto_map', function(event)
+    local player = game.get_player(event.player_index)
+    if not player or not player.valid then return end
+    Minimap.toggle_auto(player)
+end)
 
 local function trigger_on_player_kicked_from_surface(data)
     local player = data.player
@@ -317,7 +321,7 @@ local changed_surface = Minimap.changed_surface
 Event.on_init(on_init)
 Event.add(defines.events.on_tick, on_tick)
 Event.add(defines.events.on_gui_opened, on_gui_opened)
-Event.add(defines.events.on_gui_closed, on_gui_closed)
+Event.add(defines.events.on_gui_closed, on_gui_closed_entity)
 Event.add(defines.events.on_player_driving_changed_state, on_player_driving_changed_state)
 Event.add(defines.events.on_entity_died, on_entity_died)
 Event.add(defines.events.on_built_entity, on_built_entity)
@@ -353,7 +357,6 @@ Event.add(defines.events.on_robot_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'fluid-turret'},
 	{filter = "type", type = 'tree'}
 })
-Event.add(defines.events.on_gui_click, on_gui_click)
 Event.add(defines.events.on_player_changed_surface, changed_surface)
 Event.add(IC.events.on_player_kicked_from_surface, trigger_on_player_kicked_from_surface)
 Event.add(defines.events.on_gui_switch_state_changed, on_gui_switch_state_changed)

@@ -1,4 +1,5 @@
-﻿local Gui = require 'utils.gui'
+local Gui = require 'utils.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Color = require 'utils.color_presets'
 
 local Public = {}
@@ -15,9 +16,9 @@ if _DEBUG then
     pages[#pages + 1] = require 'utils.debug.event_view'
 end
 
-local main_frame_name = Gui.uid_name()
-local close_name = Gui.uid_name()
-local tab_name = Gui.uid_name()
+local main_frame_name = 'dbg_mv_main_frame_name'
+local close_name = 'dbg_mv_close_name'
+local tab_name = 'dbg_mv_tab_name'
 
 function Public.open_debug(player)
     for i = 1, #pages do
@@ -68,41 +69,35 @@ function Public.open_debug(player)
     frame.add {type = 'button', name = close_name, caption = 'Close'}
 end
 
-Gui.on_click(
-    tab_name,
-    function(event)
-        local element = event.element
-        local data = Gui.get_data(element)
+GuiDispatcher.register_click(tab_name, function(event)
+    local element = event.element
+    local data = Gui.get_data(element)
 
-        local index = data.index
-        local frame_data = data.frame_data
-        local selected_index = frame_data.selected_index
+    local index = data.index
+    local frame_data = data.frame_data
+    local selected_index = frame_data.selected_index
 
-        if selected_index == index then
-            return
-        end
-
-        local selected_tab_button = frame_data.selected_tab_button
-        selected_tab_button.style.font_color = Color.black
-
-        frame_data.selected_tab_button = element
-        frame_data.selected_index = index
-        element.style.font_color = Color.orange
-
-        local container = frame_data.container
-        Gui.clear(container)
-        pages[index].show(container)
+    if selected_index == index then
+        return
     end
-)
 
-Gui.on_click(
-    close_name,
-    function(event)
-        local frame = event.player.gui.screen[main_frame_name]
-        if frame then
-            Gui.destroy(frame)
-        end
+    local selected_tab_button = frame_data.selected_tab_button
+    selected_tab_button.style.font_color = Color.black
+
+    frame_data.selected_tab_button = element
+    frame_data.selected_index = index
+    element.style.font_color = Color.orange
+
+    local container = frame_data.container
+    Gui.clear(container)
+    pages[index].show(container)
+end)
+
+GuiDispatcher.register_click(close_name, function(event)
+    local frame = event.player.gui.screen[main_frame_name]
+    if frame then
+        Gui.destroy(frame)
     end
-)
+end)
 
 return Public

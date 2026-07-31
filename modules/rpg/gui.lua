@@ -2,7 +2,9 @@ local ComfyGui = require 'comfy_panel.main'
 local Session = require 'utils.datastore.session_data'
 local P = require 'player_modifiers'
 local Gui = require 'utils.gui'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Color = require 'utils.color_presets'
+local TopBar = require 'utils.top_bar'
 
 --RPG Modules
 local Public = require 'modules.rpg.table'
@@ -36,29 +38,27 @@ local round = math.round
 local floor = math.floor
 
 function Public.draw_gui_char_button(player)
-    if player.gui.top[draw_main_frame_name] then
+    if TopBar.get_button_flow(player)[draw_main_frame_name] then
         return
     end
-    local b = player.gui.top.add({type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
-    b.style.font_color = {165, 165, 165}
-    -- 尝试设置字体，如果字体不存在则忽略错误
-    pcall(function() b.style.font = 'heading-3' end)
-    b.style.minimal_height = 38
-    b.style.maximal_height = 38
-    b.style.minimal_width = 50
+    local b = TopBar.add_button(player, {type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
+    b.style.font_color = {0, 0, 0}
+    b.style.left_padding = 4
+    b.style.right_padding = 4
     b.style.padding = 0
     b.style.margin = 0
 end
 
 function Public.update_char_button(player)
     local rpg_t = Public.get_value_from_player(player.index)
-    if not player.gui.top[draw_main_frame_name] then
+    local flow = TopBar.get_button_flow(player)
+    if not flow[draw_main_frame_name] then
         Public.draw_gui_char_button(player)
     end
     if rpg_t.points_left > 0 then
-        player.gui.top[draw_main_frame_name].style.font_color = {245, 0, 0}
+        flow[draw_main_frame_name].style.font_color = {245, 0, 0}
     else
-        player.gui.top[draw_main_frame_name].style.font_color = {175, 175, 175}
+        flow[draw_main_frame_name].style.font_color = {0, 0, 0}
     end
 end
 
@@ -625,348 +625,299 @@ end
 local toggle = Public.toggle
 Public.remove_main_frame = remove_main_frame
 
-Gui.on_click(
-    draw_main_frame_name,
-    function(event)
-        local player = event.player
-        if not player or not player.valid or not player.character then
-            return
-        end
-
-        toggle(player)
+GuiDispatcher.register_click(draw_main_frame_name, function(event)
+    local player = event.player
+    if not player or not player.valid or not player.character then
+        return
     end
-)
 
-Gui.on_click(
-    save_button_name,
-    function(event)
-        local player = event.player
-        if not player or not player.valid or not player.character then
-            return
+    toggle(player)
+end)
+
+GuiDispatcher.register_click(save_button_name, function(event)
+    local player = event.player
+    if not player or not player.valid or not player.character then
+        return
+    end
+
+    local screen = player.gui.screen
+    local frame = screen[settings_frame_name]
+    local data = Gui.get_data(event.element)
+    local health_bar_gui_input = data.health_bar_gui_input
+    local reset_gui_input = data.reset_gui_input
+    local spell_gui_input1 = data.spell_gui_input1
+    local spell_gui_input2 = data.spell_gui_input2
+    local spell_gui_input3 = data.spell_gui_input3
+    local magic_pickup_gui_input = data.magic_pickup_gui_input
+    local movement_speed_gui_input = data.movement_speed_gui_input
+    local flame_boots_gui_input = data.flame_boots_gui_input
+    local explosive_bullets_gui_input = data.explosive_bullets_gui_input
+    local stone_path_gui_input = data.stone_path_gui_input
+    local one_punch_gui_input = data.one_punch_gui_input
+    local auto_allocate_gui_input = data.auto_allocate_gui_input
+    local auto_cast_gui_input = data.auto_cast_gui_input
+
+    local rpg_t = Public.get_value_from_player(player.index)
+
+    if frame and frame.valid then
+        if auto_allocate_gui_input and auto_allocate_gui_input.valid and auto_allocate_gui_input.selected_index then
+            rpg_t.allocate_index = auto_allocate_gui_input.selected_index
         end
 
-        local screen = player.gui.screen
-        local frame = screen[settings_frame_name]
-        local data = Gui.get_data(event.element)
-        local health_bar_gui_input = data.health_bar_gui_input
-        local reset_gui_input = data.reset_gui_input
-        local spell_gui_input1 = data.spell_gui_input1
-        local spell_gui_input2 = data.spell_gui_input2
-        local spell_gui_input3 = data.spell_gui_input3
-        local magic_pickup_gui_input = data.magic_pickup_gui_input
-        local movement_speed_gui_input = data.movement_speed_gui_input
-        local flame_boots_gui_input = data.flame_boots_gui_input
-        local explosive_bullets_gui_input = data.explosive_bullets_gui_input
-        local stone_path_gui_input = data.stone_path_gui_input
-        local one_punch_gui_input = data.one_punch_gui_input
-        local auto_allocate_gui_input = data.auto_allocate_gui_input
-        local auto_cast_gui_input = data.auto_cast_gui_input
+        if auto_cast_gui_input and auto_cast_gui_input.valid then
+            rpg_t.auto_cast_enabled = auto_cast_gui_input.state
+        end
 
+        if one_punch_gui_input and one_punch_gui_input.valid then
+            if not one_punch_gui_input.state then
+                rpg_t.one_punch = false
+            elseif one_punch_gui_input.state then
+                rpg_t.one_punch = true
+            end
+        end
+
+        if stone_path_gui_input and stone_path_gui_input.valid then
+            if not stone_path_gui_input.state then
+                rpg_t.stone_path = false
+            elseif stone_path_gui_input.state then
+                rpg_t.stone_path = true
+            end
+        end
+
+        if flame_boots_gui_input and flame_boots_gui_input.valid then
+            if not flame_boots_gui_input.state then
+                rpg_t.flame_boots = false
+            elseif flame_boots_gui_input.state then
+                rpg_t.flame_boots = true
+            end
+        end
+
+        if explosive_bullets_gui_input and explosive_bullets_gui_input.valid then
+            if not explosive_bullets_gui_input.state then
+                rpg_t.explosive_bullets = false
+            elseif explosive_bullets_gui_input.state then
+                rpg_t.explosive_bullets = true
+            end
+        end
+
+        if movement_speed_gui_input and movement_speed_gui_input.valid then
+            if not movement_speed_gui_input.state then
+                P.disable_single_modifier(player, 'character_running_speed_modifier', true)
+                P.update_player_modifiers(player)
+            elseif movement_speed_gui_input.state then
+                P.disable_single_modifier(player, 'character_running_speed_modifier', false)
+                P.update_player_modifiers(player)
+            end
+        end
+
+        if magic_pickup_gui_input and magic_pickup_gui_input.valid then
+            if not magic_pickup_gui_input.state then
+                P.disable_single_modifier(player, 'character_item_pickup_distance_bonus', true)
+                P.disable_single_modifier(player, 'character_build_distance_bonus', true)
+                P.disable_single_modifier(player, 'character_item_drop_distance_bonus', true)
+                P.disable_single_modifier(player, 'character_reach_distance_bonus', true)
+                P.disable_single_modifier(player, 'character_loot_pickup_distance_bonus', true)
+                P.disable_single_modifier(player, 'character_resource_reach_distance_bonus', true)
+                P.update_player_modifiers(player)
+            elseif magic_pickup_gui_input.state then
+                P.disable_single_modifier(player, 'character_item_pickup_distance_bonus', false)
+                P.disable_single_modifier(player, 'character_build_distance_bonus', false)
+                P.disable_single_modifier(player, 'character_item_drop_distance_bonus', false)
+                P.disable_single_modifier(player, 'character_reach_distance_bonus', false)
+                P.disable_single_modifier(player, 'character_loot_pickup_distance_bonus', false)
+                P.disable_single_modifier(player, 'character_resource_reach_distance_bonus', false)
+                P.update_player_modifiers(player)
+            end
+        end
+        if spell_gui_input1 and spell_gui_input1.valid and spell_gui_input1.selected_index then
+            rpg_t.dropdown_select_index1 = spell_gui_input1.selected_index
+        end
+        if spell_gui_input2 and spell_gui_input2.valid and spell_gui_input2.selected_index then
+            rpg_t.dropdown_select_index2 = spell_gui_input2.selected_index
+        end
+        if spell_gui_input3 and spell_gui_input3.valid and spell_gui_input3.selected_index then
+            rpg_t.dropdown_select_index3 = spell_gui_input3.selected_index
+        end
+        if player.gui.screen[spell_gui_frame_name] then
+            Public.update_spell_gui(player, nil)
+        end
+
+        if reset_gui_input and reset_gui_input.valid and reset_gui_input.state then
+            if not rpg_t.reset then
+                rpg_t.allocate_index = 1
+                rpg_t.reset = true
+                Public.rpg_reset_player(player, true)
+            end
+        end
+        if health_bar_gui_input and health_bar_gui_input.valid then
+            if not health_bar_gui_input.state then
+                rpg_t.show_bars = false
+                Public.update_health(player)
+                Public.update_mana(player)
+            elseif health_bar_gui_input.state then
+                rpg_t.show_bars = true
+                Public.update_health(player)
+                Public.update_mana(player)
+            end
+        end
+
+        remove_settings_frame(event.element)
+
+        if player.gui.screen[main_frame_name] then
+            toggle(player, true)
+        end
+    end
+end)
+
+GuiDispatcher.register_click(discard_button_name, function(event)
+    local player = event.player
+    local screen = player.gui.screen
+    local frame = screen[settings_frame_name]
+    if not player or not player.valid or not player.character then
+        return
+    end
+    if frame and frame.valid then
+        Gui.remove_data_recursively(frame)
+        frame.destroy()
+    end
+end)
+
+GuiDispatcher.register_click(settings_button_name, function(event)
+    local player = event.player
+    local screen = player.gui.screen
+    local frame = screen[settings_frame_name]
+    if not player or not player.valid or not player.character then
+        return
+    end
+
+    if frame and frame.valid then
+        Gui.remove_data_recursively(frame)
+        frame.destroy()
+    else
+        Public.extra_settings(player)
+    end
+end)
+
+GuiDispatcher.register_click(transfer_button_name, function(event)
+    local player = event.player
+    if not player or not player.valid or not player.character then
+        return
+    end
+
+    local transfer_frame = player.gui.screen[Public.transfer_frame_name]
+    if transfer_frame and transfer_frame.valid then
+        Gui.remove_data_recursively(transfer_frame)
+        transfer_frame.destroy()
+    else
+        Public.create_transfer_gui(player)
+    end
+end)
+
+GuiDispatcher.register_click(enable_spawning_frame_name, function(event)
+    local player = event.player
+    local screen = player.gui.screen
+    local frame = screen[spell_gui_frame_name]
+    if not player or not player.valid or not player.character then
+        return
+    end
+
+    if frame and frame.valid then
         local rpg_t = Public.get_value_from_player(player.index)
-
-        if frame and frame.valid then
-            if auto_allocate_gui_input and auto_allocate_gui_input.valid and auto_allocate_gui_input.selected_index then
-                rpg_t.allocate_index = auto_allocate_gui_input.selected_index
-            end
-
-            -- 处理自动施法设置
-            if auto_cast_gui_input and auto_cast_gui_input.valid then
-                rpg_t.auto_cast_enabled = auto_cast_gui_input.state
-            end
-
-            if one_punch_gui_input and one_punch_gui_input.valid then
-                if not one_punch_gui_input.state then
-                    rpg_t.one_punch = false
-                elseif one_punch_gui_input.state then
-                    rpg_t.one_punch = true
-                end
-            end
-
-            if stone_path_gui_input and stone_path_gui_input.valid then
-                if not stone_path_gui_input.state then
-                    rpg_t.stone_path = false
-                elseif stone_path_gui_input.state then
-                    rpg_t.stone_path = true
-                end
-            end
-
-            if flame_boots_gui_input and flame_boots_gui_input.valid then
-                if not flame_boots_gui_input.state then
-                    rpg_t.flame_boots = false
-                elseif flame_boots_gui_input.state then
-                    rpg_t.flame_boots = true
-                end
-            end
-
-            if explosive_bullets_gui_input and explosive_bullets_gui_input.valid then
-                if not explosive_bullets_gui_input.state then
-                    rpg_t.explosive_bullets = false
-                elseif explosive_bullets_gui_input.state then
-                    rpg_t.explosive_bullets = true
-                end
-            end
-
-            if movement_speed_gui_input and movement_speed_gui_input.valid then
-                if not movement_speed_gui_input.state then
-                    P.disable_single_modifier(player, 'character_running_speed_modifier', true)
-                    P.update_player_modifiers(player)
-                elseif movement_speed_gui_input.state then
-                    P.disable_single_modifier(player, 'character_running_speed_modifier', false)
-                    P.update_player_modifiers(player)
-                end
-            end
-
-            if magic_pickup_gui_input and magic_pickup_gui_input.valid then
-                if not magic_pickup_gui_input.state then
-                    P.disable_single_modifier(player, 'character_item_pickup_distance_bonus', true)
-                    P.disable_single_modifier(player, 'character_build_distance_bonus', true)
-                    P.disable_single_modifier(player, 'character_item_drop_distance_bonus', true)
-                    P.disable_single_modifier(player, 'character_reach_distance_bonus', true)
-                    P.disable_single_modifier(player, 'character_loot_pickup_distance_bonus', true)
-                    P.disable_single_modifier(player, 'character_resource_reach_distance_bonus', true)
-                    P.update_player_modifiers(player)
-                elseif magic_pickup_gui_input.state then
-                    P.disable_single_modifier(player, 'character_item_pickup_distance_bonus', false)
-                    P.disable_single_modifier(player, 'character_build_distance_bonus', false)
-                    P.disable_single_modifier(player, 'character_item_drop_distance_bonus', false)
-                    P.disable_single_modifier(player, 'character_reach_distance_bonus', false)
-                    P.disable_single_modifier(player, 'character_loot_pickup_distance_bonus', false)
-                    P.disable_single_modifier(player, 'character_resource_reach_distance_bonus', false)
-                    P.update_player_modifiers(player)
-                end
-            end
-            if spell_gui_input1 and spell_gui_input1.valid and spell_gui_input1.selected_index then
-                rpg_t.dropdown_select_index1 = spell_gui_input1.selected_index
-            end
-            if spell_gui_input2 and spell_gui_input2.valid and spell_gui_input2.selected_index then
-                rpg_t.dropdown_select_index2 = spell_gui_input2.selected_index
-            end
-            if spell_gui_input3 and spell_gui_input3.valid and spell_gui_input3.selected_index then
-                rpg_t.dropdown_select_index3 = spell_gui_input3.selected_index
-            end
-            if player.gui.screen[spell_gui_frame_name] then
-                Public.update_spell_gui(player, nil)
-            end
-
-            if reset_gui_input and reset_gui_input.valid and reset_gui_input.state then
-                if not rpg_t.reset then
-                    rpg_t.allocate_index = 1
-                    rpg_t.reset = true
-                    Public.rpg_reset_player(player, true)
-                end
-            end
-            if health_bar_gui_input and health_bar_gui_input.valid then
-                if not health_bar_gui_input.state then
-                    rpg_t.show_bars = false
-                    Public.update_health(player)
-                    Public.update_mana(player)
-                elseif health_bar_gui_input.state then
-                    rpg_t.show_bars = true
-                    Public.update_health(player)
-                    Public.update_mana(player)
-                end
-            end
-
-            remove_settings_frame(event.element)
-
-            if player.gui.screen[main_frame_name] then
-                toggle(player, true)
-            end
-        end
-    end
-)
-
-Gui.on_click(
-    discard_button_name,
-    function(event)
-        local player = event.player
-        local screen = player.gui.screen
-        local frame = screen[settings_frame_name]
-        if not player or not player.valid or not player.character then
-            return
-        end
-        if frame and frame.valid then
-            Gui.remove_data_recursively(frame)
-            frame.destroy()
-        end
-    end
-)
-
-Gui.on_click(
-    settings_button_name,
-    function(event)
-        local player = event.player
-        local screen = player.gui.screen
-        local frame = screen[settings_frame_name]
-        if not player or not player.valid or not player.character then
-            return
-        end
-
-     
-
-        if frame and frame.valid then
-            Gui.remove_data_recursively(frame)
-            frame.destroy()
-        else
-            Public.extra_settings(player)
-        end
-    end
-)
-
-Gui.on_click(
-    transfer_button_name,
-    function(event)
-        local player = event.player
-        if not player or not player.valid or not player.character then
-            return
-        end
-
-        -- 检查转移界面是否已经存在
-        local transfer_frame = player.gui.screen[Public.transfer_frame_name]
-        if transfer_frame and transfer_frame.valid then
-            -- 如果存在则关闭
-            Gui.remove_data_recursively(transfer_frame)
-            transfer_frame.destroy()
-        else
-            -- 如果不存在则创建
-            Public.create_transfer_gui(player)
-        end
-    end
-)
-
-Gui.on_click(
-    enable_spawning_frame_name,
-    function(event)
-        local player = event.player
-        local screen = player.gui.screen
-        local frame = screen[spell_gui_frame_name]
-        if not player or not player.valid or not player.character then
-            return
-        end
-
-        if frame and frame.valid then
-            local rpg_t = Public.get_value_from_player(player.index)
-            if not rpg_t.auto_cast_enabled then
-                player.print({'rpg_settings.auto_cast_enabled_label'}, Color.success)
-                player.play_sound({path = 'utility/armor_insert', volume_modifier = 0.75})
-                rpg_t.auto_cast_enabled = true
-            else
-                player.print({'rpg_settings.auto_cast_disabled_label'}, Color.warning)
-                player.play_sound({path = 'utility/cannot_build', volume_modifier = 0.75})
-                rpg_t.auto_cast_enabled = false
-            end
-            Public.update_spell_gui_indicator(player)
-        end
-    end
-)
-
-Gui.on_click(
-    spell_gui_button_name,
-    function(event)
-        local player = event.player
-        local screen = player.gui.screen
-        local frame = screen[spell_gui_frame_name]
-        if not player or not player.valid or not player.character then
-            return
-        end
-
-        local rpg_t = Public.get_value_from_player(player.index)
-
-
-        if frame and frame.valid then
-            Gui.remove_data_recursively(frame)
-            frame.destroy()
-            player.print({'rpg_settings.cast_spell_disabled_label'}, Color.warning)
-            player.play_sound({path = 'utility/cannot_build', volume_modifier = 0.75})
-            rpg_t.enable_entity_spawn = false
-        else
-            Public.spell_gui_settings(player)
-            Public.update_spell_gui_indicator(player)
-             player.print({'rpg_settings.cast_spell_enabled_label'}, Color.success)
+        if not rpg_t.auto_cast_enabled then
+            player.print({'rpg_settings.auto_cast_enabled_label'}, Color.success)
             player.play_sound({path = 'utility/armor_insert', volume_modifier = 0.75})
-            rpg_t.enable_entity_spawn = true
+            rpg_t.auto_cast_enabled = true
+        else
+            player.print({'rpg_settings.auto_cast_disabled_label'}, Color.warning)
+            player.play_sound({path = 'utility/cannot_build', volume_modifier = 0.75})
+            rpg_t.auto_cast_enabled = false
         end
+        Public.update_spell_gui_indicator(player)
     end
-)
+end)
 
-Gui.on_click(
-    spell1_button_name,
-    function(event)
-        local player = event.player
-        local screen = player.gui.screen
-        local frame = screen[spell_gui_frame_name]
-        if not player or not player.valid or not player.character then
-            return
-        end
-
-      
-
-        if frame and frame.valid then
-            Public.update_spell_gui(player, 1)
-        end
+GuiDispatcher.register_click(spell_gui_button_name, function(event)
+    local player = event.player
+    local screen = player.gui.screen
+    local frame = screen[spell_gui_frame_name]
+    if not player or not player.valid or not player.character then
+        return
     end
-)
 
-Gui.on_click(
-    spell2_button_name,
-    function(event)
-        local player = event.player
-        local screen = player.gui.screen
-        local frame = screen[spell_gui_frame_name]
-        if not player or not player.valid or not player.character then
-            return
-        end
+    local rpg_t = Public.get_value_from_player(player.index)
 
-   
-
-        if frame and frame.valid then
-            Public.update_spell_gui(player, 2)
-        end
+    if frame and frame.valid then
+        Gui.remove_data_recursively(frame)
+        frame.destroy()
+        player.print({'rpg_settings.cast_spell_disabled_label'}, Color.warning)
+        player.play_sound({path = 'utility/cannot_build', volume_modifier = 0.75})
+        rpg_t.enable_entity_spawn = false
+    else
+        Public.spell_gui_settings(player)
+        Public.update_spell_gui_indicator(player)
+        player.print({'rpg_settings.cast_spell_enabled_label'}, Color.success)
+        player.play_sound({path = 'utility/armor_insert', volume_modifier = 0.75})
+        rpg_t.enable_entity_spawn = true
     end
-)
+end)
 
-Gui.on_click(
-    spell3_button_name,
-    function(event)
-        local player = event.player
-        local screen = player.gui.screen
-        local frame = screen[spell_gui_frame_name]
-        if not player or not player.valid or not player.character then
-            return
-        end
-
-    
-
-        if frame and frame.valid then
-            Public.update_spell_gui(player, 3)
-        end
+GuiDispatcher.register_click(spell1_button_name, function(event)
+    local player = event.player
+    local screen = player.gui.screen
+    local frame = screen[spell_gui_frame_name]
+    if not player or not player.valid or not player.character then
+        return
     end
-)
 
-Gui.on_click(
-    spell_info_button_name,
-    function(event)
-        local player = event.player
-        if not player or not player.valid or not player.character then
-            return
-        end
-        Public.spell_info_gui(player)
+    if frame and frame.valid then
+        Public.update_spell_gui(player, 1)
     end
-)
+end)
 
-Gui.on_click(
-    spell_info_frame_name .. '_close',
-    function(event)
-        local player = event.player
-        if not player or not player.valid then
-            return
-        end
-        local frame = player.gui.screen[spell_info_frame_name]
-        if frame and frame.valid then
-            frame.destroy()
-        end
+GuiDispatcher.register_click(spell2_button_name, function(event)
+    local player = event.player
+    local screen = player.gui.screen
+    local frame = screen[spell_gui_frame_name]
+    if not player or not player.valid or not player.character then
+        return
     end
-)
+
+    if frame and frame.valid then
+        Public.update_spell_gui(player, 2)
+    end
+end)
+
+GuiDispatcher.register_click(spell3_button_name, function(event)
+    local player = event.player
+    local screen = player.gui.screen
+    local frame = screen[spell_gui_frame_name]
+    if not player or not player.valid or not player.character then
+        return
+    end
+
+    if frame and frame.valid then
+        Public.update_spell_gui(player, 3)
+    end
+end)
+
+GuiDispatcher.register_click(spell_info_button_name, function(event)
+    local player = event.player
+    if not player or not player.valid or not player.character then
+        return
+    end
+    Public.spell_info_gui(player)
+end)
+
+GuiDispatcher.register_click(spell_info_frame_name .. '_close', function(event)
+    local player = event.player
+    if not player or not player.valid then
+        return
+    end
+    local frame = player.gui.screen[spell_info_frame_name]
+    if frame and frame.valid then
+        frame.destroy()
+    end
+end)
 
 --ComfyGui.screen_to_bypass(spell_gui_frame_name)
 --ComfyGui.screen_to_bypass(spell_info_frame_name)

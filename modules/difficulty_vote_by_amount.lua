@@ -1,7 +1,9 @@
 local Event = require 'utils.event'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 local Server = require 'utils.server'
 local Global = require 'utils.global'
 local SpamProtection = require 'utils.spam_protection'
+local TopBar = require 'utils.top_bar'
 
 local max = math.max
 local round = math.round
@@ -32,8 +34,8 @@ local this = {
             name = 'Ultra-violence',
             index = 3,
             value = 1.5,
-            color = {r = 255, g = 128, b = 0.00},
-            print_color = {r = 255, g = 128, b = 0.00},
+            color = {r = 1.00, g = 0.50, b = 0.00},
+            print_color = {r = 1.00, g = 0.50, b = 0.00},
             count = 0,
             strength_modifier = 1.75,
             boss_modifier = 8.0
@@ -61,30 +63,49 @@ Global.register(
     this,
     function(t)
         this = t
+        for _, diff in pairs(this.difficulties) do
+            if diff.color and diff.color.r and diff.color.r > 1 then
+                diff.color.r = diff.color.r / 255
+                diff.color.g = diff.color.g / 255
+                diff.color.b = diff.color.b / 255
+            end
+            if diff.print_color and diff.print_color.r and diff.print_color.r > 1 then
+                diff.print_color.r = diff.print_color.r / 255
+                diff.print_color.g = diff.print_color.g / 255
+                diff.print_color.b = diff.print_color.b / 255
+            end
+        end
     end
 )
 
 function Public.difficulty_gui()
+    --[[ 隐藏顶栏难度按钮
     local tooltip = 'Current difficulty of the map is ' .. this.difficulties[this.difficulty_vote_index].name .. '.'
 
     for _, player in pairs(game.connected_players) do
-        if player.gui.top['difficulty_gui'] then
-            player.gui.top['difficulty_gui'].caption = this.difficulties[this.difficulty_vote_index].name
-            player.gui.top['difficulty_gui'].tooltip = this.button_tooltip or tooltip
-            player.gui.top['difficulty_gui'].style.font_color = this.difficulties[this.difficulty_vote_index].print_color
+        local flow = TopBar.get_button_flow(player)
+        if flow['difficulty_gui'] then
+            flow['difficulty_gui'].caption = this.difficulties[this.difficulty_vote_index].name
+            flow['difficulty_gui'].tooltip = this.button_tooltip or tooltip
+            flow['difficulty_gui'].style.font_color = this.difficulties[this.difficulty_vote_index].print_color
         else
-            local b =
-                player.gui.top.add {
+            local b = TopBar.add_button(player, {
                 type = 'button',
                 caption = this.difficulties[this.difficulty_vote_index].name,
                 tooltip = tooltip,
                 name = 'difficulty_gui'
-            }
+            })
             b.style.font = 'heading-2'
             b.style.font_color = this.difficulties[this.difficulty_vote_index].print_color
-            b.style.minimal_height = 37
-            b.style.maximal_height = 37
             b.style.minimal_width = this.gui_width
+        end
+    end
+    ]]--
+
+    for _, player in pairs(game.connected_players) do
+        local flow = TopBar.get_button_flow(player)
+        if flow['difficulty_gui'] then
+            flow['difficulty_gui'].destroy()
         end
     end
 end
@@ -266,6 +287,18 @@ local function on_player_left_game(event)
     Public.difficulty_gui()
 end
 
+-- 隐藏顶栏难度按钮：注释掉点击处理
+-- local function on_difficulty_gui_click(event)
+--     local player = game.players[event.player_index]
+--     local is_spamming = SpamProtection.is_spamming(player, nil, 'Difficulty Vote Gui Click')
+--     if is_spamming then
+--         return
+--     end
+--     poll_difficulty(player)
+-- end
+--
+-- GuiDispatcher.register_click('difficulty_gui', on_difficulty_gui_click)
+
 local function on_gui_click(event)
     if not event then
         return
@@ -279,14 +312,6 @@ local function on_gui_click(event)
         return
     end
 
-    if event.element.name == 'difficulty_gui' then
-        local is_spamming = SpamProtection.is_spamming(player, nil, 'Difficulty Vote Gui Click')
-        if is_spamming then
-            return
-        end
-        poll_difficulty(player)
-        return
-    end
     if event.element.type ~= 'button' then
         return
     end

@@ -120,8 +120,8 @@ end
 function Public.execute_batch_task(task)
     local success, result = pcall(task.func, unpack(task.params))
     if not success then
-        game.print("堡垒分批任务执行失败: " .. tostring(result))
-        game.print("任务类型: " .. task.type)
+        game.print({'amap.stronghold_batch_failed', tostring(result)})
+        game.print({'amap.task_type', task.type})
     end
     return success
 end
@@ -393,7 +393,7 @@ local shot_hd = Token.register(function(entity)
         target = target,
         speed = 1
     })
-    game.print('虫子已经发射核弹，并在重新装弹，下一发核弹将在3分钟后发射', {255, 0, 0})
+    game.print({'amap.nuke_fired_reloading'}, {255, 0, 0})
 end)
 function Public.add_laser(k)
     arty_count.laser[#arty_count.laser + 1] = k
@@ -1606,9 +1606,7 @@ local function get_new_arty()
     end
     if is_silo_world and this.baolei_count > 1 then
         if this.baolei_silo and this.baolei_silo.valid then
-            game.print('警告：敌方火箭发射架将在3分钟后发射核弹！', {255, 0, 0})
-            game.print('警告：敌方火箭发射架将在3分钟后发射核弹！！', {255, 0, 0})
-            game.print('警告：敌方火箭发射架将在3分钟后发射核弹！！！', {255, 0, 0})
+            game.print({'amap.rocket_silo_nuke_warning'}, {255, 0, 0})
 
             for abcd = 1, 10 do
                 Task.set_timeout_in_ticks(60 * 60 * 3 * abcd, shot_hd, this.baolei_silo)
@@ -1714,8 +1712,7 @@ local function get_new_arty()
     })
             this.baolei_silo.destructible = false
             game.print({'amap.biter_build_hd', 0, this.baolei_y - 50, surface.name}, {255, 0, 0})
-            game.print('注意：你必须摧毁所有堡垒，才能对核弹发射井造成伤害！', {255, 0, 0})
-            game.print('注意：你必须摧毁所有堡垒，才能对核弹发射井造成伤害！！', {255, 0, 0})
+            game.print({'amap.must_destroy_strongholds'}, {255, 0, 0})
             return
         else
             Public.baolei({
@@ -2366,7 +2363,7 @@ local function process_construction_queue()
                 executed_count = executed_count + 1
             else
                 -- 任务失败时记录错误，但继续处理其他任务
-                game.print("分批任务执行失败: " .. task.type)
+                game.print({'amap.batch_task_failed', task.type})
             end
         else
             break

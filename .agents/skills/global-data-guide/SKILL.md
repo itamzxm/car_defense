@@ -298,6 +298,28 @@ local function on_tick()
 end
 ```
 
+## GUI 热更重建（GuiRebuild）
+
+GUI 元素不持久化，场景热更 / 存档兼容时旧元素残留会导致"双帧冲突"。各 GUI 模块通过 `GuiRebuild.register` 注册"清理 + 重建"函数，统一在 `on_configuration_changed` 时对所有在线玩家重建。
+
+```lua
+local GuiRebuild = require 'utils.gui_rebuild'
+
+GuiRebuild.register('my_module_gui', function(player)
+    -- 1. 清理旧元素
+    local flow = TopBar.get_button_flow(player)
+    if flow[GUI_MY_BUTTON] then flow[GUI_MY_BUTTON].destroy() end
+    -- 2. 重新创建
+    TopBar.add_button(player, {type = 'sprite-button', name = GUI_MY_BUTTON, ...})
+end)
+```
+
+- `on_configuration_changed` 自动调用所有已注册重建函数（pcall 隔离单模块失败）
+- `/reload-ui` 调试命令手动重建（需管理员，错误直接抛出）
+- 只重建元素，不重新注册事件（事件注册在 require 阶段完成）
+
+> 详见 [gui-development-guide](../gui-development-guide/SKILL.md)
+
 ## 直接 storage 访问
 
 某些简单数据可以直接读写 `storage`，无需 Global.register：
@@ -324,6 +346,7 @@ local max_amount = storage.rocks_yield_ore_maximum_amount or 100
 - [ ] 高频遍历是否可用倒推索引 / tick 分桶优化
 - [ ] 分批处理是否用于玩家遍历（防止单 tick 卡顿）
 - [ ] 直接 storage 访问是否仅用于简单场景
+- [ ] 新增 GUI 模块是否注册了 `GuiRebuild.register` 重建函数
 
 ## 参考
 

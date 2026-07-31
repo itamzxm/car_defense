@@ -2,6 +2,7 @@
 local Gui = require 'utils.gui'
 local Public = require 'modules.pet_system.table'
 local Skills = require 'modules.pet_system.skills'
+local TopBar = require 'utils.top_bar'
 
 local draw_main_button_name = Public.draw_main_button_name
 local main_frame_name = Public.main_frame_name
@@ -747,19 +748,18 @@ end
 -- ============================================================
 
 function Public.draw_top_button(player)
-    if player.gui.top[draw_main_button_name] then
+    if TopBar.get_button_flow(player)[draw_main_button_name] then
         return
     end
-    local b = player.gui.top.add({
+    local b = TopBar.add_button(player, {
         type = 'sprite-button',
         name = draw_main_button_name,
         caption = ({'pet_system.top_button'}),
         tooltip = ({'pet_system.top_button_tip'}),
     })
     b.style.font_color = {100, 200, 255}
-    b.style.minimal_height = 38
-    b.style.maximal_height = 38
-    b.style.minimal_width = 55
+    b.style.left_padding = 4
+    b.style.right_padding = 4
     b.style.padding = 0
     b.style.margin = 0
 end
