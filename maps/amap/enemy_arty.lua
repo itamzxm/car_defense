@@ -537,10 +537,11 @@ local function rocket_bullet()
         local inv = turret.get_inventory(defines.inventory.turret_ammo)
         local current_ammo = nil
         if inv and inv.valid then
+            -- Factorio 2.0: get_contents() 返回数组 { {name=..., count=..., quality=...}, ... }
             local contents = inv.get_contents()
-            for name, _ in pairs(contents) do
-                current_ammo = name
-                break
+            local first = contents and contents[1]
+            if first and first.name then
+                current_ammo = first.name
             end
         end
         if not current_ammo then
@@ -1522,7 +1523,11 @@ local function handle_fixed_wave_mode(this, arty_settings)
     end
     local position = get_baolei_pos(target.position, 120, surface, target, false)
     if position then
-        Public.baolei(position, wave_number, surface)
+        -- 堡垒强度下限：与开局堡垒同档（默认 100 波）
+        -- enemy_turret 表最低门槛就是 gun-turret 的 100 波，若用 <100 的真实波数生成，
+        -- create_turret_tasks 里可选炮台列表会是空表 → math.random(1, 0) 崩溃
+        local strength = math.max(wave_number, (init_cfg and init_cfg.wave_strength) or 100)
+        Public.baolei(position, strength, surface)
         this.fixed_wave_last_baolei_tick = game.tick   -- 重置 30 分钟间隔（含 100 波那次）
         if wave_boundary then
             local due = math.floor(wave_number / interval_waves) * interval_waves

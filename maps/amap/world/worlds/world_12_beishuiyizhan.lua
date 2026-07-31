@@ -112,6 +112,9 @@ World.register(12, {
     -- 来源：world_table.lua world_surface_mapping[12]（第 221 行）
     surface_config_name = 'beishuiyizhan',
 
+    -- 不生成默认野外建筑/石头（原 world_main.lua ywjz 硬编码排除列表）
+    disable_default_rocks = true,
+
     -- 地图尺寸设置
     -- 来源：world_table.lua world_map_settings[12]（第 263-265 行）
     map_settings = {

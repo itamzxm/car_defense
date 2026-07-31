@@ -380,12 +380,14 @@ map.record[18]={}
     max_value=0.2
   }
   -- world 7（异次元大逃杀）已禁用，其移动速度加成已转移到世界16，见 World 框架 world_bonus_type
-  map.world_bonus_types[8]={
-    name='following_robot_count_modifier',
-    force_modifier='following_robot_count_modifier',
-    base_value=3,
-    max_value=20
-  }
+  -- world 8（异次元空间）已禁用：selectable=false + joins_solar_system_edge=false，
+  --   其跟随机器人数量加成（following_robot_count_modifier）一并作废、不转移（用户仅要求禁用该世界）
+  -- map.world_bonus_types[8]={
+  --   name='following_robot_count_modifier',
+  --   force_modifier='following_robot_count_modifier',
+  --   base_value=3,
+  --   max_value=20
+  -- }
   map.world_bonus_types[9]={
     name='laboratory_speed_bonus',
     force_modifier='laboratory_speed_modifier',
@@ -427,7 +429,10 @@ function Public.apply_world_bonuses()
         mining_drill_productivity_bonus = function(value) force.mining_drill_productivity_bonus = force.mining_drill_productivity_bonus + value end,
         laboratory_productivity_bonus = function(value) force.laboratory_productivity_bonus = force.laboratory_productivity_bonus + value end,
         laboratory_speed_modifier = function(value) force.laboratory_speed_modifier = force.laboratory_speed_modifier + value end,
-        follower_robot_count_modifier = function(value) force.follower_robot_count_modifier = force.follower_robot_count_modifier + value end,
+        -- 跟随机器人数量上限（原世界8「异次元空间」，现世界17「网格战争」通关奖励）。
+        -- 2.1.12 真实属性是整数 force.maximum_following_robot_count；
+        -- 旧写法 force.follower_robot_count_modifier 属性根本不存在，会崩（RCON 实测）。
+        following_robot_count_modifier = function(value) force.maximum_following_robot_count = force.maximum_following_robot_count + math.floor(value + 0.5) end,
         worker_robot_speed = function(value) force.worker_robots_speed_modifier = force.worker_robots_speed_modifier + value end,
         turret_attack_bonus = function(value) force.set_turret_attack_modifier('gun-turret', force.get_turret_attack_modifier('gun-turret') + value) end,
         laser_turret_damage_modifier = function(value) force.set_turret_attack_modifier('laser-turret', force.get_turret_attack_modifier('laser-turret') + value) end,

@@ -4,6 +4,7 @@ local WPT = require 'maps.amap.table'
 local TPT = require 'maps.amap.tianfu_table'
 local Gui = require 'utils.gui'
 local diff = require 'maps.amap.diff'
+local World = require 'maps.amap.world.framework'
 local format_number = require 'util'.format_number
 local WD = require 'modules.wave_defense.table'
 local tianfu = require 'maps.amap.tianfu'
@@ -838,14 +839,37 @@ local function draw_world_bonus_tab(player, frame)
     worlds_table.style.horizontal_spacing = 10
     worlds_table.style.vertical_spacing = 10
     
+    -- 合并奖励类型表：旧表 map.world_bonus_types + 框架各世界 def.world_bonus_type，
+    -- 框架优先（与 diff.apply_world_bonuses 的取值顺序一致）。
+    -- 否则 world_bonus_type 只在框架 def 里声明的世界（如16平凡之日、17网格战争）
+    -- 不会出现在旧表里，奖励面板永远不显示它们。
+    local bonus_types_merged = {}
+    for world_id, bt in pairs(map_data.world_bonus_types) do
+        bonus_types_merged[world_id] = bt
+    end
+    for _, world_id in ipairs(World.get_registered_worlds()) do
+        local bt = World.get_field(world_id, 'world_bonus_type')
+        if bt then
+            bonus_types_merged[world_id] = bt
+        end
+    end
+    -- 剔除不可选世界（如 world 8 异次元空间 selectable=false，但 def 仍注册，
+    -- 会混入面板）。pcall 包裹以防非注册世界报错。
+    for wid, _ in pairs(bonus_types_merged) do
+        local ok, sel = pcall(World.get_field, wid, 'selectable')
+        if ok and sel == false then
+            bonus_types_merged[wid] = nil
+        end
+    end
+
     local world_names = {}
-    for world_id, _ in pairs(map_data.world_bonus_types) do
+    for world_id, _ in pairs(bonus_types_merged) do
         world_names[world_id] = {'amap.world_name_' .. world_id}
     end
     
     for world_id, world_name in pairs(world_names) do
         local world_data = map_data.world_bonus[world_id]
-        local bonus_type = map_data.world_bonus_types[world_id]
+        local bonus_type = bonus_types_merged[world_id]
         
         if world_data and bonus_type then
             local world_frame = worlds_table.add({
@@ -865,7 +889,7 @@ local function draw_world_bonus_tab(player, frame)
             
             -- 加成类型
             local bonus_name_key = 'amap.world_bonus_type_' .. world_id .. '_name'
-            local bonus_type_data = map_data.world_bonus_types[world_id]
+            local bonus_type_data = bonus_types_merged[world_id]
             local tooltip_text
             
             if bonus_type_data then

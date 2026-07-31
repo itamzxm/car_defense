@@ -33,6 +33,9 @@ World.register(3, {
     -- 原文件：world_table.lua 第 214 行 world_surface_mapping[3]
     surface_config_name = 'water',
 
+    -- 不生成默认野外建筑/石头（原 world_main.lua ywjz 硬编码排除列表）
+    disable_default_rocks = true,
+
     -- 地图尺寸设置（原 world_table.lua 第 233-235 行 world_map_settings[3]）
     map_settings = {
         starting_area = 0.8

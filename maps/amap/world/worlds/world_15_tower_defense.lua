@@ -1239,6 +1239,9 @@ World.register(15, {
     -- 地表配置：世界15专用（无矿 / 无树木 / 无 map-gen 野外虫巢；虫巢由通道生成器手动放置）
     surface_config_name = 'world15',
 
+    -- 不生成默认野外建筑/石头（原 world_main.lua ywjz 硬编码排除列表）
+    disable_default_rocks = true,
+
     -- 地图尺寸：十字，总 2560 × 2560 tile（80 × 80 chunk），容纳 4 倍长度通道
     map_settings = {
         width = 2560,

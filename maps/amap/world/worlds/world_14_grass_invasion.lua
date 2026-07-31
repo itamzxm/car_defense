@@ -9,14 +9,53 @@
 
 local World = require 'maps.amap.world.framework'
 local world_function = require 'maps.amap.world.world_function'
+local Helpers = require 'maps.amap.world.world_helpers'
 
 --==============================================================================
 -- 地形生成器（原 world_main.lua 第 1064-1068 行 world_generators[14]）
 --==============================================================================
 
+-- 十字草地砖：按四季 world_function.crossing 的几何，无条件铺 grass-2
+-- 覆盖 stone-path 方框中央，形成十字草地（草星入侵主题）
+local function world14_cross_grass(surface, position, left_top)
+    -- 水平臂：|left_top.x| < 64 的中央区块内，|position.x| ∈ (-72, 88)
+    if left_top.x < 64 and left_top.x > -64 then
+        if position.x > -72 and position.x < 88 then
+            surface.set_tiles({{name = "grass-2", position = position}})
+        end
+    end
+    -- 垂直臂：|left_top.y| < 64 的中央区块内，|position.y| ∈ (-72, 88)
+    if left_top.y < 64 and left_top.y > -64 then
+        if position.y > -72 and position.y < 88 then
+            surface.set_tiles({{name = "grass-2", position = position}})
+        end
+    end
+end
+
 local function terrain_generator(surface, position, seed, get_tile, set_tiles, event, maxs, q, w, x, y, area)
     if maxs >= 64 then
+        -- 保留四季式 stone-path 方框底座（4 矿 + 围墙）
         world_function.world14_quarter(event, x, y)
+        -- 叠加十字草地砖（按四季 crossing 方式，覆盖方框中央）
+        world14_cross_grass(surface, position, event.area.left_top)
+    end
+
+    -- 随机摆上虫巢（按世界2方式：区块中心，随机虫巢名 + 数量）
+    if maxs > 300 and x == 0 and y == 0 then
+        if math.random(1, 8) == 1 then
+            local spawner_name = Helpers.spawner[math.random(1, 2)]
+            local spawn_count = math.floor(maxs / math.random(50, 200))
+            for i = 1, spawn_count do
+                local biter_position = surface.find_non_colliding_position(spawner_name, position, 32, 4)
+                if biter_position then
+                    surface.create_entity({
+                        name = spawner_name,
+                        position = biter_position,
+                        force = game.forces.enemy,
+                    })
+                end
+            end
+        end
     end
 end
 
@@ -111,7 +150,8 @@ World.register(14, {
 
     -- 开局解锁的科技列表
     -- 来源：main.lua apply_technology_settings 中 world_number==14 分支（第 436-437 行）
-    unlocked_technologies = {'rocket-silo'},
+    -- 新增 advanced-asteroid-processing（高级星岩处理），由本 def 控制开局解锁
+    unlocked_technologies = {'rocket-silo', 'advanced-asteroid-processing'},
     -- 是否允许填海
     -- 来源：main.lua apply_technology_settings 中 landfill_worlds 列表（第 455 行 {3, 7, 8, 9, 13, 14}），14 在列表
     landfill_allowed = true,

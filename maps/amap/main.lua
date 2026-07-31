@@ -55,7 +55,7 @@ local collapse_kill = {
 
 local player_build = {'steam-turbine', 'assembling-machine-1', 'assembling-machine-2', 'assembling-machine-3',
                       'oil-refinery', 'chemical-plant', 'car', 'spidertron', 'tank', 'character', 'gun-turret',
-                      'electric-mining-drill', 'laser-turret', 'steam-engine', 'roboport', 'big-mining-drill'    ,'foundry'
+                      'electric-mining-drill', 'laser-turret', 'steam-engine', 'big-mining-drill'    ,'foundry'
   ,'recycler'
   ,'electromagnetic-plant'
   ,'heating-tower','rail-support'}
@@ -632,7 +632,8 @@ function Public.reset_map()
 game.forces.player.technologies['atomic-bomb'].enabled=false
 game.forces.player.technologies['productivity-module-2'].enabled=false
 game.forces.player.technologies['productivity-module-3'].enabled=false
--- 世界14不解锁星岩处理科技（留给玩家手动研究）
+-- 世界14仅开局解锁高级星岩处理(advanced-asteroid-processing)，由 world_14 def.unlocked_technologies 控制；
+-- asteroid-reprocessing 仍留给玩家手动研究（非 14 世界照旧开局解锁全套）
 if world_number ~= 14 then
   game.forces.player.technologies['advanced-asteroid-processing'].researched=true
   game.forces.player.technologies['asteroid-reprocessing'].researched=true

@@ -174,6 +174,9 @@ World.register(11, {
     -- 来源：world_table.lua world_surface_mapping[11]（第 220 行）
     surface_config_name = 'jixianchengshi',
 
+    -- 不生成默认野外建筑/石头（原 world_main.lua ywjz 硬编码排除列表）
+    disable_default_rocks = true,
+
     -- 地图尺寸设置
     -- 来源：world_table.lua world_map_settings[11]（第 260-262 行）
     map_settings = {

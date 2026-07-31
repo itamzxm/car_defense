@@ -142,81 +142,12 @@ local function deal_damage_with_floating_text(target_entity, player, damage_amou
     return true
 end
     
-local function upgrade_lianxu(player, object_entityName, print_name, up, q_idx)
-    local itam_spell = RPG_spee.get_itam_spell
-    local spell_name = object_entityName
-    local upgrade
-    local main_table = WPT.get()
-    local index = player.index
-
-    if not main_table.upgrade_spell[index] then
-        main_table.upgrade_spell[index] = {}
-    end
-
-    if not main_table.upgrade_spell[index][spell_name] then
-        main_table.upgrade_spell[index][spell_name] = 0
-    end
-
-    main_table.upgrade_spell[index][spell_name] = main_table.upgrade_spell[index][spell_name] + 1
-
-    local times = main_table.upgrade_spell[index][spell_name]
-    local base = itam_spell[spell_name].base
-    local need_times = itam_spell[spell_name].need_times
-    local bonus = itam_spell[spell_name].bonus
-
-    local bonus_time = 0
-    while times > need_times do
-        bonus_time = bonus_time + 1
-        times = times - need_times
-    end
-    upgrade = base + bonus_time * bonus
-
-    return upgrade
-end
-
+-- 复用 rpg/spells.lua 的规范升级函数（Public.upgrade_spell）
+-- 它已正确处理两种模式：阶段升级(need_list+upgrade_list) 与 连续升级(need_times+bonus+base)
+-- 旧本地副本对连续升级技能会 pairs(nil) 崩溃（spell 无 need_list 时 need_upgrade_list=nil）
+-- 同时也修正了旧副本忽略 up 参数导致 up=false 查询调用也被 +1 的隐藏 bug
 local function upgrade_spell(player, object_entityName, print_name, up, q_idx)
-    local itam_spell = RPG_spee.get_itam_spell
-    local spell_name = object_entityName
-    local upgrade
-
-    if itam_spell[spell_name].lianxu then
-        upgrade = upgrade_lianxu(player, object_entityName, print_name, up)
-        return upgrade
-    end
-
-    local main_table = WPT.get()
-    local index = player.index
-
-    local get_upgrade_list = itam_spell[spell_name].upgrade_list
-    local need_upgrade_list = itam_spell[spell_name].need_list
-
-    if not main_table.upgrade_spell[index] then
-        main_table.upgrade_spell[index] = {}
-    end
-
-    if not main_table.upgrade_spell[index][spell_name] then
-        main_table.upgrade_spell[index][spell_name] = 0
-    end
-
-    main_table.upgrade_spell[index][spell_name] = main_table.upgrade_spell[index][spell_name] + 1
-
-    local times = main_table.upgrade_spell[index][spell_name]
-    local need_times
-    local spell_index = 1
-
-    for k, v in pairs(need_upgrade_list) do
-        if times > v then
-            spell_index = k
-            if need_upgrade_list[k + 1] then
-                need_times = need_upgrade_list[k + 1]
-            else
-                need_times = need_upgrade_list[k]
-            end
-        end
-    end
-
-    upgrade = get_upgrade_list[spell_index]
-    return upgrade
+    return RPG_spee.spells.upgrade_spell(player, object_entityName, up)
 end
 -- 触发技能表
 local trigger_skills = {

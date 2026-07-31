@@ -856,14 +856,19 @@ local function on_player_mined_entity(event)
 
     get_car_number()
 
-    local player = game.players[event.player_index]
-    local index = player.index
-    if entity == this.upgrade_car[index] then
-        this.upgrade_car[index] = nil
-        this.player_position[index] = nil
+    local index = 0
+    if event.player_index then
+        local mining_player = game.players[event.player_index]
+        if mining_player and mining_player.valid then
+            index = mining_player.index
+            if entity == this.upgrade_car[index] then
+                this.upgrade_car[index] = nil
+                this.player_position[index] = nil
+            end
+        end
     end
 
-    local index = 0
+    index = 0
     for k, player in pairs(game.connected_players) do
         if this.whos_tank[player.index] == entity.unit_number then
             index = player.index
