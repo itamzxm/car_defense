@@ -419,6 +419,50 @@ map.record[18]={}
   map.rocket_diff=true
 end
 
+--==============================================================================
+-- 通关奖励数值计算（所有世界通用，声明式二选一）
+--
+--   A) 插值模式（默认）：base_value → max_value 在 coefficient 5→20 之间线性插值，
+--      天然封顶 max_value。世界 1-12 沿用，行为不变。
+--   B) 线性增长模式（world_bonus_type 声明 growth_value 时启用）：
+--          bonus = base_value + growth_value * 档数
+--          档数  = floor((历史最高波数 - 解锁波数) / 增档间隔)
+--      档数直接由 max_wave 推导，不受 coefficient 上限（20）截断；
+--      若同时声明 max_value 则以其封顶，**未声明 max_value 即不设上限**。
+--
+-- 两种模式都只按「历史最高波数」计算，取最高值而非累加，绝不跨局叠加。
+-- 返回：bonus_value（未解锁时为 nil）, bonus_type
+--==============================================================================
+function Public.get_world_bonus_value(world_id, world_data)
+    local bonus_type = World.get_field(world_id, 'world_bonus_type') or map.world_bonus_types[world_id]
+    if not bonus_type or type(world_data) ~= 'table' or not world_data.unlocked then
+        return nil, bonus_type
+    end
+
+    local bonus_value
+    if bonus_type.growth_value then
+        local start_wave = World.get_field(world_id, 'world_bonus_start_wave') or map.world_bonus.start_wave
+        local interval = World.get_field(world_id, 'world_bonus_interval') or map.world_bonus.coefficient_interval
+        local steps = 0
+        if interval and interval > 0 then
+            steps = math.floor(math.max(0, (world_data.max_wave or 0) - start_wave) / interval)
+        end
+        bonus_value = bonus_type.base_value + bonus_type.growth_value * steps
+        if bonus_type.max_value then
+            bonus_value = math.min(bonus_value, bonus_type.max_value)
+        end
+    else
+        if not bonus_type.max_value then
+            return nil, bonus_type
+        end
+        bonus_value = bonus_type.base_value + (bonus_type.max_value - bonus_type.base_value) *
+            ((world_data.coefficient - map.world_bonus.base_coefficient) /
+             (map.world_bonus.max_coefficient - map.world_bonus.base_coefficient))
+    end
+
+    return math.floor(bonus_value * 100 + 0.5) / 100, bonus_type
+end
+
 function Public.apply_world_bonuses()
     local this = WPT.get()
     local force = game.forces.player
@@ -447,13 +491,10 @@ function Public.apply_world_bonuses()
     
     for world_id, world_data in pairs(map.world_bonus) do
         if type(world_data) == "table" and world_data.unlocked and world_data.coefficient > 0 then
-            -- World 框架优先，fallback 到 map.world_bonus_types 旧表
-            local bonus_type = World.get_field(world_id, 'world_bonus_type') or map.world_bonus_types[world_id]
+            -- 数值统一由 get_world_bonus_value 计算（插值模式 / 线性增长模式二选一）
+            local bonus_value, bonus_type = Public.get_world_bonus_value(world_id, world_data)
 
-            if bonus_type then
-                local bonus_value = bonus_type.base_value + (bonus_type.max_value - bonus_type.base_value) * ((world_data.coefficient - map.world_bonus.base_coefficient) / (map.world_bonus.max_coefficient - map.world_bonus.base_coefficient))
-                bonus_value = math.floor(bonus_value * 100 + 0.5) / 100
-                
+            if bonus_type and bonus_value then
                 if bonus_type.force_modifier and modifier_map[bonus_type.force_modifier] then
                     modifier_map[bonus_type.force_modifier](bonus_value)
                 elseif bonus_type.custom_type == 'function' and custom_bonus_map[bonus_type.name] then
