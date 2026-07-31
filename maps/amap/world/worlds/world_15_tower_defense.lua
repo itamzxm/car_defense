@@ -1292,8 +1292,9 @@ end
 -- 通关奖励（框架 world_bonus 机制）
 -- 与其他世界同款：记录历史最高波数 → 折算 coefficient → 每次开图 reset 时
 -- 由 diff.apply_world_bonuses() 统一施加 force 级 modifier（所有世界通用）。
--- 世界15 参数经 World.register 声明式覆写：解锁波数 2000、增档间隔 200。
--- 「只按最高计算、不叠加」由框架天然保证（coefficient 由 max_wave 单调推导，
+-- 世界15 参数经 World.register 声明式覆写：解锁波数 2000、增档间隔 100、
+-- 线性增长模式（base 100 + 每档 10，不设上限）。
+-- 「只按最高计算、不叠加」由框架天然保证（加成值由 max_wave 单调推导，
 -- 每次 reset 从零重新施加，绝无跨局叠加）。
 --==============================================================================
 
@@ -1307,22 +1308,25 @@ local function world15_update_bonus_record(wave_number)
     end
     local record = map.world_bonus[15]
     if wave_number <= record.max_wave then return end
+    local old_unlocked = record.unlocked
+    local old_value = diff.get_world_bonus_value(15, record)
     record.max_wave = wave_number
     local start_wave = World.get_field(15, 'world_bonus_start_wave') or map.world_bonus.start_wave
     local interval = World.get_field(15, 'world_bonus_interval') or map.world_bonus.coefficient_interval
     if wave_number < start_wave then return end
-    local old_unlocked = record.unlocked
-    local old_coefficient = record.coefficient
     record.unlocked = true
     local coefficient_increase = math.floor((wave_number - start_wave) / interval)
+    -- coefficient 仅供难度系数与旧插值模式使用（仍受 20 封顶）；生命值加成走线性增长模式，
+    -- 由 max_wave 直接推导，不受此封顶影响。
     record.coefficient = math.min(
         map.world_bonus.base_coefficient + coefficient_increase,
         map.world_bonus.max_coefficient
     )
+    local new_value = diff.get_world_bonus_value(15, record)
     if not old_unlocked then
         game.print({'amap.world_bonus_unlocked', 15}, {r = 255, g = 255, b = 0})
-    elseif record.coefficient > old_coefficient then
-        game.print({'amap.world_bonus_increased', 15, record.coefficient}, {r = 0, g = 255, b = 0})
+    elseif new_value and old_value and new_value > old_value then
+        game.print({'amap.world_bonus_increased_value', 15, new_value}, {r = 0, g = 255, b = 0})
     end
 end
 
@@ -1380,7 +1384,7 @@ local function on_tick(event)
     end
 
     if wave_number >= 2000 then
-        -- 通关奖励：框架 world_bonus（初始生命值 +50，2000 波起每坚守 200 波再 +10，
+        -- 通关奖励：框架 world_bonus（初始生命值 +100，2000 波起每坚守 100 波再 +10、不设上限，
         -- 只按历史最高记录、不叠加；下次开图 reset 时统一施加，所有世界通用）
         world15_update_bonus_record(wave_number)
         -- 胜利公告仅一次（can_continue 后 on_tick 每 tick 重入）
@@ -2158,19 +2162,19 @@ World.register(15, {
     -- 填海：允许（用户要求不限制）
     landfill_allowed = true,
 
-    -- 通关奖励（框架 world_bonus）：初始生命值。
-    -- 2000 波通关解锁 +50；之后每坚守 200 波 coefficient +1、生命值再 +10；
-    -- coefficient 5→20 共 15 档，封顶 +200（即 5000 波拉满）。
-    -- 只按历史最高波数计算、不叠加；force 级 modifier，所有世界通用。
+    -- 通关奖励（框架 world_bonus·线性增长模式）：初始生命值。
+    -- 2000 波通关解锁 +100；之后每坚守 100 波再 +10，**不设上限**（不声明 max_value）。
+    -- 只按历史最高波数计算、取最高值不叠加；force 级 modifier，所有世界通用。
     world_bonus_type = {
         name = 'character_health_bonus',
         force_modifier = 'character_health_bonus',
-        base_value = 50,
-        max_value = 200
+        base_value = 100,
+        growth_value = 10
+        -- 不声明 max_value = 不封顶
     },
-    -- 通关奖励按世界覆写（tank.lua / gui.lua 经 World.get_field 查表；未声明的世界用全局默认 1500/500）
+    -- 通关奖励按世界覆写（tank.lua / gui.lua / diff.lua 经 World.get_field 查表；未声明的世界用全局默认 1500/500）
     world_bonus_start_wave = 2000,
-    world_bonus_interval = 200,
+    world_bonus_interval = 100,
 
     -- 参与终极奖励
     joins_solar_system_edge = true,
