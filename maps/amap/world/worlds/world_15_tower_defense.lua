@@ -7,8 +7,9 @@
 local World = require 'maps.amap.world.framework'
 local WPT = require 'maps.amap.table'
 local diff = require 'maps.amap.diff'
-local Event = require 'utils.event'
 local WD = require 'modules.wave_defense.table'
+-- 注：本模块不 require utils.event —— 事件订阅一律经 World.register 的 events / nth_tick
+-- 声明字段交由 framework.lua 分发（世界模块不得自行注册事件，与世界 1-14 一致）
 
 local world15 = {}
 
@@ -1358,7 +1359,7 @@ local function on_tick(event)
 
     give_starter_items()
 
-    -- 兼容两种调用签名：Event.on_nth_tick 传标准 event 对象，框架可能传 (this, tick)
+    -- 兼容两种调用签名：框架 nth_tick 分发器传标准 event 对象（含 .tick），也兼容直接传 tick 数字
     local tick = type(event) == 'table' and event.tick or (type(event) == 'number' and event)
     if not tick then return end
 
@@ -2003,31 +2004,15 @@ local function world15_perfect_tick(event)
 end
 
 --==============================================================================
--- 事件注册
+-- 事件 handler（仅定义，不在此注册）
+--
+-- 本模块不调用任何 Event.add / Event.on_nth_tick：所有事件订阅统一在文件末尾的
+-- World.register 中以 events / nth_tick 声明，由 framework.lua 按当前世界分发。
+-- 与世界 1-14 保持一致：世界模块 = 纯声明，事件调度权归框架。
 --==============================================================================
 
-Event.add(defines.events.on_entity_died, on_boss_died)
-Event.add(defines.events.on_built_entity, on_built_entity)
-Event.on_nth_tick(60, on_tick)
-Event.on_nth_tick(60, enforce_world15_techs)
-Event.on_nth_tick(60, enforce_initial_terrain)       -- 开局一次性地形校正（跑一次后自锁）
-Event.on_nth_tick(600, boss_watchdog)                -- Boss 卡住检测 + 重新下令攻中心（每10秒）
-Event.on_nth_tick(600, cleanup_sea_enemies_periodic) -- 海面禁刷：每10秒清除海面上的敌人（Boss除外）
-Event.on_nth_tick(1, world15_supply_tick)   -- N-03/N-04: 每 tick 遍历已登记炮塔表，laser/tesla 补电、gun/rocket 补弹（事件注册式，无区域扫描）
-
--- 区块加载时：通道虫巢生成（仅十字陆地、距中心 > 384 tile）+ 清理岩石（纯塔防无岩石）+ 清海面怪
-Event.add(defines.events.on_chunk_generated, spawn_nests_in_chunk)
-Event.add(defines.events.on_chunk_generated, clear_rocks_in_chunk)
-Event.add(defines.events.on_chunk_generated, cleanup_sea_enemies_in_chunk)
-
--- 卡片1 全服强化投票：直接弹窗投票 + 每 20 波发起 + 永久 modifier 幂等重申
-Event.add(defines.events.on_gui_click, on_world15_vote_click)
-Event.on_nth_tick(60, world15_vote_tick)
-Event.on_nth_tick(60, world15_reassert_modifiers)
-Event.on_nth_tick(60, world15_perfect_tick)              -- 卡片7：完美波挑战 + 连击/总击杀
-Event.add(defines.events.on_entity_died, world15_on_enemy_died)  -- 卡片7：累计击杀 → 总击杀里程碑
-
-Event.add(defines.events.on_player_joined_game, function(event)
+-- 玩家加入游戏：发放开局物资；若投票进行中，给新加入玩家补弹投票框
+local function on_player_joined_game(event)
     if (WPT.get() and WPT.get().world_number or 0) ~= 15 then return end
     give_starter_items()
     -- 世界15：投票进行中，给新加入玩家也弹投票框
@@ -2037,18 +2022,16 @@ Event.add(defines.events.on_player_joined_game, function(event)
         if p and p.valid then world15_open_vote_gui(p, this.w15_vote) end
     end
     -- （通关生命奖励已改走框架 world_bonus：force 级 modifier 对全员自动生效，无需按玩家补发/重生重发）
-end)
+end
 
--- 施工机器人建造同样受“仅中心正方形”限制
-Event.add(defines.events.on_robot_built_entity, on_robot_built_entity)
-
-Event.add(defines.events.on_entity_died, function(event)
+-- 炮塔死亡：从补给登记表注销（避免 supply_tick 遍历失效实体）
+local function on_turret_died(event)
     if (WPT.get() and WPT.get().world_number or 0) ~= 15 then return end
     local entity = event.entity
     if entity and entity.valid then
         unregister_turret(entity)
     end
-end)
+end
 
 -- 炮塔锁定：建造时设 minable_flag=false（引擎级禁拆）。已移除挖掘后原地重建逻辑。
 
@@ -2290,8 +2273,43 @@ World.register(15, {
     -- 该世界参与随机选世界池
     selectable = true,
 
-    -- 注意：on_tick 通过 Event.on_nth_tick(60) 独立注册，不在此处挂载
-    -- 框架的 on_tick 钩子签名为 (this, tick)，与标准 event 不兼容
+    --==========================================================================
+    -- 声明式事件订阅（框架 framework.lua 统一分发，本模块不自行 Event.add）
+    --
+    -- 分发规则：框架为每个被声明过的事件建立唯一分发器，运行时查
+    -- WPT.get().world_number 命中本 def 才调用；非世界15 时不会执行任何 handler。
+    -- handler 内部保留的 world_number ~= 15 自守为双保险（重进/边界态）。
+    --==========================================================================
+    events = {
+        -- Boss 死亡奖励 → 卡片7 击杀统计 → 炮塔注销（按序调用，顺序即数组顺序）
+        [defines.events.on_entity_died] = {on_boss_died, world15_on_enemy_died, on_turret_died},
+        -- 建筑限制：仅中心正方形（玩家 / 施工机器人同规则）
+        [defines.events.on_built_entity] = on_built_entity,
+        [defines.events.on_robot_built_entity] = on_robot_built_entity,
+        -- 区块加载：通道虫巢生成（仅十字陆地、距中心 > 384 tile）+ 清岩石 + 清海面怪
+        [defines.events.on_chunk_generated] = {spawn_nests_in_chunk, clear_rocks_in_chunk, cleanup_sea_enemies_in_chunk},
+        -- 卡片1 全服强化投票：卡片点击
+        [defines.events.on_gui_click] = on_world15_vote_click,
+        -- 加入游戏：开局物资 + 补弹投票框
+        [defines.events.on_player_joined_game] = on_player_joined_game,
+    },
+
+    nth_tick = {
+        -- N-03/N-04：每 tick 遍历已登记炮塔表，laser/tesla 补电、gun/rocket 补弹（无区域扫描）
+        [1] = world15_supply_tick,
+        [60] = {
+            on_tick,                    -- 主循环：胜利检测 / 通关记录 / world_bonus
+            enforce_world15_techs,      -- 按波次分段解锁 + 自愈锁回科技
+            enforce_initial_terrain,    -- 开局一次性十字地形校正（跑一次后自锁）
+            world15_vote_tick,          -- 卡片1：每 20 波发起投票 + 30s 倒计时结算
+            world15_reassert_modifiers, -- 卡片1：永久 modifier 幂等重申
+            world15_perfect_tick,       -- 卡片7：完美波挑战 + 连击统计
+        },
+        [600] = {
+            boss_watchdog,               -- Boss 卡住检测 + 重新下令攻中心（每10秒）
+            cleanup_sea_enemies_periodic,-- 海面禁刷：清除海面上的敌人（Boss除外）
+        },
+    },
 })
 
 return world15
