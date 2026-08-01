@@ -87,6 +87,12 @@ local set_diff = function()
         entity.die()
       end
     end
+    -- 组装机已摧毁，清除残留的地图标签
+    for key, factory in pairs(production.assemblers) do
+      if factory.tag then
+        factory.tag.destroy()
+      end
+    end
     this.productionsphere.experience = {}
     this.productionsphere.assemblers = {}
     this.enable_wild_factorio =false
