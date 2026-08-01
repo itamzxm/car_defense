@@ -7,6 +7,7 @@ local Global = require 'utils.global'
 local Task = require 'utils.task'
 local Token = require 'utils.token'
 local WD = require 'modules.wave_defense.table'
+local World = require 'maps.amap.world.framework'
 
 Global.register(
 table,
@@ -140,7 +141,18 @@ local is_sh_conflict = function(sh_pos,surface)
   local position=sh_pos
 
   local this=WPT.get()
- 
+
+  -- 世界级堡垒落点校验（框架字段 fortress_position_valid）
+  -- 供有特殊地形约束的世界使用（如世界17 网格战争：堡垒不得落在网格单元及其缓冲区内）。
+  -- 返回 false 表示该点不可用；未声明该字段的世界不受影响。
+  local fortress_valid = World.get_field(this.world_number, 'fortress_position_valid')
+  if fortress_valid then
+    local okpos, res = pcall(fortress_valid, position, surface)
+    if okpos and res == false then
+      return false
+    end
+  end
+
   local entities
   if WPT.world_number~=8 then
     entities = surface.find_entities_filtered{position = position, radius = juli, name = player_build , force = game.forces.player,limit =1}

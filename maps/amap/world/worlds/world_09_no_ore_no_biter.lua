@@ -83,6 +83,9 @@ World.register(9, {
     -- 原文件：world_table.lua 第 218 行 world_surface_mapping[9]
     surface_config_name = 'no_ore_no_biter',
 
+    -- 不生成默认野外建筑/石头（原 world_main.lua ywjz 硬编码排除列表）
+    disable_default_rocks = true,
+
     -- 地图尺寸设置（原 world_table.lua 第 255-258 行 world_map_settings[9]）
     map_settings = {
         width = 214,

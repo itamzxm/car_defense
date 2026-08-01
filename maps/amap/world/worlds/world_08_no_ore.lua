@@ -49,6 +49,10 @@ World.register(8, {
     name_key = 'amap.world_name_8',
     desc_key = 'amap.world_name_info_8',
 
+    -- 已禁用：从随机选世界池与投票界面排除
+    -- （机制文件 word_yiciyuankongjian 仍被 require 加载，但内部全部以 map.world == 8 门控，世界 8 不可选即不触发，无需删除）
+    selectable = false,
+
     --==========================================================================
     -- 时间与地形
     --==========================================================================
@@ -133,7 +137,9 @@ World.register(8, {
         max_value = 20
     },
     -- 是否参与终极奖励（默认 true）
-    joins_solar_system_edge = true,
+    -- 已关闭：避免禁用后卡住终极奖励判定（World.query('joins_solar_system_edge', true) 仍会列出本世界，
+    --         但 world 8 不可选、map.edge_reached[8] 永不为 true，会导致「征服全部世界」永不成达成。同世界7处理）
+    joins_solar_system_edge = false,
 
     --==========================================================================
     -- 专属玩法钩子（运行时按世界分发）
