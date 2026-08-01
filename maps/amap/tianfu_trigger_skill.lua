@@ -2524,6 +2524,9 @@ local function tishenshu(player, event, q_idx)
     if not player or not player.valid or not player.character then
         return
     end
+    if player.controller_type == defines.controllers.remote then
+        return false
+    end
     
     -- 获取伤害来源
     local cause = event.cause
@@ -2567,11 +2570,13 @@ local function tishenshu(player, event, q_idx)
         y = player_pos.y + direction_vector.y
     }
     
-    -- 查找目标位置附近的无障碍点
     local safe_position = player.physical_surface.find_non_colliding_position('character', target_position, 16, 1, false)
     if not safe_position then
-        -- 如果找不到无障碍点，尝试扩大搜索范围
-       return
+        safe_position = player.physical_surface.find_non_colliding_position('character', target_position, 32, 1, false)
+    end
+    if not safe_position then
+        new_print(player, { 'tianfu.tishenshu_fail' })
+        return false
     end
     
 
