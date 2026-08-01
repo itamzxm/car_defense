@@ -15,6 +15,7 @@ local Token = require 'utils.token'
 local WPT = require 'maps.amap.table'
 local BiterPets = require 'maps.amap.biter_pets'
 local EntityCache = require 'maps.amap.entity_cache'
+local P = require 'player_modifiers'
 
 -- 因循环依赖（table.lua 顶层 require spells.lua），spells.lua 不能在顶层 require 'modules.rpg.table'
 -- 使用懒加载：在使用 RPG 的函数内部首次调用时 require（require 会缓存，无性能问题）
@@ -123,9 +124,10 @@ local function tame_unit_effects(player, entity)
 end
 
 -- Token 定义
-local lowdowm_1 = Token.register(function(player)
-    
-    RPG.update_player_stats(player)
+local jx_timeout = Token.register(function(player)
+    if not player or not player.valid then return end
+    P.update_single_modifier(player, 'character_running_speed_modifier', 'jx', 0)
+    P.update_player_modifiers(player)
 end)
 
 local jgq_work = Token.register(function(player)
@@ -932,8 +934,9 @@ end
 
 -- 疾跑：8 秒移速 +50%
 function Public.jx(position, surface, player, times)
-    player.character_running_speed_modifier = player.character_running_speed_modifier + 0.5
-    Task.set_timeout_in_ticks(60 * 8, lowdowm_1, player)
+    P.update_single_modifier(player, 'character_running_speed_modifier', 'jx', 0.5)
+    P.update_player_modifiers(player)
+    Task.set_timeout_in_ticks(60 * 8, jx_timeout, player)
     return true
 end
 

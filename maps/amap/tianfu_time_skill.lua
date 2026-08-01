@@ -14,6 +14,7 @@ local BasicMarkets = require 'maps.amap.basic_markets'
 local TianfuQuality = require 'maps.amap.tianfu_quality'
 local PetSys = require 'modules.pet_system.table'
 local Event = require 'utils.event'
+local P = require 'player_modifiers'
 local Public = {}
 
 -- 品质系数表（Phase B 方案2）：核心数值 ≤10 用 LOW，>10 用 REG
@@ -33,8 +34,17 @@ local function get_player_car_entity(player, q_idx)
     return false
 end
 
-local lowdowm_1 = Token.register(function(player)
-    rpgtable.update_player_stats(player)
+local dl_timeout = Token.register(function(player)
+    if not player or not player.valid then return end
+    P.update_single_modifier(player, 'character_running_speed_modifier', 'dl', 0)
+    P.update_player_modifiers(player)
+    player.print({'tianfu.dl_end'})
+end)
+
+local jifengbu_timeout = Token.register(function(player)
+    if not player or not player.valid then return end
+    P.update_single_modifier(player, 'character_running_speed_modifier', 'jifengbu', 0)
+    P.update_player_modifiers(player)
 end)
 local t = {
 
@@ -3085,8 +3095,11 @@ local function dl(player, q_idx)
         end
         -- 品质系数应缩放的是完整倍率(1.5×)而非仅基础加成(0.5)
         -- modifier = 目标倍率 - 1，即 1.5*COEFF_LOW[q_idx] - 1
-        player.character_running_speed_modifier = player.character_running_speed_modifier + 1.5 * COEFF_LOW[q_idx] - 1
-        Task.set_timeout_in_ticks(60 * 4, lowdowm_1, player)
+        local bonus = 1.5 * COEFF_LOW[q_idx or 1] - 1
+        P.update_single_modifier(player, 'character_running_speed_modifier', 'dl', bonus)
+        P.update_player_modifiers(player)
+        Task.set_timeout_in_ticks(60 * 4, dl_timeout, player)
+        new_print(player, {'tianfu.dl_over', math.floor(bonus * 100)})
 
         return true
     end
@@ -7065,10 +7078,11 @@ local function jifengbu(player, q_idx)
         total_bonus = math.min(total_bonus, 1)  -- 总加成不超过50%
         
         -- 应用移速加成
-        player.character_running_speed_modifier = player.character_running_speed_modifier + total_bonus
+        P.update_single_modifier(player, 'character_running_speed_modifier', 'jifengbu', total_bonus)
+        P.update_player_modifiers(player)
         
         -- 设置定时器取消效果
-        Task.set_timeout_in_ticks(60 * 10, lowdowm_1, player)  -- 10秒后取消效果
+        Task.set_timeout_in_ticks(60 * 10, jifengbu_timeout, player)
         
         -- 发送提示消息
         new_print(player, { 'tianfu.jifengbu_over', math.floor(total_bonus * 100)})
