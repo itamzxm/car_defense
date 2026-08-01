@@ -10,12 +10,9 @@ local Debug = {}
 
 ---@return number next index
 local function increment()
-    global.debug_message_count = global.debug_message_count or {}
+    storage.debug_message_count = (storage.debug_message_count or 0) + 1
 
-    local next = global.debug_message_count + 1
-    global.debug_message_count = next
-
-    return next
+    return storage.debug_message_count
 end
 
 --- Takes the table output from debug.getinfo and pretties it

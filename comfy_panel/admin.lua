@@ -241,7 +241,8 @@ local function draw_events(data)
     local frame = data.frame
     local antigrief = data.antigrief
     local search_text = data.search_text or nil
-    local history = frame['admin_history_select'].items[frame['admin_history_select'].selected_index]
+    local history_select = frame['cp_adm_history_select']
+    local history = history_select.items[history_select.selected_index]
 
     local history_index = {
         ['Capsule History'] = antigrief.capsule_history,

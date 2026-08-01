@@ -124,7 +124,7 @@ Module.get_filters = function(logistics)
     if not logistics or not logistics.filters then
         return {}
     end
-    
+
     -- 转换为兼容格式，确保每个过滤器都有value.name结构
     local filters = {}
     for _, filter in pairs(logistics.filters) do
@@ -134,7 +134,7 @@ Module.get_filters = function(logistics)
             }
         })
     end
-    
+
     return filters
 end
 

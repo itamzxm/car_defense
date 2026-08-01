@@ -278,6 +278,35 @@ local POWERUP_DEFS = {
 2. **物品精灵**：`surface.create_entity({name='item-on-ground', ...})` 放置可见物品
 3. **文本标签**：`rendering.draw_text` 显示道具名称
 
+## 步骤 6.5：大批量地形生成（可选）
+
+> 新副本/新世界的 **on_surface_init 里铺大量 tile** 时，用 `utils/terrain_generator.lua` 分帧执行，避免一次性 `set_tiles` 单帧卡顿。
+
+```lua
+local TerrainGenerator = require 'utils.terrain_generator'
+
+function M.on_surface_init(data)
+    -- 一次性生成 tile 数组（如圆形场地：半径 60 约 1 万块）
+    local tiles = {}
+    for x = -60, 60 do
+        for y = -60, 60 do
+            if x * x + y * y <= 60 * 60 then
+                tiles[#tiles + 1] = { position = {x = x, y = y}, name = 'grass-1' }
+            end
+        end
+    end
+    -- 入队分帧铺放（默认每 tick 32 块），队列持久化，中途存档后继续执行
+    TerrainGenerator.enqueue(data.surface, tiles)
+end
+```
+
+要点：
+
+- `enqueue(surface, tiles, per_tick)`：tile 数组元素形如 `{position = {x = .., y = ..}, name = 'tile-name'}`，per_tick 默认 32
+- `is_empty()`：查询队列是否处理完毕（如需在铺完后放实体，可轮询或延迟若干 tick 后判断）
+- **注意**：`set_tiles` 要求 chunk 已生成——若目标区域未生成 chunk，需先 `surface.set_chunk_generated_status({x, y}, defines.chunk_generated_status.entities)`（Factorio 2.0 无 `ensure_chunk_generated`）
+- 依赖此队列的后续逻辑（围墙/实体/装饰）应在铺放完成后执行
+
 ## 步骤 7：验证
 
 1. **加载测试**：无头 Factorio 加载，确认无 Lua 报错

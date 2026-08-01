@@ -111,12 +111,21 @@ end
 
 ## 离线测试方法（本地无头 Factorio）
 
-本地装有 Steam Factorio（`C:/Program Files (x86)/Steam/steamapps/common/Factorio/bin/x64/factorio.exe`），其内嵌 Factorio 定制 Lua 5.2 运行时。无需进游戏即可验证「代码能否加载」以及「纯逻辑是否正确」。
+本地装有 Steam Factorio，其内嵌 Factorio 定制 Lua 5.2 运行时。无需进游戏即可验证「代码能否加载」以及「纯逻辑是否正确」。**多人协作环境差异大，开测前必须先做环境自检。**
+
+### 开测前环境自检（必做）
+
+> 目的：确认「被测场景」就是「项目根」，避免测到旧副本（现象：改了代码但日志 `Checksum for script` 不变）
+
+1. **询问用户游戏目录**（不要假设路径，如 Steam 版可能在 `C:/Program Files (x86)/Steam/...`，本机实测为 `E:\Game\Factorio`），定位 `factorio.exe`（`<游戏根>/bin/x64/factorio.exe`）
+2. **检查本项目场景在哪**：`<游戏根>/scenarios/` 下可能同时存在符号链接（实时指向项目根，正确被测对象）与旧副本目录（改代码不生效，**不要用**）
+3. **确认符号链接指向项目根**：`Get-Item "<游戏根>\scenarios\<场景目录名>" | Select-Object Name,LinkType,Target` → `LinkType=SymbolicLink` 且 `Target=项目根` 才正确
+4. **场景加载名 = 场景目录名**（如符号链接名 `car_defense`），不是项目显示名（旧副本名「坦克保卫战」是坑）
+5. **验证加载的是当前代码**：改过代码后日志 `Checksum for script __level__/control.lua` 必须变化；不变 = 加载了旧副本
 
 ### 方法一：无头加载测试（验证能否加载）
-在 `%APPDATA%/Factorio` 下执行：
 ```
-factorio.exe --start-server-load-scenario 坦克保卫战 --no-log-rotation
+& "<factorio.exe 路径>" --start-server-load-scenario <场景名> --no-log-rotation
 ```
 - 日志一路到 `Hosting game` / `InGame` 且无 `Error` / Lua 报错 = 全部 Lua 文件解析通过、所有 `require` 解析、模块级代码与 `on_init` 执行无错。
 - 能查：语法错、`require` 路径错、加载期运行时报错。不能查：玩法逻辑。
@@ -129,18 +138,23 @@ factorio.exe --start-server-load-scenario 坦克保卫战 --no-log-rotation
 2. **RCON 执行的是控制台命令，跑 Lua 必须带 `/c` 前缀**，否则被当普通命令忽略（无输出无报错）。
 3. **`print()` 在无头 `/c` 不写日志**；用 `log()`（日志格式 `Script <expr>:<line>: <msg>`）才进 `factorio-current.log`。
 4. RCON 响应分多包到达，客户端要持续 drain 若干秒才收全（见 `rcon_driver.py`）。
+5. **Factorio RCON 包体后需 2 个 null 字节**（标准实现只发 1 个会认证失败 id=-1）。
+6. **无玩家时 tick 暂停**：默认 `auto_pause=true`，每次 RCON 命令只触发 1 tick 更新，任务逻辑测不准；必须 `--server-settings` 传 `auto_pause: false`。
 
 **相关文件：**
-- `command_line.lua`（场景根，不在同步目录）：加载期 `require` 真实模块 + 注册测试到全局 `_TEST`；`/c _TEST.run_all()` 执行。
-- `control.lua` 末尾：`pcall(require, 'command_line')`（生产缺文件时 pcall 静默跳过，零影响；control.lua/根文件本就不在 factorio_sync.ps1 同步范围）。
+- `command_line.lua`（场景根，git 白名单外不跟踪）：加载期 `require` 真实模块 + 注册测试到全局 `_TEST`；`/c _TEST.run_all()` 执行。
+- `control.lua` 末尾：`local ok, err = pcall(require, 'command_line')`（生产缺文件时静默跳过；err 非 not-found 时 log 暴露，不掩盖）。
 - `scenarios/rcon_driver.py`（场景父目录，不被同步）：Source RCON 客户端，发命令并抓日志标记行。
+- `scenarios/test-server-settings.json`（不被同步）：测试用服务器配置，`auto_pause: false` 为关键项。
 
 **启动与执行：**
 ```
-# 起服务器（建议用 timeout 包住避免常驻）
-factorio.exe --start-server-load-scenario 坦克保卫战 --rcon-port 27015 --rcon-password testpw --no-log-rotation
+# 起服务器（建议用 timeout 包住避免常驻；⚠ 必须带 --server-settings）
+& "<factorio.exe 路径>" --start-server-load-scenario <场景名> `
+    --server-settings "<游戏根>\scenarios\test-server-settings.json" `
+    --rcon-port 27015 --rcon-password 123 --no-log-rotation
 # 进 InGame(~12s) 后，另一终端：
-python rcon_driver.py "_TEST.run_all()"
+python rcon_driver.py "/c _TEST.run_all()" 127.0.0.1 27015 123
 ```
 > 路径坑：Python 参数用反斜杠 Windows 路径；MSYS 会把 `/c/...` 传成 `c:\c\...` 导致找不到文件。
 

@@ -1,12 +1,18 @@
 local Event = require 'utils.event'
 local Global = require 'utils.global'
+local Commands = require 'utils.commands'
 local Public = {}
 
 local this = {
     prevent_spam = {}, -- the default table where all player indexes will be stored
     default_tick = 7, -- this defines the default tick to check whether or not a user is spamming a button.
-    _DEBUG = false
+    debug_text = false,
+    debug_spam = false,
+    show_debug_text_for = {}
 }
+
+local main_text = '[Spam Info] '
+local traceback = debug.traceback
 
 Global.register(
     this,
@@ -15,11 +21,18 @@ Global.register(
     end
 )
 
-local function debug_str(str)
-    if not this._DEBUG then
+local function debug_text(str)
+    if not this.debug_text then
         return
     end
-    print(str)
+    log(main_text .. str)
+end
+
+local function debug_spam(str)
+    if not this.debug_spam then
+        return
+    end
+    log(main_text .. str .. ' ' .. traceback())
 end
 
 function Public.reset_spam_table()
@@ -45,7 +58,22 @@ function Public.is_spamming(player, value_to_compare, text)
     end
 
     if text then
-        debug_str('Frame: ' .. text)
+        if this.show_debug_text_for then
+            for name, _ in pairs(this.show_debug_text_for) do
+                local debug_player = game.get_player(name)
+                if debug_player and debug_player.valid then
+                    debug_player.print(
+                        'Player ' .. player.name .. ' clicked on: ' .. text .. ' on surface: ' .. player.surface.name
+                            .. ' at position: ' .. player.position.x .. ', ' .. player.position.y .. ' at tick: '
+                            .. game.tick
+                    )
+                end
+            end
+        end
+        debug_text(
+            'Player ' .. player.name .. ' clicked on: ' .. text .. ' on surface: ' .. player.surface.name
+                .. ' at position: ' .. player.position.x .. ', ' .. player.position.y .. ' at tick: ' .. game.tick
+        )
     end
 
     if game.tick_paused then
@@ -59,7 +87,11 @@ function Public.is_spamming(player, value_to_compare, text)
             Public.set_new_value(player)
             return false -- is not spamming
         else
-            debug_str(player.name .. ' is spamming.')
+            if text then
+                debug_spam(player.name .. ' is spamming: ' .. text)
+            else
+                debug_spam(player.name .. ' is spamming.')
+            end
             return true -- is spamming
         end
     end
@@ -100,5 +132,42 @@ Event.on_init(
         Public.reset_spam_table()
     end
 )
+
+Commands.new('sp_debug_text', 'Spam Protection - Shows the debug text for when players are clicking gui buttons.')
+    :require_admin()
+    :add_parameter('state', false, 'boolean')
+    :callback(
+        function(player, state)
+            this.debug_text = state == 'true'
+            player.print('Debug text for spam protection has been ' .. (this.debug_text and 'enabled' or 'disabled') .. '!')
+        end
+    )
+
+Commands.new('sp_debug_spam', 'Spam Protection - Shows the debug spam for when players are clicking gui buttons.')
+    :require_admin()
+    :add_parameter('state', false, 'boolean')
+    :callback(
+        function(player, state)
+            this.debug_spam = state == 'true'
+            player.print('Debug spam for spam protection has been ' .. (this.debug_spam and 'enabled' or 'disabled') .. '!')
+        end
+    )
+
+Commands.new('sp_print_text', 'Spam Protection - Prints the debug text for when players are clicking gui buttons to your console.')
+    :require_admin()
+    :add_parameter('state', false, 'boolean')
+    :callback(
+        function(player, state)
+            this.show_debug_text_for = this.show_debug_text_for or {}
+
+            if state == 'true' then
+                this.show_debug_text_for[player.name] = true
+                player.print('Debug text for spam protection has been enabled!')
+            else
+                this.show_debug_text_for[player.name] = nil
+                player.print('Debug text for spam protection has been disabled!')
+            end
+        end
+    )
 
 return Public

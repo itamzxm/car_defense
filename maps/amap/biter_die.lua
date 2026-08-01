@@ -284,7 +284,13 @@ local function loaded_biters(entity, cause, count)
     return
   end
 
-
+  -- [RISK] 无 surface 隔离：若 cause 与 entity 不在同一 surface（如脚本跨 surface damage 击杀），
+  -- 弹药类亡语（explosive-rocket/cluster-grenade 等）会在 entity.surface 上创建，
+  -- 但 target 指向 cause.position 的坐标——该坐标在 entity.surface 上可能对应完全无关的区域，
+  -- 导致坐标穿透打击（误伤另一 surface 坐标重合处的玩家/建筑）。
+  -- 正常游戏流程中 cause 与 entity 同 surface（Factorio 原生武器不跨 surface），
+  -- 但新增脚本击杀逻辑时必须确保 cause 与 entity 同 surface，或在此加检查：
+  --   if cause and cause.valid and cause.surface ~= entity.surface then cause = nil end
   local position
   
   if cause and cause.valid then
@@ -339,6 +345,10 @@ local function loaded_biters(entity, cause, count)
   end
 end
 
+-- [RISK] process_death_queue 从 biter_death_queue 取数据创建实体，
+-- 其中 surface 来自 entity.surface（死亡虫子），position/target 来自 cause.position（击杀者）。
+-- 若 loaded_biters 未做 surface 隔离且 cause 跨 surface，此处会在虫子 surface 上
+-- 用击杀者坐标创建弹药（explosive-rocket 等），造成坐标穿透打击。
 local function process_death_queue()
   local this = WPT.get()
   if #this.biter_death_queue == 0 then

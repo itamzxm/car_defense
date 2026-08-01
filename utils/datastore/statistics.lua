@@ -510,7 +510,6 @@ Event.add(e.on_player_mined_entity, on_marked_for_deconstruction_on_player_mined
     {filter = "type", type = 'simple-entity'},
     {filter = "type", type = 'linked-chest'},
     {filter = "type", type = 'car'},
-    
     {filter = "type", type = 'artillery-wagon'},
     {filter = "type", type = 'artillery-turret'},
     {filter = "type", type = 'land-mine'},

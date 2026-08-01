@@ -38,6 +38,50 @@ end
 2. **on_load 时**：`Global.register` 的回调被触发，从 `storage` 取出持久化表赋值回 `this`——模块级 `local` 引用恢复
 3. **运行时**：对 `this` 的修改直接修改 `storage` 中的数据，自动持久化
 
+### ⚠ 回调只在 on_load 触发（on_init 用初始表本身）
+
+`Global.register(tbl, callback)` 的 callback **只在 on_load 时执行**。on_init（新游戏）路径下 `this` 就是传入的 `tbl` 本身，callback 不会被调用。
+
+**错误写法（on_init 下 `this.queue` 是 nil）**：
+
+```lua
+local this = {}  -- 初始空表
+
+-- ⚠ 错误：初始值放在注册参数里，on_init 时回调不执行 → this 永远是 {}，this.queue = nil
+Global.register(
+    {queue = {}, running = false},
+    function(tbl)
+        this = tbl
+    end
+)
+-- 症状：运行时 table.insert(this.queue, ...) 报 "table expected, got nil"
+```
+
+**正确写法一（初始值内嵌进 this 本身）**：
+
+```lua
+local this = {queue = {}, running = false}  -- 初始值直接放 this
+
+Global.register(this, function(tbl)
+    this = tbl
+end)
+```
+
+**正确写法二（gui.lua 模式：初始表内嵌 local 引用）**：
+
+```lua
+local data = {}
+local element_map = {}
+
+Global.register(
+    {data = data, element_map = element_map},
+    function(tbl)
+        data = tbl.data
+        element_map = tbl.element_map
+    end
+)
+```
+
 ### 使用示例
 
 ```lua
@@ -272,6 +316,42 @@ local function on_tick()
 end
 ```
 
+### Buckets — tick 分桶调度的规范实现
+
+> 底层冻结对象之一（见 AGENTS.md「底层冻结宣言」）。**所有延迟/周期调度优先用 `utils/buckets.lua`，不要手写 bucket 表**（手写版是上面示例的旧形态）。
+
+```lua
+local Buckets = require 'utils.buckets'
+local Global = require 'utils.global'
+
+local this = {bucket = Buckets.new(60)}  -- 60 tick 一轮
+Global.register(this, function(tbl)
+    this = tbl
+end)
+
+-- 调度：id 在 (tick / interval) 轮次到期
+Buckets.add(this.bucket, id, data)
+local bucket = Buckets.get(this.bucket, id)   -- 到期轮次号
+Buckets.get_bucket(this.bucket, bucket)       -- 该轮次的所有条目
+
+-- 每 tick：只查当前轮次
+local due = this.bucket[math.floor(game.tick / 60)]
+if due then
+    for id, data in pairs(due) do
+        -- 处理到期任务
+        Buckets.remove(this.bucket, id)
+    end
+end
+
+-- 其他接口：remove / reallocate(新间隔，自动迁移) / migrate(旧手写表迁移)
+```
+
+要点：
+
+- `Buckets.new(interval)` 返回桶表，**纯表结构可直接存 storage 持久化**
+- 到期轮次 = `floor(tick / interval)`；interval 变化时用 `reallocate` 自动迁移，不要手写搬
+- 桶条目结构 `bucket[轮次][id] = data`，同一轮次可存多个不同任务
+
 ### 分批处理
 
 **问题**：单 tick 遍历所有玩家造成卡顿。
@@ -334,11 +414,152 @@ local max_amount = storage.rocks_yield_ore_maximum_amount or 100
 
 **注意**：仅用于简单场景。复杂数据结构推荐使用 Global.register 三步曲，确保 on_load 后引用正确恢复。
 
+## ScoreTracker — 登记制统计框架
+
+> 底层冻结对象之一。统计项必须先 `register` 才能读写，杜绝拼错键名静默创建新统计。
+
+```lua
+local ScoreTracker = require 'utils.score_tracker'
+
+-- 加载期登记（仅 control 阶段，运行时调用会报错）
+ScoreTracker.register('kill_count', {'amap.kill_count'}, 'item/submachine-gun')
+ScoreTracker.register('death_count', {'amap.death_count'}, 'entity-character')
+
+-- 运行时读写
+ScoreTracker.change_for_player(player_index, 'kill_count', 1)   -- 玩家统计 +1
+ScoreTracker.change_for_global('total_boss_kills', 1)            -- 全局统计 +1
+ScoreTracker.set_for_player(player_index, 'kill_count', 100)     -- 赋值（值不变跳过）
+local kills = ScoreTracker.get_for_player(player_index, 'kill_count')
+local total = ScoreTracker.get_for_global('total_boss_kills')
+
+-- GUI 展示用：统计值 + 元数据合并
+local data = ScoreTracker.get_player_scores_with_metadata(player_index, {'kill_count', 'death_count'})
+
+-- 重置
+ScoreTracker.reset()
+```
+
+### 自定义事件
+
+变更时触发事件通知，可用于 GUI 刷新等：
+
+```lua
+Event.add(ScoreTracker.events.on_player_score_changed, function(event)
+    -- event.score_name, event.player_index
+end)
+Event.add(ScoreTracker.events.on_global_score_changed, function(event)
+    -- event.score_name
+end)
+```
+
+### 要点
+
+- `register` 仅加载期调用，运行时调用报错
+- 重复登记同名统计项报错
+- `set_for_player/set_for_global` 值不变时跳过（避免无意义事件触发）
+- 玩家离开时自动清理该玩家数据（`on_player_removed`）
+
+## ActiveInterval — 按需启停周期任务
+
+> 避免「常驻 on_nth_tick 空扫描」的性能浪费。有活动才 enable，无活动 disable。
+
+```lua
+local ActiveInterval = require 'utils.active_interval'
+
+-- 加载期创建句柄（func 在加载期被 Token.register 持久化）
+local handle = ActiveInterval.create(60, function()
+    -- 每 60 tick 执行一次的逻辑
+    -- 例如：检查 Boss 是否存活，存活则扣血
+end)
+
+-- 运行时按需启停
+handle.enable()    -- 注册 on_nth_tick，开始执行
+handle.disable()   -- 移除 on_nth_tick，停止执行
+handle.is_active() -- 当前是否激活
+```
+
+### 要点
+
+- `create` 仅加载期调用（运行时调用报错，desync 风险）
+- 内部用 `Event.add_removable_nth_tick` / `Event.remove_removable_nth_tick` 动态增删
+- 适合「有 Boss 才需要每 tick 扣血」「有玩家在副本才需要每 tick 计时」等场景
+- 替代方案：常驻 `Event.on_nth_tick` + `if not active then return end` 守卫（浪费每 tick 函数调用开销）
+
+## TemporaryModifiers — Force modifier 临时加成
+
+> 对 Force 数值类 modifier 临时加 bonus，到期后差值还原（不覆盖他人改动）。
+
+```lua
+local TemporaryModifiers = require 'utils.temporary_modifiers'
+
+-- 临时给 enemy force 的 laser 伤害加 0.5，持续 3600 tick（1 分钟）
+TemporaryModifiers.apply(game.forces.enemy, 'ammo_damage_modifier', 'laser', 0.5, 3600)
+
+-- 临时给 player force 的 laser 射速加 0.2，持续 1800 tick
+TemporaryModifiers.apply(game.forces.player, 'gun_speed_modifier', 'laser', 0.2, 1800)
+```
+
+### 要点
+
+- 还原用「当前值 - bonus」差值写法：即使期间有其他逻辑再改该字段，只归还自己加上的部分，不覆盖他人改动
+- `method` 对应 Force 的 `get_<method>` / `set_<method>` 成对方法
+- `kind` 是 modifier 的种类参数（如 `'laser'`、`'artillery'`）
+- `bonus` 可为负数（临时削弱）
+- 依赖 `Task.set_timeout_in_ticks` 定时还原，存档后还原任务由 Task 系统恢复
+
+## PlayerModifiers — 玩家 modifier 多来源叠加
+
+> 集中管理玩家角色 modifier（建造距离/移动速度/拾取距离等），多来源按类别叠加，统一刷写到角色。
+
+```lua
+local PlayerModifiers = require 'utils.player_modifiers'
+
+-- 更新某个 modifier 的某个类别值（如天赋加的移动速度）
+PlayerModifiers.update_single_modifier(player, 'character_running_speed_modifier', 'tianfu', 0.3)
+
+-- 禁用某个 modifier（如冰冻效果）
+PlayerModifiers.disable_single_modifier(player, 'character_running_speed_modifier', 1)
+
+-- 读取
+local val = PlayerModifiers.get_single_modifier(player, 'character_running_speed_modifier', 'tianfu')
+
+-- 刷写所有 modifier 到角色（通常在 on_player_joined_game / on_player_respawned 自动触发）
+PlayerModifiers.update_player_modifiers(player)
+
+-- 重置玩家所有 modifier
+PlayerModifiers.reset_player_modifiers(player)
+```
+
+### 支持的 modifier 列表
+
+| 索引 | modifier 名 |
+|------|-------------|
+| 1 | `character_build_distance_bonus` |
+| 2 | `character_crafting_speed_modifier` |
+| 3 | `character_health_bonus` |
+| 4 | `character_inventory_slots_bonus` |
+| 5 | `character_item_drop_distance_bonus` |
+| 6 | `character_item_pickup_distance_bonus` |
+| 7 | `character_loot_pickup_distance_bonus` |
+| 8 | `character_mining_speed_modifier` |
+| 9 | `character_reach_distance_bonus` |
+| 10 | `character_resource_reach_distance_bonus` |
+| 11 | `character_maximum_following_robot_count_bonus` |
+| 12 | `character_running_speed_modifier` |
+
+### 要点
+
+- 多来源叠加：天赋加 0.3 + RPG 加 0.2 → 最终 0.5 刷写到角色
+- 类别（category）字符串由调用方自定，如 `'tianfu'`、`'rpg'`、`'buff'`
+- `update_player_modifiers` 自动在 `on_player_joined_game` / `on_player_respawned` 时触发
+- 库存栏上限保护：`rpg_inventory_slot_limit = 320`（防止超大背包卡服）
+
 ## 审查清单
 
 编写或修改持久化数据代码时，对照检查：
 
 - [ ] 是否使用了 Global.register 三步曲（`local this = {}` → `Global.register` → `Public.get()`）
+- [ ] 初始字段是否内嵌在 this/注册表里（回调只在 on_load 触发，on_init 不执行）
 - [ ] on_init 中是否调用了 `reset_table()` 初始化所有字段
 - [ ] 副本模块数据是否存在 `data.module_data` 中（而非主表）
 - [ ] 闭包是否通过 Token.register 持久化（而非直接存入 storage）

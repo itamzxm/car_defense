@@ -26,7 +26,8 @@ end
 
 -- on_tick 钩子：每 30 秒自动填充火箭进度至 100%（原 main.lua 行 1268-1272）
 local function on_tick(this, tick)
-    if this.silo and this.silo.name == 'rocket-silo' then
+    -- valid 守卫：发射井被摧毁后实体失效，访问 .name 抛 LuaEntity invalid（2026-08-01 稳定性测试发现并修复）
+    if this.silo and this.silo.valid and this.silo.name == 'rocket-silo' then
         this.silo.rocket_parts = 100
     end
 end

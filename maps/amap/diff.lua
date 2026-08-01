@@ -799,14 +799,17 @@ local function changer_color()
 end
 
 
+-- ⚠️ 勿动此函数！彩名加入提示按 commit a2a47d3 原样还原：
+-- 曾重构为 locale 拆行导致提示变白字 / unknown key，修复即还原为单行彩虹，保持原样。
 local function on_player_joined_game(event)
   local player = game.players[event.player_index]
   for k,v in pairs(map.record) do
     if  player.name==v.name then
       map.color[#map.color+1]=player
-      text=player.name .. ' ' .. map.record[player.name] .. ' '
-      game.print(rainbow_text(text) .. rainbow_text({'amap.itam_join_message'}))
-      game.print(rainbow_text('super player ' .. player.name .. " join the game"))
+      text=player.name .. ' ' .. map.record[player.name] .. ' 加入了游戏，你可以输入/itam，多选择1个天赋'
+      eng_text='super player ' .. player.name .. " join the game"
+      game.print(rainbow_text(text))
+      game.print(rainbow_text(eng_text))
     end
   end
   changer_color()

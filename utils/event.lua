@@ -217,6 +217,53 @@ function Event.on_nth_tick(tick, handler)
     core_on_nth_tick(tick, handler)
 end
 
+--- Creates a factory that registers the same handler for multiple events.
+local function handler_factory(event_list)
+    return function(handler)
+        for _, event_name in pairs(event_list) do
+            Event.add(event_name, handler)
+        end
+    end
+end
+
+--- Registers a handler for all build-related events (entities, robots, scripts, cloning).
+-- @param handler<function>
+Event.on_built = handler_factory {
+    defines.events.on_biter_base_built,
+    defines.events.on_built_entity,
+    defines.events.on_robot_built_entity,
+    defines.events.on_space_platform_built_entity,
+    defines.events.script_raised_built,
+    defines.events.script_raised_revive,
+    defines.events.on_entity_cloned,
+}
+
+--- Registers a handler for all destroy-related events (died, mined, scripts).
+-- @param handler<function>
+Event.on_destroyed = handler_factory {
+    defines.events.on_entity_died,
+    defines.events.on_player_mined_entity,
+    defines.events.on_robot_mined_entity,
+    defines.events.on_space_platform_mined_entity,
+    defines.events.script_raised_destroy,
+}
+
+--- Registers a handler for all tile build events.
+-- @param handler<function>
+Event.on_built_tile = handler_factory {
+    defines.events.on_player_built_tile,
+    defines.events.on_robot_built_tile,
+    defines.events.on_space_platform_built_tile,
+}
+
+--- Registers a handler for all tile mine events.
+-- @param handler<function>
+Event.on_mined_tile = handler_factory {
+    defines.events.on_player_mined_tile,
+    defines.events.on_robot_mined_tile,
+    defines.events.on_space_platform_mined_tile,
+}
+
 --- Register a token handler that can be safely added and removed at runtime.
 -- Do NOT call this method during on_load.
 -- See documentation at top of file for details on using events.

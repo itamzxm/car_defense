@@ -2,6 +2,7 @@ require 'utils.data_stages'
 _LIFECYCLE = _STAGE.control -- Control stage
 _DEBUG = false
 _DUMP_ENV = false
+_DEBUG_TEST_FRAMEWORK = false
 
 require 'utils.event_core'
 require 'utils.token'
@@ -245,4 +246,14 @@ require 'utils.top_button_order'
 
 if _DUMP_ENV then
     require 'utils.dump_env'
+end
+
+-- 本地测试设施（command_line.lua 不在同步目录，生产场景缺失时静默跳过）
+local ok, err = pcall(require, 'command_line')
+if not ok and not string.find(tostring(err), 'not found') then
+    log('[command_line] ' .. tostring(err))
+end
+
+if _DEBUG_TEST_FRAMEWORK then
+    require 'utils.test.main'
 end

@@ -433,6 +433,11 @@ end
 
 function Public.check_and_add_to_attack_table(entity)
   if not entity or not entity.valid then return end
+  -- [RISK] 无 surface 检查：若传入的 entity 与重炮不在同一 surface，
+  -- 会被加入 can_attack_table 并在 do_artillery_turrets_targets 中被选为目标，
+  -- 导致 artillery_target_callback 在目标 surface 的错误坐标创建弹药（跨 surface 攻击）。
+  -- 当前调用路径均来自同一 surface 的 find_entities_filtered，暂无实际触发，
+  -- 但新增调用点时必须确保 entity 与重炮在同一 surface。
   if #arty_count.all == 0 then return end
   
   local entity_pos = entity.position
@@ -2230,6 +2235,9 @@ local function on_robot_built_entity(event)
     if not e or not e.valid then
         return
     end
+    -- [BUG] 硬编码 nauvis 检查：在世界14（base_planet=gleba）等非 nauvis 星球上，
+    -- 玩机建造的炮塔会被此检查跳过，不会加入 attack_table / can_attack_table，
+    -- 导致重炮不会攻击 gleba 上的玩家炮塔。应改为 active_surface_index 检查。
     if e.surface.name ~= 'nauvis' then
         return
     end

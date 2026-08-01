@@ -227,6 +227,49 @@ end)
 GuiDispatcher.register_click(GUI_MY_BTN, function(event) ... end)
 ```
 
+## 7.5 Lua 作用域陷阱（易错，2026-08-01 实测记录）
+
+### 陷阱 1：`local x` 前置声明 + 后文 `local x = ...` 会**新声明遮蔽**
+
+```lua
+local process_queue  -- 前置声明（供上方函数引用）
+
+function Public.enqueue(...)
+    Task.set_timeout_in_ticks(1, process_queue)  -- 引用前置的 local —— 永远 nil！
+end
+
+-- ⚠ 带 local 的赋值 = 新声明（作用域更靠后），遮蔽前置声明；
+--    前置的 process_queue 从未被赋值，始终是 nil
+local process_queue = Token.register(function() ... end)
+```
+
+- **症状**：运行时 Task 调度到 nil → `task.lua:96 attempt to call a nil value`（Token.get(nil) 返回 nil）
+- **正确**：后文赋值**去掉 local**，就是给前置声明赋值：
+  ```lua
+  process_queue = Token.register(function() ... end)
+  ```
+
+### 陷阱 2：函数定义在 local 声明**之前**引用该名 = 全局 nil
+
+```lua
+-- local process_queue 声明在文件后部（第 60 行）
+-- 第 20 行定义的 enqueue 函数体引用 process_queue：
+--   Lua 词法作用域 → local 从声明点才生效 → 解析为全局变量（nil），不是 upvalue！
+function Public.enqueue(...)
+    Task.set_timeout_in_ticks(1, process_queue)  -- nil（全局，非上方的 local）
+end
+local process_queue = Token.register(function() ... end)
+```
+
+- **正确**：前置声明 `local process_queue` 提到所有引用它的函数**定义之前**，后文赋值去 local
+- **通用检查**：函数体引用的模块级名，若其 local 声明在函数定义之后，必然踩坑——把声明提前
+
+### 陷阱 3：`Token.get(token)` 返回 nil 的排查方向
+
+`task.lua:96 attempt to call a nil value`（Task 回调）时，先查调用处传的 token：
+- 传的是**nil**（陷阱 1/2 的 local 遮蔽或词法作用域）——最常见
+- token 对应的 `Token.register` 未执行（register 在运行时被调会直接抛错，不属于此类）
+
 ## 8. 性能模式
 
 ### 倒排索引替代全扫描
@@ -292,5 +335,7 @@ end
 - [ ] 文件编码是否为 UTF-8（修改已有文件时是否保持原编码）
 - [ ] 是否用 `edit` 工具修改含中文文件（而非 PowerShell Set-Content）
 - [ ] 是否掩盖了错误（过度 pcall / 默认值兜底）
+- [ ] 前置声明的 local 是否被后文 `local x = ...` 重复声明遮蔽（陷阱 1）
+- [ ] 函数体引用的模块级名，其 local 声明是否在函数定义**之前**（陷阱 2）
 - [ ] 高频遍历是否可用倒排索引 / tick 分桶优化
 - [ ] 副本事件是否做了 surface 隔离

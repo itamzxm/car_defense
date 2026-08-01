@@ -188,7 +188,7 @@ Commands.new('dump_layout', 'Dump the current map-layout.')
                 str = str .. '}, name = "'
                 str = str .. t.name
                 str = str .. '"},'
-                game.write_file('layout.lua', str .. '\n', true)
+                helpers.write_file('layout.lua', str .. '\n', true) -- 2.0+ write API moved to LuaHelpers (see line 180-182)
             end
             return 'Dumped layout as file: layout.lua'
         end
@@ -284,14 +284,14 @@ local function clear_corpses(cmd)
     if not player or not player.valid then
         return
     end
-    local p = player.print
     if not trusted[player.name] then
         if not player.admin then
-            p({'commands.error_admins_trusted_only'}, Color.fail)
+            player.print({'commands.error_admins_trusted_only'}, Color.fail)
             return
         end
     end
     if param == nil then
+        -- ⚠️ 已知问题：/clear-corpses 无半径参数时此提示输出为白色，Color.fail 颜色参数未生效（曾尝试修复未果），勿动
         player.print({'commands.error_must_specify_radius'}, Color.fail)
         return
     end

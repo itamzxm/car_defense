@@ -86,8 +86,6 @@ end
 
 -- 旧顶栏按钮迁移已统一归档至 utils/legacy_gui_cleanup.lua
 -- 【过时标记】待兼容工作完毕后移除 LegacyCleanup 引用
-local LEGACY_TOP_NAMES = LegacyCleanup.LEGACY_TOP_NAMES
-
 local migrate_buttons_to_flow = LegacyCleanup.migrate_top_buttons
 
 local function resize_buttons(player)

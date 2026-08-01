@@ -3,6 +3,8 @@
 
 local Public = {}
 
+local ErrorLogging = require 'utils.error_logging'
+
 local init_event_name = -1
 local load_event_name = -2
 local configuration_changed_name = -3
@@ -28,10 +30,6 @@ local script_on_event = script.on_event
 local script_on_nth_tick = script.on_nth_tick
 local script_on_configuration_changed = script.on_configuration_changed
 
-local function handler_error(err)
-    log('\n\t' .. trace(err))
-end
-
 --[[ 诊断钩子（排查 roboport 蓝图崩溃用，可安全还原）
      任何 event handler 抛错时，额外打印 [AMAP-DIAG] + 出错 handler 的 文件:行号，
      便于复现崩溃时精确定位。正常路径不受影响。--]]
@@ -50,7 +48,9 @@ local function call_handlers(handlers, event)
                 src = src .. ':' .. info.linedefined
             end
             local function diag_handler(err)
-                log('\n[AMAP-DIAG] event handler crashed -> ' .. src .. '\n' .. trace(err))
+                local msg = '\n[AMAP-DIAG] event handler crashed -> ' .. src .. '\n' .. trace(err)
+                log(msg)
+                ErrorLogging.generate_error_report(msg)
             end
             xpcall(h, diag_handler, event)
         end
@@ -182,6 +182,11 @@ end
 
 function Public.get_event_handlers()
     return event_handlers
+end
+
+--- Dispatches a synthetic event through the registered handlers (used by the test framework EventFactory).
+function Public.on_event(event)
+    on_event(event)
 end
 
 function Public.get_on_nth_tick_event_handlers()

@@ -13,7 +13,9 @@ local Global = require 'utils.global'
 local floor = math.floor
 local log10 = math.log10
 local Token_get = Token.get
-local pcall = pcall
+local xpcall = xpcall
+local trace = debug.traceback
+local log = log
 local Queue_peek = Queue.peek
 local Queue_pop = Queue.pop
 local Queue_push = Queue.push
@@ -68,7 +70,7 @@ local function on_tick()
         local task = Queue_peek(task_queue)
         if task ~= nil then
             -- result is error if not success else result is a boolean for if the task should stay in the queue.
-            local success, result = pcall(Token_get(task.func_token), task.params)
+            local success, result = xpcall(Token_get(task.func_token), trace, task.params)
             if not success then
                 if _DEBUG then
                     error(result)
@@ -86,12 +88,12 @@ local function on_tick()
 
     local callback = PriorityQueue_peek(callbacks)
     while callback ~= nil and tick >= callback.time do
-        local success, result = pcall(Token_get(callback.func_token), callback.params)
+        local success, result = xpcall(Token_get(callback.func_token), trace, callback.params)
         if not success then
             if _DEBUG then
-                --error(result)
+                error(result)
             else
-                --log(result)
+                log(result)
             end
         end
         PriorityQueue_pop(callbacks)

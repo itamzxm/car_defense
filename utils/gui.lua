@@ -1,6 +1,21 @@
+--[[
+utils/gui.lua — GUI 数据绑定层与通用工具
+
+职责边界（新代码请严格遵循）：
+  1. 本文件仅负责元素数据绑定（Gui.set_data / Gui.get_data）与通用工具
+     （Gui.destroy / Gui.clear / Gui.add_main_frame_with_toolbar 等）。
+  2. GUI 事件一律通过 utils.gui_dispatcher 的 GuiDispatcher.register_* 注册，
+     禁止在本文件元素上使用 Event.add(on_gui_click) 等旧式写法。
+  3. 顶栏按钮一律通过 utils.top_bar 的 TopBar.add_button 管理（顺序由
+     utils.top_button_order 统一控制），禁止直接操作 mod_gui button_flow。
+  4. 热更/存档兼容重建通过 utils.gui_rebuild 的 GuiRebuild.register 注册。
+  5. 颜色/样式引用 maps/amap/gui_styles.lua 的集中定义，禁止内联 RGB。
+  6. Gui.uid_name / Gui.uid 已无外部调用方，保留仅为本文件内部及兼容所用，
+     新代码不得再使用随机元素名，统一使用固定字符串 + GuiDispatcher。
+]]
 local Token = require 'utils.token'
-local Event = require 'utils.event'
 local Global = require 'utils.global'
+local ActiveInterval = require 'utils.active_interval'
 local mod_gui = require('__core__/lualib/mod-gui')
 
 local tostring = tostring
@@ -11,6 +26,9 @@ local Gui = {}
 local data = {}
 local element_map = {}
 local settings = {}
+
+-- 无效数据清理周期任务（示范：有数据才启用，无数据自动注销，避免常驻空转）
+local interval_handle
 
 Gui.token =
     Global.register(
@@ -57,6 +75,7 @@ function Gui.set_data(element, value)
         end
 
         values[element.index] = value
+        interval_handle.enable()
     end
 end
 local set_data = Gui.set_data
@@ -146,11 +165,21 @@ local function clear_invalid_data()
             end
         end
     end
+
+    if not next(data) then
+        interval_handle.disable()
+    end
 end
-Event.on_nth_tick(300, clear_invalid_data)
+
+interval_handle = ActiveInterval.create(300, clear_invalid_data)
 
 function Gui.set_disable_clear_invalid_data(value)
     settings.disable_clear_invalid_data = value or false
+    if value then
+        interval_handle.disable()
+    elseif next(data) then
+        interval_handle.enable()
+    end
 end
 
 function Gui.get_disable_clear_invalid_data()
@@ -165,7 +194,12 @@ if _DEBUG then
 
     function Gui.uid_name()
         local info = debug.getinfo(2, 'Sl')
-        local filepath = info.source:match('^.+/currently%-playing/(.+)$'):sub(1, -5)
+        local filepath = info.source:match('^.+__level__/(.+)$')
+        if filepath then
+            filepath = filepath:sub(1, -5)
+        else
+            filepath = info.source
+        end
         local line = info.currentline
 
         local token = tostring(Token.uid())

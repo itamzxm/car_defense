@@ -716,14 +716,12 @@ function Public.export_stats()
         rockets_launched = {},
         force_flow_statistics = {}
     }
-    
-    -- 添加pollution_statistics兼容性检查
-    if game.pollution_statistics then
-        stats.game_flow_statistics.pollution_statistics = {
-            input = game.pollution_statistics.input_counts,
-            output = game.pollution_statistics.output_counts
-        }
-    end
+    -- pollution statistics（Factorio 2.0 起为 get_pollution_statistics() 方法）
+    local pollution = game.get_pollution_statistics()
+    stats.game_flow_statistics.pollution_statistics = {
+        input = pollution.input_counts,
+        output = pollution.output_counts
+    }
     for _, force in pairs(game.forces) do
         local flow_statistics = {}
         for _, statName in pairs(statistics) do

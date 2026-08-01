@@ -196,6 +196,31 @@ Event.add(defines.events.on_entity_died, handler)
 - **元素名常量**：局部常量（非内联字符串），格式 `dungeon_<缩写>_<功能>`
 - **旧 GUI 清理**：`utils/legacy_gui_cleanup.lua` 归档旧元素名（过时标记，待移除）
 
+### 8. 底层工具规范（Queue/Buckets/StateMachine/ErrorLogging + 业务工具层）
+
+> 详见 [global-data-guide](.agents/skills/global-data-guide/SKILL.md) 及 [utils-toolbox-guide](.agents/skills/utils-toolbox-guide/SKILL.md)
+
+- **Queue（`utils/queue.lua`）**：环形队列，适合波次刷怪/事件序列。`Queue.new()` → `push`（尾部）/ `pop`（头部，空返 nil）/ `peek` / `size` / `pairs`；**纯表结构可直接存入 storage 持久化**（无闭包）
+- **Buckets（`utils/buckets.lua`）**：tick 分桶调度规范实现。`Buckets.new(interval)` → `add(bucket, id, data)` / `get` / `remove` / `reallocate` / `migrate`；到期任务放对应 tick 桶，on_tick 只查当前桶；**所有延迟/周期调度优先用 Buckets 而非手写 bucket 表**
+- **StateMachine（`utils/state_machine.lua`）**：有限状态机。`StateMachine.new(init_state)` → `transition(state)` / `in_state(state)` / `machine_tick()`（每 tick 驱动）+ `register_state_tick_callback(state, fn)` / `register_transition_callback(old, new, fn)`；适合 Boss AI / 波次阶段机
+- **ErrorLogging（`utils/error_logging.lua`）**：错误归档。`generate_error_report(str)` 生成报告、`error_handler(err)` 统一错误处理；写入 `script-output/car_defense_errors.log`；**handler 崩溃由事件系统诊断钩子自动归档，不得自行 pcall 掩盖**
+- **ScoreTracker（`utils/score_tracker.lua`）**：登记制统计框架。`register(name, locale, icon)` 加载期登记 → `change_for_player/change_for_global` 增减 → `set_for_player/set_for_global` 赋值 → `get_for_player/get_for_global` 读取；变更触发自定义事件；**杜绝拼错键名静默创建新统计**
+- **ActiveInterval（`utils/active_interval.lua`）**：按需启停周期任务。`create(interval, func)` 加载期创建句柄 → `handle.enable()/disable()/is_active()` 运行时启停；**替代常驻 on_nth_tick 空扫描**
+- **TemporaryModifiers（`utils/temporary_modifiers.lua`）**：Force modifier 临时加成。`apply(force, method, kind, bonus, duration_ticks)` 临时加 bonus，到期差值还原（不覆盖他人改动）
+- **PlayerModifiers（`utils/player_modifiers.lua`）**：玩家 modifier 多来源叠加管理。`update_single_modifier(player, modifier, category, value)` 按类别叠加 → `update_player_modifiers(player)` 统一刷写到角色
+- **Alert（`utils/alert.lua`）**：带进度条可关闭弹窗通知。`alert_player/alert_force/alert_all_players` 支持 locale 模板、音效、位置跳转
+- **PriorityQueue / TerrainGenerator / ColorPresets / Timers / Timestamp / ListUtils / Stats / Profiler / SpamProtection**：详见 [utils-toolbox-guide](.agents/skills/utils-toolbox-guide/SKILL.md)
+
+---
+
+## 底层冻结宣言
+
+> 2026-08-01 底层基建终极维护，完成后，以下核心底层进入冻结状态：**新增/修改需说明原因 + 目标值 + 依据，并经协作者/创作者确认。**
+
+- **冻结对象**：`utils/` 下的基建工具（queue / buckets / state_machine / error_logging / global / token / event_core / event / gui_dispatcher / top_bar / gui_rebuild 等）与 `control.lua` 的模块加载结构
+- **禁止**：绕过确认直接改底层、另起炉灶重写（如手写新队列替代 Queue、手写桶替代 Buckets、新事件分发替代 GuiDispatcher）
+- **业务层**（`maps/amap`、`modules`）不受冻结限制，按常规规范开发
+
 ---
 
 ## 天赋 4 池分类速查
@@ -235,14 +260,30 @@ local COEFF_REG = {1, 1.2, 1.4, 1.6, 1.8}
 
 ## 离线测试方法
 
-本地装有 Steam Factorio，无需进游戏即可验证代码加载和纯逻辑。
+本地装有 Steam Factorio，无需进游戏即可验证代码加载和纯逻辑。多人协作环境差异大，**开测前必须先做环境自检**。
+
+### 开测前环境自检（必做）
+
+> 目的：确认「被测场景」就是「项目根」，避免测到旧副本（现象：改了代码但日志 `Checksum for script` 不变）
+
+1. **询问用户游戏目录**（不要假设路径，如 Steam 版可能在 `C:/Program Files (x86)/Steam/...`，用户本机实测为 `E:\Game\Factorio`），并定位 `factorio.exe`（`<游戏根>/bin/x64/factorio.exe`）
+2. **检查本项目场景在哪**：`<游戏根>/scenarios/` 下找项目目录，可能同时存在：
+   - 符号链接（推荐，实时指向项目根）——正确被测对象
+   - 旧副本目录（普通文件夹，改代码不生效）——**不要用**
+3. **确认符号链接指向项目根**（PowerShell）：
+   ```powershell
+   Get-Item "<游戏根>\scenarios\<场景目录名>" | Select-Object Name,LinkType,Target
+   # LinkType=SymbolicLink 且 Target=项目根 = 正确
+   ```
+4. **场景加载名 = 场景目录名**（如符号链接名 `car_defense`），不是项目显示名（旧副本名「坦克保卫战」是坑）
+5. **验证加载的是当前代码**：改过代码后日志 `Checksum for script __level__/control.lua` 必须变化；不变 = 加载了旧副本
 
 ### 无头加载测试（验证能否加载）
 
 ```powershell
-# 在 %APPDATA%/Factorio 下执行
-& "C:/Program Files (x86)/Steam/steamapps/common/Factorio/bin/x64/factorio.exe" `
-    --start-server-load-scenario 坦克保卫战 --no-log-rotation
+# 用自检得到的 <factorio.exe 路径> 与 <场景名>
+& "<factorio.exe 路径>" `
+    --start-server-load-scenario <场景名> --no-log-rotation
 ```
 
 日志到 `Hosting game` / `InGame` 且无 `Error` / Lua 报错 = 全部通过。
@@ -250,14 +291,25 @@ local COEFF_REG = {1, 1.2, 1.4, 1.6, 1.8}
 ### RCON 命令执行测试（在真运行时跑逻辑）
 
 ```powershell
-# 步骤 1：起服务器
-& "C:/Program Files (x86)/Steam/steamapps/common/Factorio/bin/x64/factorio.exe" `
-    --start-server-load-scenario 坦克保卫战 `
-    --rcon-port 27015 --rcon-password testpw --no-log-rotation
+# 步骤 1：起服务器（⚠ 必须带 --server-settings：默认 auto_pause=true，无玩家时模拟暂停，每次 RCON 命令只触发 1 tick，任务逻辑测不准）
+& "<factorio.exe 路径>" `
+    --start-server-load-scenario <场景名> `
+    --server-settings "<游戏根>\scenarios\test-server-settings.json" `
+    --rcon-port 27015 --rcon-password 123 --no-log-rotation
 
 # 步骤 2：进 InGame（~12s）后执行测试
-python rcon_driver.py "_TEST.run_all()"
+python rcon_driver.py "/c _TEST.run_all()" 127.0.0.1 27015 123
 ```
+
+### 测试框架（断言级单元测试）
+
+- **开关**：`control.lua` 顶部 `_DEBUG_TEST_FRAMEWORK = false`（默认关闭，测试时临时改 true 后还原）
+- **测试文件**：`utils/test/`（runner / viewer / command / discovery）+ `utils/*_tests.lua`（如 queue_tests、event_tests）
+- **跑法**：
+  - 无玩家（RCON）：`python rcon_driver.py "/c _TEST.run_test_framework()" 127.0.0.1 27015 123`
+  - 有玩家（游戏内）：`/test-runner` 命令打开测试 GUI
+- **结果**：无玩家时 Passed/Failed + summary 写日志；有玩家时 GUI 展示
+- **调用约定**：`run_module(module, player, options)` 无 self，pcall 传参不能带模块表
 
 ### 关键约束
 
@@ -265,6 +317,8 @@ python rcon_driver.py "_TEST.run_all()"
 - **RCON 执行 Lua 必须带 `/c` 前缀**
 - **用 `log()` 而非 `print()`**：print() 在无头模式不写日志
 - **RCON 响应分多包到达**：客户端需持续 drain
+- **Factorio RCON 包体后需 2 个 null 字节**（标准实现只发 1 个会认证失败 id=-1）
+- **无玩家时 tick 暂停**：`--server-settings` 的 `auto_pause: false` 是 RCON 逻辑测试的前提
 
 ### 能力边界
 
@@ -324,13 +378,14 @@ python rcon_driver.py "_TEST.run_all()"
 | [lua-coding-style](.agents/skills/lua-coding-style/SKILL.md) | Lua 编码风格（模块导出、命名、require、缓存、编码） |
 | [event-system-guide](.agents/skills/event-system-guide/SKILL.md) | 事件系统（filters 禁令、self-filter、生命周期、诊断） |
 | [core-constraints-guide](.agents/skills/core-constraints-guide/SKILL.md) | 核心约束速查（错误不可掩盖、数值依据、求助阈值等） |
-| [global-data-guide](.agents/skills/global-data-guide/SKILL.md) | 全局数据持久化（Global.register、Token、倒排索引、tick分桶） |
+| [global-data-guide](.agents/skills/global-data-guide/SKILL.md) | 全局数据持久化（Global.register、Token、倒排索引、tick分桶、ScoreTracker、ActiveInterval、TemporaryModifiers、PlayerModifiers） |
+| [utils-toolbox-guide](.agents/skills/utils-toolbox-guide/SKILL.md) | 工具箱速查（PriorityQueue、TerrainGenerator、ColorPresets、Timers、Timestamp、ListUtils、Stats、Profiler、SpamProtection） |
 | [world-addition-guide](.agents/skills/world-addition-guide/SKILL.md) | 新世界添加（World.register、地形生成器、locale） |
 | [instance-addition-guide](.agents/skills/instance-addition-guide/SKILL.md) | 新副本添加（自注册、钩子函数、难度设计、道具系统） |
 | [talent-addition-guide](.agents/skills/talent-addition-guide/SKILL.md) | 新天赋添加（4池分类、魔法伤害、品质系数、黑名单） |
 | [difficulty-design-guide](.agents/skills/difficulty-design-guide/SKILL.md) | 难度设计（2~3条参数改动、首选/禁止维度、梯度分析） |
 | [magic-damage-guide](.agents/skills/magic-damage-guide/SKILL.md) | 魔法伤害计算（科技加成、品质系数、24米上限） |
-| [gui-development-guide](.agents/skills/gui-development-guide/SKILL.md) | GUI 开发（GuiDispatcher 派发、TopBar 顶栏、GuiRebuild 热更、元素名常量、颜色样式） |
+| [gui-development-guide](.agents/skills/gui-development-guide/SKILL.md) | GUI 开发（GuiDispatcher 派发、TopBar 顶栏、GuiRebuild 热更、Alert 弹窗通知、元素名常量、颜色样式） |
 | [locale-i18n-guide](.agents/skills/locale-i18n-guide/SKILL.md) | 本地化（键名格式、中英同步、参数占位、Rich text） |
 | [offline-testing-guide](.agents/skills/offline-testing-guide/SKILL.md) | 离线测试（无头加载、RCON、能力边界） |
 

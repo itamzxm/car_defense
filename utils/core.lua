@@ -317,7 +317,7 @@ function Public.log_command(actor, command, parameters)
     if parameters then
         action = concat {action, ' ', parameters}
     end
-    print(action)
+    log(action)
 end
 
 function Public.comma_value(n) -- credit http://richard.warburton.it
@@ -353,14 +353,22 @@ function Public.set_and_return(tbl, key, value)
     return value
 end
 
---- Takes msg and prints it to all players. Also prints to the log and discord
--- @param msg <string> The message to print
+--- Takes msg and prints it to all players. Also prints to the log and discord.
+-- Supports both plain strings and LocalisedString tables.
+-- @param msg <string|table> The message to print
 -- @param warning_prefixes <string> The name of the module/warning
 function Public.action_warning(warning_prefixes, msg)
-    game.print(prefix .. msg, Color.yellow)
-    msg = format('%s %s', warning_prefixes, msg)
-    print(msg)
-    Server.to_discord_bold(msg)
+    local msg_text
+    if type(msg) == 'table' then
+        game.print({warning_prefixes, msg}, Color.yellow)
+        msg_text = serpent.line(msg)
+    else
+        game.print(prefix .. msg, Color.yellow)
+        msg_text = msg
+    end
+    msg_text = format('%s %s', warning_prefixes, msg_text)
+    print(msg_text)
+    Server.to_discord_bold(msg_text)
 end
 
 --- Takes msg and prints it to all players. Also prints to the log and discord

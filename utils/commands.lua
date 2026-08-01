@@ -345,6 +345,7 @@ local function execute(event)
     end
 
     -- Run the command callback if everything is validated
+    Core.log_command(player.name, command_data.name, event.parameter)
     handled_parameters[#handled_parameters + 1] = input_text
     local callback = Task.get(command_data.callback)
     local success, err = pcall(callback, player, unpack(handled_parameters))

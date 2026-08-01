@@ -21,3 +21,7 @@
 
 # 跟踪本范围约束文件本身（它是限定范围生效的关键）
 !.gitignore
+
+# 静态检查 / 编辑器格式配置
+!.luacheckrc
+!.editorconfig

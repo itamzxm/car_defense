@@ -464,6 +464,47 @@ LegacyCleanup.migrate_top_buttons(player)   -- 旧 player.gui.top 按钮迁移�
 | `player.gui.top.add(...)` | `TopBar.add_button(player, ...)` |
 | `utils/gui/*` 目录 | `comfy_panel/*` |
 
+## 9. 弹窗通知系统（Alert）
+
+> 带进度条的可关闭弹窗通知，支持玩家/势力/全服消息，带音效和位置跳转。
+
+```lua
+local Alert = require 'utils.alert'
+
+-- 简单玩家通知（duration 秒，message 文本，color RGB，sprite 可选）
+Alert.alert_player(player, 5, 'Boss 已刷新！', {r = 1, g = 0.5, b = 0})
+
+-- 玩家警告（红色高亮）
+Alert.alert_player_warning(player, 3, '血量低于 20%！', {r = 1, g = 0, b = 0})
+
+-- 势力通知
+Alert.alert_force(game.forces.player, 5, '世界切换！')
+
+-- 全服通知
+Alert.alert_all_players(5, '服务器将在 1 分钟后重启', {r = 1, g = 1, b = 0})
+
+-- 全服位置跳转通知（点击可跳转到目标位置）
+Alert.alert_all_players_location(target_player, 'Boss 出现！', {r = 1, g = 0, b = 0}, 10)
+
+-- 模板方式（locale 键 + 参数）
+Alert.alert_player_template(player, 5, {'amap.boss_alert', boss_name})
+Alert.alert_force_template(force, 5, {'amap.wave_incoming', wave_number})
+Alert.alert_all_players_template(5, {'amap.server_restart'})
+
+-- 手动关闭（给元素设置 close_alert_name，点击时自动关闭）
+local btn = frame.add({type = 'button', name = Alert.close_alert_name, caption = '关闭'})
+-- 或代码关闭：Alert.close_alert(element)
+```
+
+### 要点
+
+- `duration` 为秒数（非 tick），弹窗到时自动消失
+- 进度条由内部 `on_nth_tick` 驱动更新，无需外部维护
+- `alert_all_players_location` 会在弹窗中嵌入 GPS 链接，点击可跳转
+- `close_alert_name` 常量可用于自定义关闭按钮元素名
+- 持久化：`active_alerts` + `id_counter` 通过 Global.register 持久化，存档后弹窗状态保留
+- 管理命令：`/notify-all-players`、`/notify-player`（管理员专用）
+
 ## 审查清单
 
 编写或修改 GUI 代码时，对照检查：

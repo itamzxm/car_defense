@@ -265,6 +265,9 @@ local time_skills = {
         name = yanfayanjiuzhongxin,
         time = 60 * 30  -- 30秒冷却
     },
+    -- TODO: 魔力之泉触发间隔过长，需修复
+    -- 描述"受伤时正常回蓝×2倍"，但当前 60秒才触发一次，60秒内加魔力量仅为正常回蓝(每30tick)的 1/120
+    -- 修复方案：改为与正常回蓝同频(30 tick)，或在 regen_mana_player 中检测该天赋直接放行战斗中回蓝并乘品质系数
     ['mlzq'] = {
         name = mlzq,
         time = 60 * 60

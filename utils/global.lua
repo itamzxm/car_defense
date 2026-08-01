@@ -29,7 +29,8 @@ function Global.register(tbl, callback)
     end
 
     local source = debug.getinfo(2, 'S').source
-    local filepath = source:match('^.+/currently%-playing/(.+)$') or source:match('^.+scenarios/坦克保卫战/(.+)$')
+    -- Factorio 场景脚本的 source 恒为 @__level__/xxx.lua 形式；不再硬编码部署目录名
+    local filepath = source:match('^.+__level__/(.+)$')
     if filepath then
         filepath = filepath:sub(1, -5)
     else
@@ -67,7 +68,8 @@ function Global.register_init(tbl, init_handler, callback)
     end
 
     local source = debug.getinfo(2, 'S').source
-    local filepath = source:match('^.+/currently%-playing/(.+)$') or source:match('^.+scenarios/坦克保卫战/(.+)$')
+    -- Factorio 场景脚本的 source 恒为 @__level__/xxx.lua 形式；不再硬编码部署目录名
+    local filepath = source:match('^.+__level__/(.+)$')
     if filepath then
         filepath = filepath:sub(1, -5)
     else
