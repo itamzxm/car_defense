@@ -65,7 +65,7 @@ local function update_gui(player)
         create_gui(player)
     end
     local gui = player.gui.top.wave_defense
-    local biter_health_boost = 1
+    local biter_health_boost = WD.get('biter_health_boost') or 1
 
     local wave_number = WD.get('wave_number')
     local next_wave = WD.get('next_wave')
@@ -73,6 +73,13 @@ local function update_gui(player)
     local max_active_biters = WD.get('max_active_biters')
     local threat = WD.get('threat') or 0
     local enable_threat_log = WD.get('enable_threat_log')
+
+    local enemy = game.forces.enemy
+    local melee_mod = enemy.get_ammo_damage_modifier('melee')
+    local bullet_mod = enemy.get_ammo_damage_modifier('bullet')
+    local beam_mod = enemy.get_ammo_damage_modifier('beam')
+    local laser_mod = enemy.get_ammo_damage_modifier('laser')
+    local electric_mod = enemy.get_ammo_damage_modifier('electric')
 
     -- 确保所有GUI元素都存在且有效
     if not gui.label or not gui.label.valid then return end
@@ -102,13 +109,19 @@ local function update_gui(player)
     gui.progressbar.value = value
 
     gui.threat.caption = {'wave_defense.gui_3'}
-    gui.threat.tooltip = {'wave_defense.tooltip_1', biter_health_boost * 100, max_active_biters}
-    gui.threat_value.caption = math.floor(threat)
-    gui.threat_value.tooltip = {
+    local threat_tooltip = {
         'wave_defense.tooltip_1',
         biter_health_boost * 100,
-        max_active_biters
+        max_active_biters,
+        math.floor(melee_mod * 100 + 0.5),
+        math.floor(bullet_mod * 100 + 0.5),
+        math.floor(beam_mod * 100 + 0.5),
+        math.floor(laser_mod * 100 + 0.5),
+        math.floor(electric_mod * 100 + 0.5),
     }
+    gui.threat.tooltip = threat_tooltip
+    gui.threat_value.caption = math.floor(threat)
+    gui.threat_value.tooltip = threat_tooltip
 
     if wave_number == 0 then
         gui.threat_gains.caption = ''
