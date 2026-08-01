@@ -30,9 +30,9 @@ local tianfu_blacklist = {
     -- ★ 修复（2026-08-01）：以下 3 个是"半吊子禁用"留下的废卡。
     -- 它们已从 tianfu_categories 注释掉（意图禁用），但仍注册在 trigger_skills 表里，
     -- 而 all_skill = time ∪ once ∪ trigger 三表并集 —— 于是「随机」职业玩家依旧能抽到、
-    -- 能学、图标/品质/locale 一应俱全，但 tianfu.lua 里**没有任何调用点**
+    -- 能学、图标/品质/locale 一应俱全，但 tianfu.lua 里没有任何调用点
     -- （已实证：无 tianfu_trigger_skill.<id>( 静态调用、无 Public[var] 动态分发、
-    --   也不在 skill_owners 自建路径的 4 个天赋之列），学了永远不触发 => 白白浪费一次天赋选择。
+    --   也不在 skill_owners 自建路径的 4 个天赋之列），黑名单阻止了玩家学习，因此运行时无人触发。
     -- 同类天赋 wanglingdajun 的正确做法就是"分类注释 + 进黑名单"，这 3 个漏了后半步。
     ['jiantazhe'] = '践踏者',
     ['wuqidashi'] = '武器大师',
@@ -224,7 +224,7 @@ function Public.reset_table()
 
     for k, player in pairs(game.connected_players) do
         local screen = player.gui.screen
-        local frame = screen['选择你的天赋']
+        local frame = screen[TIANFU_SELECT_FRAME]
 
         if frame and frame.valid then
             frame.destroy()
@@ -1261,7 +1261,7 @@ local function on_tianfu_card_click(event)
     if not this.skill_owners then this.skill_owners = {} end
     if not this.skill_owners[skill_name] then this.skill_owners[skill_name] = {} end
     this.skill_owners[skill_name][player.index] = true
-    local tianfu_frame = player.gui.screen['选择你的天赋']
+    local tianfu_frame = player.gui.screen[TIANFU_SELECT_FRAME]
     if tianfu_frame and tianfu_frame.valid then
         tianfu_frame.destroy()
     end

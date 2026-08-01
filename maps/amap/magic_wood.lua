@@ -566,13 +566,17 @@ local function downgrade_legendary_to_normal(entity)
     local position = entity.position
     local force = entity.force
     entity.destroy()
-    surface.create_entity{
+    local new_entity = surface.create_entity{
         name = 'wooden-chest',
         position = position,
         force = force,
         quality = 'normal',
         fast_replace = true,
     }
+    if not new_entity then
+        log('[magic_wood] downgrade_legendary_to_normal: create_entity failed at (' ..
+            position.x .. ',' .. position.y .. ') surface=' .. surface.name)
+    end
 end
 
 Event.add(defines.events.on_built_entity, function(event)

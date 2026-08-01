@@ -8,8 +8,10 @@ local World = require 'maps.amap.world.framework'
 local WPT = require 'maps.amap.table'
 local diff = require 'maps.amap.diff'
 local WD = require 'modules.wave_defense.table'
+local GuiDispatcher = require 'utils.gui_dispatcher'
 -- 注：本模块不 require utils.event —— 事件订阅一律经 World.register 的 events / nth_tick
 -- 声明字段交由 framework.lua 分发（世界模块不得自行注册事件，与世界 1-14 一致）
+-- 例外：GUI 点击事件经 GuiDispatcher.register_click 按元素名注册（AGENTS.md 规范）
 
 local world15 = {}
 
@@ -207,7 +209,7 @@ local function enforce_initial_terrain()
     end
 
     this.world15_terrain_fixed = true
-    game.print("[世界15] 已校正开局地形并清除海面残留陆地/虫子", {r = 0.5, g = 1, b = 0.5})
+    game.print({'amap.world15_terrain_fixed'}, {r = 0.5, g = 1, b = 0.5})
 end
 
 -- 运行期安全网：每 10 秒清除整表面海面上的敌人（Boss 除外）。绝不改地块，保留玩家填海。
@@ -298,13 +300,13 @@ local W15_TESLA_QUALITY_LIMIT = {
     epic      = 6,
     legendary = 4,
 }
--- 品质中文名（自包含，不依赖 base locale 的 quality-name.*）
-local W15_QUALITY_CN = {
-    normal    = '普通',
-    uncommon  = '精良',
-    rare      = '稀有',
-    epic      = '史诗',
-    legendary = '传说',
+-- 品质 locale 键映射（使用 Factorio 内置 locale，自动按语言解析）
+local W15_QUALITY_LOCALE = {
+    normal    = {'quality-name.normal'},
+    uncommon  = {'quality-name.uncommon'},
+    rare      = {'quality-name.rare'},
+    epic      = {'quality-name.epic'},
+    legendary = {'quality-name.legendary'},
 }
 
 -- 统计指定品质的特斯拉炮塔已放置数量（含刚放下的这尊）
@@ -335,7 +337,7 @@ local function world15_enforce_tesla_limit(entity, owner)
     entity.destroy()
     if owner and owner.valid then
         owner.insert({name = 'tesla-turret', count = 1, quality = q})
-        owner.print({'amap.world15_tesla_limit', W15_QUALITY_CN[q] or q, limit},
+        owner.print({'amap.world15_tesla_limit', W15_QUALITY_LOCALE[q] or q, limit},
             {r = 1, g = 0.6, b = 0.2})
     end
 end
@@ -381,7 +383,7 @@ local function world15_enforce_rocket_limit(entity, owner)
     entity.destroy()
     if owner and owner.valid then
         owner.insert({name = 'rocket-turret', count = 1, quality = q})
-        owner.print({'amap.world15_rocket_limit', W15_QUALITY_CN[q] or q, limit},
+        owner.print({'amap.world15_rocket_limit', W15_QUALITY_LOCALE[q] or q, limit},
             {r = 1, g = 0.6, b = 0.2})
     end
 end
@@ -511,7 +513,7 @@ local function command_boss_to_center(boss, center)
     end)
     if not ok_b then
         log('[world15] Boss 指挥失败 A:' .. tostring(err_a) .. ' B:' .. tostring(err_b))
-        game.print('[world15] Boss 指挥失败: ' .. tostring(err_b), {r = 1, g = 0.4, b = 0.4})
+        game.print({'amap.world15_boss_command_failed', tostring(err_b)}, {r = 1, g = 0.4, b = 0.4})
     end
 end
 
@@ -618,7 +620,7 @@ local function spawn_boss(wave_number)
 
     game.print({"amap.world15_boss_spawn", wave_number, math.floor(boss_hp)},
         {r = 1, g = 0.3, b = 0})
-    game.print("Boss 出生通道：" .. table.concat(spawned_channels, "、"), {r = 1, g = 0.6, b = 0})
+    game.print({'amap.world15_boss_channel', table.concat(spawned_channels, ", ")}, {r = 1, g = 0.6, b = 0})
 end
 
 -- 注：Boss 接口（spawn_boss / boss_interval / unlock_progressive_techs）已通过
@@ -728,8 +730,7 @@ local function on_boss_died(event)
         if entity.name == "big-stomper-pentapod" then
             local keys = {}
             for k in pairs(this.world15_bosses) do keys[#keys + 1] = tostring(k) end
-            game.print("[世界15诊断] Boss 死亡但未匹配记录 died_un=" ..
-                tostring(entity.unit_number) .. " 记录键=[" .. table.concat(keys, ",") .. "]",
+            game.print({'amap.world15_boss_diagnostic', tostring(entity.unit_number), table.concat(keys, ",")},
                 {r = 1, g = 0.3, b = 0.3})
         end
         return
@@ -923,16 +924,15 @@ local DISABLED_TECHNOLOGIES_LIST = {
 -- 世界 15 开局不解锁这些科技，而是随波次推进自动研究，全部在 1000 波前完成。
 -- 其余被禁用科技（永久升级类）保持锁定，直到 1000 波后才分阶段开放。
 local WEAPON_DAMAGE_CATEGORIES = {
-    {id = "physical-projectile-damage", cn = "物理弹道伤害"},  -- 机枪 / 子弹伤害
-    {id = "stronger-explosives",        cn = "爆炸伤害"},       -- 火箭 / 爆破伤害
-    {id = "refined-flammables",         cn = "火焰伤害"},        -- 火焰伤害（备用）
-    {id = "energy-weapons-damage",      cn = "电力武器伤害"},   -- 电力 / 特斯拉能量伤害
-    {id = "laser-weapons-damage",       cn = "激光武器伤害"},   -- 激光武器专属伤害（独立于 energy-weapons-damage）
-    -- 射速类：通用武器射速 + 炮台专属射速科技（机枪炮塔 / 激光炮塔）
-    {id = "weapon-shooting-speed",      cn = "武器射速"},        -- 通用射击速度
-    {id = "gun-turret-speed",           cn = "机枪炮塔射速"},
-    {id = "laser-turret-speed",         cn = "激光炮塔射速"},
-    {id = "laser-shooting-speed",       cn = "激光武器射速"},
+    {id = "physical-projectile-damage", cn = {'technology-name.physical-projectile-damage'}},
+    {id = "stronger-explosives",        cn = {'technology-name.stronger-explosives'}},
+    {id = "refined-flammables",         cn = {'technology-name.refined-flammables'}},
+    {id = "energy-weapons-damage",      cn = {'technology-name.energy-weapons-damage'}},
+    {id = "laser-weapons-damage",       cn = {'technology-name.laser-weapons-damage'}},
+    {id = "weapon-shooting-speed",      cn = {'technology-name.weapon-shooting-speed'}},
+    {id = "gun-turret-speed",           cn = {'technology-name.gun-turret-speed'}},
+    {id = "laser-turret-speed",         cn = {'technology-name.laser-turret-speed'}},
+    {id = "laser-shooting-speed",       cn = {'technology-name.laser-shooting-speed'}},
 }
 
 -- 生成解锁时间表（交错排列：先逐类解锁第 1 级，再进第 2 级……保证各类型均衡成长）
@@ -989,7 +989,7 @@ local function unlock_progressive_weapon_techs_for_force(force, current_wave)
         local tech = force.technologies[entry.tech]
         if tech and entry.wave <= current_wave and not tech.researched then
             tech.researched = true
-            game.print({"amap.world15_tech_unlock", entry.cat_cn .. " Lv" .. entry.lvl},
+            game.print({"amap.world15_tech_unlock", entry.cat_cn, entry.lvl},
                 {r = 1, g = 0.7, b = 0.2})
         end
     end
@@ -1471,6 +1471,8 @@ local W15_VOTE_CARDS = 'world15_vote_cards'
 local W15_VOTE_TIMER = 'world15_vote_timer'
 local W15_VOTE_BTN_PREFIX = 'world15_vote_pick_'
 local W15_VOTE_CLOSE = 'world15_vote_close'
+local W15_VOTE_CARD_PREFIX = 'world15_vote_card_'
+local W15_VOTE_CNT_PREFIX = 'world15_vote_cnt_'
 local W15_VOTE_SECONDS = 30          -- 投票限时（秒）
 local W15_VOTE_TICKS = W15_VOTE_SECONDS * 60
 
@@ -1613,7 +1615,7 @@ local function world15_open_vote_gui(player, vote)
     cards.style.vertical_align = 'top'
 
     for _, key in ipairs(vote.options) do
-        local card = cards.add{type = 'frame', name = 'w15_card_' .. key, direction = 'vertical'}
+        local card = cards.add{type = 'frame', name = W15_VOTE_CARD_PREFIX .. key, direction = 'vertical'}
         card.style.minimal_width = 170
         card.style.maximal_width = 170
         card.style.padding = 8
@@ -1648,7 +1650,7 @@ local function world15_open_vote_gui(player, vote)
         local cnt_flow = card.add{type = 'flow', direction = 'horizontal'}
         cnt_flow.style.horizontally_stretchable = true
         cnt_flow.style.horizontal_align = 'center'
-        cnt_flow.add{type = 'label', name = 'w15_cnt_' .. key, caption = {'amap.world15_vote_count', counts[key] or 0}}
+        cnt_flow.add{type = 'label', name = W15_VOTE_CNT_PREFIX .. key, caption = {'amap.world15_vote_count', counts[key] or 0}}
     end
 
     if my_vote then
@@ -1698,7 +1700,10 @@ local function world15_resolve_vote()
             chosen = winners[1]
         end
         local ok, err = pcall(function() world15_apply_upgrade(chosen, nil) end)
-        if not ok then log('[world15] apply_upgrade failed: ' .. tostring(err)) end
+        if not ok then
+            log('[world15] apply_upgrade failed for chosen=' .. tostring(chosen) .. ': ' .. tostring(err))
+            game.print({'amap.world15_vote_upgrade_failed', {'amap.world15_up_' .. chosen}}, {r = 1, g = 0.4, b = 0.4})
+        end
         game.print({'amap.world15_vote_result', {'amap.world15_up_' .. chosen}, maxc}, {r = 0.4, g = 1, b = 0.4})
     end
     for _, p in pairs(game.connected_players) do
@@ -1711,33 +1716,37 @@ local function world15_resolve_vote()
 end
 
 -- 投票点击：点卡片=投票（窗口立即消失）；点关闭=收起窗口（保留已投）
-local function on_world15_vote_click(event)
+-- 投票关闭按钮：销毁投票框
+local function on_world15_vote_close_click(event)
     if (WPT.get() and WPT.get().world_number or 0) ~= 15 then return end
-    local element = event.element
-    if not element or not element.valid then return end
-    local name = element.name
-    local this = WPT.get()
-    local vote = this and this.w15_vote
-    if not vote then return end
+    local player = event.player
+    local f = player.gui.screen[W15_VOTE_FRAME]
+    if f then pcall(function() f.destroy() end) end
+end
 
-    if name == W15_VOTE_CLOSE then
-        local f = game.get_player(event.player_index).gui.screen[W15_VOTE_FRAME]
-        if f then pcall(function() f.destroy() end) end
-        return
-    end
-    if name:sub(1, #W15_VOTE_BTN_PREFIX) == W15_VOTE_BTN_PREFIX then
-        local player = game.get_player(event.player_index)
-        if not player or not player.valid then return end
-        local key = name:sub(#W15_VOTE_BTN_PREFIX + 1)
+-- 投票选择按钮工厂：闭包绑定 key，点击即投票并关闭窗口
+local function make_world15_vote_pick_handler(key)
+    return function(event)
+        if (WPT.get() and WPT.get().world_number or 0) ~= 15 then return end
+        local player = event.player
+        local this = WPT.get()
+        local vote = this and this.w15_vote
+        if not vote then return end
         local ok = false
         for _, k in ipairs(vote.options) do if k == key then ok = true; break end end
         if not ok then return end
         vote.votes[player.name] = key
-        player.print({'amap.world15_vote_you', {'amap.world15_up_' .. key}})  -- 非阻塞确认：已记录你的投票
-        -- 点击即投票，窗口立即消失，不再停留影响操作；最终结果待投票倒计时结束统一公布
+        player.print({'amap.world15_vote_you', {'amap.world15_up_' .. key}})
+        -- 点击即投票，窗口立即消失，最终结果待投票倒计时结束统一公布
         local f = player.gui.screen[W15_VOTE_FRAME]
         if f then pcall(function() f.destroy() end) end
     end
+end
+
+-- GUI 点击经 GuiDispatcher 按元素名注册（AGENTS.md 规范），不走 World.register events
+GuiDispatcher.register_click(W15_VOTE_CLOSE, on_world15_vote_close_click)
+for _, _key in ipairs(W15_UPGRADE_KEYS) do
+    GuiDispatcher.register_click(W15_VOTE_BTN_PREFIX .. _key, make_world15_vote_pick_handler(_key))
 end
 
 -- 每 20 波发起投票；进行中刷新倒计时；到点结算
@@ -1848,7 +1857,7 @@ world15_apply_upgrade = function(key, player)
 end
 
 -- 卡片1 旧实现（精良木箱点击触发 + 每20波投放 + per-player 点选）已移除。
--- 现改为直接投票弹窗，相关函数见上方 world15_start_vote / world15_vote_tick / on_world15_vote_click。
+-- 现改为直接投票弹窗，相关函数见上方 world15_start_vote / world15_vote_tick / on_world15_vote_close_click。
 
 --==============================================================================
 -- 卡片7：完美波挑战 + 成就（世界15 自包含，零框架改动，world_number==15 自守）
@@ -2288,8 +2297,6 @@ World.register(15, {
         [defines.events.on_robot_built_entity] = on_robot_built_entity,
         -- 区块加载：通道虫巢生成（仅十字陆地、距中心 > 384 tile）+ 清岩石 + 清海面怪
         [defines.events.on_chunk_generated] = {spawn_nests_in_chunk, clear_rocks_in_chunk, cleanup_sea_enemies_in_chunk},
-        -- 卡片1 全服强化投票：卡片点击
-        [defines.events.on_gui_click] = on_world15_vote_click,
         -- 加入游戏：开局物资 + 补弹投票框
         [defines.events.on_player_joined_game] = on_player_joined_game,
     },

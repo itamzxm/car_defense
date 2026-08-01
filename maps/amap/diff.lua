@@ -439,7 +439,7 @@ function Public.get_world_bonus_value(world_id, world_data)
     local bonus_value
     if bonus_type.growth_value then
         local start_wave = World.get_field(world_id, 'world_bonus_start_wave') or map.world_bonus.start_wave
-        local interval = World.get_field(world_id, 'world_bonus_interval') or map.world_bonus.coefficient_interval
+        local interval = World.get_field(world_id, 'world_bonus_interval') or map.world_bonus.coefficient_interval or 500
         local steps = 0
         if interval and interval > 0 then
             steps = math.floor(math.max(0, (world_data.max_wave or 0) - start_wave) / interval)

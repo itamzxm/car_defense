@@ -125,6 +125,7 @@ local function charge(player)
         end
     end
 
+    -- 音效有意禁用：防止频繁点击时吵闹，改为聊天栏提示反馈
     -- player.play_sound({path = 'utility/armor_insert', position = player.position, volume_modifier = 1})
 end
 

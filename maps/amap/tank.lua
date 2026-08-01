@@ -701,7 +701,7 @@ local function game_over()
         record.max_wave = wave_number
         -- World 框架：世界可经 World.register 覆写解锁波数/增档间隔（如世界15=2000/100），未声明用全局默认
         local bonus_start_wave = World.get_field(map.world, 'world_bonus_start_wave') or map.world_bonus.start_wave
-        local bonus_interval = World.get_field(map.world, 'world_bonus_interval') or map.world_bonus.coefficient_interval
+        local bonus_interval = World.get_field(map.world, 'world_bonus_interval') or map.world_bonus.coefficient_interval or 500
         if wave_number >= bonus_start_wave then
             record.unlocked = true
             local extra_waves = wave_number - bonus_start_wave
