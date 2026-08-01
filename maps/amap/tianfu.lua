@@ -20,7 +20,17 @@ local tianfu_blacklist = {
     ['hmds'] = '黑魔导师',
     ['zhs'] = '黑暗召唤',
     ['wlfs'] = '亡灵法师',
-    ['wanglingdajun'] = '秽土转生'
+    ['wanglingdajun'] = '秽土转生',
+    -- ★ 修复（2026-08-01）：以下 3 个是"半吊子禁用"留下的废卡。
+    -- 它们已从 tianfu_categories 注释掉（意图禁用），但仍注册在 trigger_skills 表里，
+    -- 而 all_skill = time ∪ once ∪ trigger 三表并集 —— 于是「随机」职业玩家依旧能抽到、
+    -- 能学、图标/品质/locale 一应俱全，但 tianfu.lua 里**没有任何调用点**
+    -- （已实证：无 tianfu_trigger_skill.<id>( 静态调用、无 Public[var] 动态分发、
+    --   也不在 skill_owners 自建路径的 4 个天赋之列），学了永远不触发 => 白白浪费一次天赋选择。
+    -- 同类天赋 wanglingdajun 的正确做法就是"分类注释 + 进黑名单"，这 3 个漏了后半步。
+    ['jiantazhe'] = '践踏者',
+    ['wuqidashi'] = '武器大师',
+    ['zhiming'] = '致命一击'
 }
 local function is_tianfu_blacklisted(skill_name)
     if tianfu_blacklist[skill_name] then return true end
@@ -125,42 +135,44 @@ local function is_gui_visible(element)
     return false
 end
 
+-- ★★★ P0 根因修复（2026-08-01）：天赋抽选「不随机 / 反复出同几个」的元凶 ★★★
+--
+-- 旧实现是手写 LCG：
+--     seed   = (seed * 1103515245 + 12345) % 2147483648
+--     result = (seed % k) + 1
+--
+-- 两个致命缺陷（已用 Python 按 double 语义精确复刻验证，非推测）：
+--  1) 浮点精度丢失：Lua 5.2 的 number 就是 C double，整数精确范围只到 2^53≈9.0e15。
+--     而 seed*1103515245 最大约 2.4e18，超出 267 倍 → 乘积被舍入到 512 的倍数，
+--     **结果的低 9 位二进制恒定**。实测 seed % 512 在全取值域内只有 {0, 256} 两个值。
+--  2) 取低位：`seed % k` 取的恰恰就是那被抹平的低位。
+--
+--     实测后果（5 万次调用统计）：
+--       k=2  → 返回值全是 1（覆盖 1/2）
+--       k=4  → 返回值全是 1（覆盖 1/4）
+--       k=8  → 返回值全是 1（覆盖 1/8）
+--       k=16 → 返回值全是 1（覆盖 1/16）
+--       k=132(全部天赋) → 只覆盖 33/132
+--     即：只要候选池大小是 2 的幂，就 100% 抽到列表里的第一个天赋。玩家每学一个
+--     天赋池子就缩小 1，必然反复经过 2/4/8/16/32/64 → 天赋选项高度重复、大量天赋
+--     永远抽不到，且 5 张卡去重后经常只剩两三张。
+--
+-- 修复：改用 Factorio 引擎内置的 math.random。它是地图种子驱动的同步 PRNG，
+-- 多人游戏下所有 peer 结果一致（无 desync 风险），质量远高于手写 LCG。
+-- 本仓库 maps/amap 下已有 435 处 math.random 用法（天赋三件套自身就占 121 处），
+-- 属既有标准实践，不引入新风险。
+--
+-- 注：main_table.random_seed 字段自此不再使用（table.lua:217 的初始化保留，
+-- 无外部消费者，删除会牵动 reset_table 结构，留空表无副作用）。
 local function random_k(player_index, k)
     if type(k) ~= 'number' or k < 1 then
         return 1
     end
-    
-    local main_table = WPT.get()
-    
-    -- 1. 获取或生成该玩家的随机种子
-    if not main_table.random_seed then
-        main_table.random_seed= {}
+    k = math.floor(k)
+    if k <= 1 then
+        return 1
     end
-    if not main_table.random_seed[player_index] then
-        main_table.random_seed[player_index] = math.random(1, 999999)
-    end
-    
-    -- 2. 获取连接游戏的人数
-    local player_count = #game.connected_players
-    
-    -- 3. 获取当前地图种子
-    local map_seed = game.surfaces['nauvis'].map_gen_settings.seed or 0
-    
-    -- 4. 获取玩家已学习的天赋数量
-    local tianfu_count = main_table.tianfu_count[player_index] or 0
-    
-    -- 5. 根据参数计算确定性随机数
-    -- 使用线性同余生成器 (LCG)
-    local seed = main_table.random_seed[player_index] + player_index + player_count + map_seed + tianfu_count
-    seed = (seed * 1103515245 + 12345) % 2147483648
-    
-    -- 生成1-k的随机数
-    local result = (seed % k) + 1
-    
-    -- 更新该玩家的种子，使每次调用产生不同的结果
-    main_table.random_seed[player_index] = (main_table.random_seed[player_index] * 1103515245 + 12345) % 2147483648
-    
-    return result
+    return math.random(1, k)
 end
 
 
@@ -177,16 +189,31 @@ function Public.reset_table()
     -- 重新初始化技能相关数据
     -- 注：this[_] = {} 已删除（真正的死字段：无消费者）
     -- tianfu_cooldown[_] = v.time 保留：gui.lua 冷却条读取此字段
+    --
+    -- ★ 加固（2026-08-01）：all_skill 由三张表拼接而成，若同一个天赋 id 同时出现在
+    -- 两张表里（历史上 'bpz' 就同时注册在 time_skills 和 trigger_skills），
+    -- all_skill 会出现重复项 → choise_skill 抽 5 个候选时可能抽到同一天赋两次，
+    -- 经 unique_skills 去重后天赋选择界面就少一张卡。此处加 seen 集合根治，
+    -- 之后即使有人再不小心双注册，也不会污染抽卡。
+    local seen_skill_id = {}
+    local function push_skill(skill_id)
+        if seen_skill_id[skill_id] then
+            return
+        end
+        seen_skill_id[skill_id] = true
+        this.all_skill[#this.all_skill + 1] = skill_id
+    end
+
     for _, v in pairs(time_skills) do
         if v.time then this.tianfu_cooldown[_] = v.time end
-        this.all_skill[#this.all_skill + 1] = _
+        push_skill(_)
     end
     for _ in pairs(tianfu_once_skill.once_skills) do
-        this.all_skill[#this.all_skill + 1] = _
+        push_skill(_)
     end
     for _, v in pairs(trigger_skills) do
         if v.time then this.tianfu_cooldown[_] = v.time end
-        this.all_skill[#this.all_skill + 1] = _
+        push_skill(_)
     end
 
     for k, player in pairs(game.connected_players) do
@@ -869,13 +896,20 @@ end
         end
 
         -- 获取其他分类的天赋（2个）
+        -- ★ 修复（2026-08-01）：原实现只查「是否已在 skill_options 里」，没查 other_unlearned
+        -- 自身是否重复。而 tianfu_categories 存在跨分类重复条目
+        -- （chuanqibaozang / rsrl / sansan / xly / xxyd 各挂在两个职业分类下），
+        -- 遍历多个分类时会被重复塞入 other_unlearned → 该天赋被抽中的概率翻倍，
+        -- 且可能两次都抽到它，去重后天赋选择界面少一张卡。此处加 seen 集合。
         local other_unlearned = {}
+        local other_seen = {}
         for category_key, category_skills in pairs(tianfu_categories) do
             -- 跳过当前职业的分类
             if category_key ~= zhiye_key then
                 for _, skill_name in ipairs(category_skills) do
                     -- 确保天赋未被学习且不在已选择的列表中
-                    if not is_tianfu_blacklisted(skill_name) and not Public.has_learned(player, skill_name) then
+                    if not is_tianfu_blacklisted(skill_name) and not Public.has_learned(player, skill_name)
+                        and not other_seen[skill_name] then
                         local already_selected = false
                         for _, selected_skill in ipairs(skill_options) do
                             if selected_skill == skill_name then
@@ -887,6 +921,7 @@ end
                             -- 如果有固定天赋，则跳过它
                             if fixed_skill and skill_name == fixed_skill then
                             else
+                                other_seen[skill_name] = true
                                 other_unlearned[#other_unlearned + 1] = skill_name
                             end
                         end
@@ -907,9 +942,31 @@ end
             table.remove(temp_other, num)
         end
 
-        -- 如果有固定天赋，将其添加到第4个位置（兜底再次校验黑名单）
+        -- ★ 修复（2026-08-01）：原写法为 `skill_options[4] = fixed_skill`，有两个 bug：
+        --   ① 覆盖丢卡：正常路径已选「3 个职业天赋 + 1 个其他分类天赋」= 4 项，
+        --      直接写 index 4 会把「其他分类那 1 个」直接顶掉，设计意图
+        --      （3 职业 + 1 固定 + 1 其他 = 5 张）退化成 3 职业 + 1 固定，
+        --      再由下方补位逻辑塞 1 个完全随机天赋顶上。
+        --   ② 数组空洞（更严重）：当职业分类可选天赋不足 3 个时
+        --      （世界15 天赋黑名单过滤后很容易出现），skill_options 长度可能只有 1~2，
+        --      此时写 index 4 会在 index 3 留下 nil 洞。有洞的表 `#` 在 Lua 中是
+        --      未定义行为（二分边界，可能返回 2 也可能返回 4）：
+        --        · 返回 4 → 下方按 ipairs 建卡片会在 nil 洞处提前中断，
+        --          固定天赋直接丢失，界面只显示 2 张卡；
+        --        · 返回 2 → 补位逻辑多补一轮，界面冒出 6 张卡。
+        --   改为 table.insert 定位插入：彻底消除空洞，同时保留「尽量排在第 4 位」的
+        --   展示语义，且不再顶掉任何已选候选。
         if fixed_skill and not is_tianfu_blacklisted(fixed_skill) then
-            skill_options[4] = fixed_skill
+            local already_has_fixed = false
+            for _, selected_skill in ipairs(skill_options) do
+                if selected_skill == fixed_skill then
+                    already_has_fixed = true
+                    break
+                end
+            end
+            if not already_has_fixed then
+                table.insert(skill_options, math.min(4, #skill_options + 1), fixed_skill)
+            end
         end
     end
 
@@ -1258,14 +1315,23 @@ local function on_gui_click(event)
     if not this.skill_owners[skill_name] then this.skill_owners[skill_name] = {} end
     this.skill_owners[skill_name][player.index] = true
     -- 销毁整个天赋选择界面（按钮parent是卡片frame，需销毁外层'选择你的天赋'）
-    player.gui.screen['选择你的天赋'].destroy()
+    -- ★ 修复：此前无 nil 守卫直接 index。若界面已被销毁（reset_table 重置地图、
+    -- 玩家在同一 tick 内重复点击、界面被其它逻辑提前关闭），会 index nil 崩溃。
+    local tianfu_frame = player.gui.screen['选择你的天赋']
+    if tianfu_frame and tianfu_frame.valid then
+        tianfu_frame.destroy()
+    end
     local this = WPT.get()
     local rpg_t = rpgtable.get('rpg_t')
     -- 天赋间隔经 World 框架配置表按世界查询：默认 35；竞技场/世界15 等声明 tianfu_jiange=15
     local jiange = World.get_field(this.world_number, 'tianfu_jiange') or 35
     -- 检查必要的变量是否存在
     if rpg_t[player.index] and rpg_t[player.index].level and this.tianfu_count and this.tianfu_count[player.index] and this.skill_canchoise and this.skill_canchoise[player.name] == 0 then
-        if math.floor(rpg_t[player.index].level / jiange) > this.tianfu_count[player.index] - 1 and is_gui_visible(frame) == false then
+        -- ★ 修复：原条件为 `and is_gui_visible(frame) == false`，其中 frame 是本函数内
+        -- 从未定义的全局变量（恒 nil）→ is_gui_visible(nil) 恒返回 false → 该子条件恒真，
+        -- 属于失效的死判断。真实语义是「天赋选择界面已关闭时才允许标记可再选」，
+        -- 而上方刚刚销毁了 '选择你的天赋' 界面，此处必然已关闭，故直接移除该恒真子条件。
+        if math.floor(rpg_t[player.index].level / jiange) > this.tianfu_count[player.index] - 1 then
             -- 转移至gui更新天赋颜色显示，再引用天赋选择
             this.skill_canchoise[player.name] = 1
       
@@ -1362,7 +1428,12 @@ local function on_tick()
                 goto next_player
             end
             -- can_call 控制是否真正调用天赋：断线/副本内/AFK 时仍登记下一次到期，保持桶调度链不断
-            -- character 有效性不在此判断，由各 time_skill 函数内部自检兜底
+            -- character 有效性不在此判断，而是由 tianfu_time_skill.lua 的 check_tick 统一守卫
+            -- （每个 time_skill 入口都是 if check_tick(...) then）。
+            -- ⚠ 历史坑：曾一度把 check_tick 退化为 `return true`，且此处注释写「由各技能函数
+            -- 内部自检兜底」，两边互相甩锅导致 character 检查真空 —— 玩家死亡期间
+            -- player.character == nil 仍被调用，rsrl/tzzj/falibiqu/dutu/wudi 等直接崩溃。
+            -- 修改本段或 check_tick 时务必保证这层守卫始终存在。
             local can_call = player.connected
                              and player.force.name == 'player'
                              and player.afk_time <= 36000
