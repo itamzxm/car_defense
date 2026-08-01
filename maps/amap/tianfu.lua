@@ -389,7 +389,7 @@ local tianfu_categories = {
         'chifu',           -- 赤服
         'tianshi',         -- 天使
         'relife',          -- 复活
-        'sxf',             -- 嗜血
+        'sxf',             -- 失心疯
         'whea',            -- 我好饿
         'zrsc',            -- 自然生涨
         'zg',              -- 宰割
@@ -609,7 +609,7 @@ local tianfu_icons = {
     ['chifu'] = 'item/heavy-armor',                   -- 赤服
     ['tianshi'] = 'item/power-armor',   -- 天使
     ['relife'] = 'item/repair-pack',               -- 复活
-    ['sxf'] = 'item/exoskeleton-equipment',                     -- 嗜血（+敏捷）
+    ['sxf'] = 'item/exoskeleton-equipment',                     -- 失心疯（+敏捷）
     ['whea'] = 'item/raw-fish',                     -- 我好饿
     ['zg'] = 'item/coin',                      -- 宰割（击杀掉金币）
     ['xj'] = 'item/raw-fish',                     -- 献祭（祭品）

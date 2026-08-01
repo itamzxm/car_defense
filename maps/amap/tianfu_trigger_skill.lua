@@ -418,6 +418,7 @@ end)
 
 local lose_dexterity = Token.register(function(data)
     local player = data.player
+    if not player or not player.valid then return end
     local q_idx = data.q_idx
     local rpg_t = rpgtable.get('rpg_t')
 
@@ -428,6 +429,7 @@ local lose_dexterity = Token.register(function(data)
     else
         rpg_t[player.index].dexterity = rpg_t[player.index].dexterity - loss
     end
+    rpgtable.update_player_stats(player)
 end)
 
 local un_wudi = Token.register(function(player)
@@ -851,7 +853,7 @@ local function xixue(player, q_idx)
     end
 end
 
--- 嗜血疯狂
+-- 失心疯
 local function sxf(player, q_idx)
     local this = TPT.get()
     if not this.sxf_count[player.name] then
@@ -863,7 +865,7 @@ local function sxf(player, q_idx)
         local rpg_t = rpgtable.get('rpg_t')
         local gain = math.floor(30 * COEFF_REG[q_idx or 1] + 0.5)
         rpg_t[player.index].dexterity = rpg_t[player.index].dexterity + gain
-
+        rpgtable.update_player_stats(player)
         Task.set_timeout_in_ticks(60 * 30, lose_dexterity, { player = player, q_idx = q_idx })
         new_print(player, { 'tianfu.sxf_over', gain })
     end
