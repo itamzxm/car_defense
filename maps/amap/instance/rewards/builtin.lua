@@ -506,6 +506,10 @@ local function grant_tianfu(player, data, multiplier, params)
         return
     end
     Tianfu.get_new_tianfu(player, tier)
+    -- 补偿：副本奖励天赋不占用升级天赋档位（与 rock.lua/diff.lua 同模式）
+    local this = WPT.get()
+    if not this.tianfu_count[player.index] then this.tianfu_count[player.index] = 0 end
+    this.tianfu_count[player.index] = this.tianfu_count[player.index] - 1
     player.print({'amap.reward_tianfu_granted'},
                  {r = 0, g = 1, b = 0})
 end
