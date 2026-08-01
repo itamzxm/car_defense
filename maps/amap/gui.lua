@@ -868,10 +868,10 @@ local function draw_world_bonus_tab(player, frame)
         end
     end
     -- 剔除不可选世界（如 world 8 异次元空间 selectable=false，但 def 仍注册，
-    -- 会混入面板）。pcall 包裹以防非注册世界报错。
+    -- 会混入面板）。World.get_field 对未注册世界返回 nil，不会报错，无需 pcall。
     for wid, _ in pairs(bonus_types_merged) do
-        local ok, sel = pcall(World.get_field, wid, 'selectable')
-        if ok and sel == false then
+        local sel = World.get_field(wid, 'selectable')
+        if sel == false then
             bonus_types_merged[wid] = nil
         end
     end

@@ -732,6 +732,9 @@ local function spawn_plants(surface, cx, cy, name)
             y = cy + math.random(-ORE_HALF, ORE_HALF) + math.random()
         }
         if surface.can_place_entity({name = name, position = pos}) then
+            -- pcall 容错：can_place_entity 通过不代表 create_entity 必成功
+            -- （植物可能因碰撞层微调、已存在同位实体等边界情况失败），
+            -- 此处非掩盖错误，而是实体创建 API 的已知不可预测行为。
             local ok, e = pcall(surface.create_entity, {name = name, position = pos, force = game.forces.neutral})
             if ok and e and e.valid then
                 placed = placed + 1
@@ -912,6 +915,6 @@ Public.process_pending = process_pending
 Public.fill_home = fill_home
 
 -- RCON 验收探测入口（/c 内禁止 require，必须走全局）
-_GRID = Public
+_CAR_DEFENSE_GRID = Public
 
 return Public
