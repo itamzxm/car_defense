@@ -558,6 +558,23 @@ end
 ----------------------------------------------------------------
 -- 实体事件
 ----------------------------------------------------------------
+
+-- 将传说木箱原地降级为普通木箱（用于世界禁用 / 超额限额）。
+-- 销毁原实体并在同位置以 normal 品质 fast_replace 重建，保持坐标/势力不变。
+local function downgrade_legendary_to_normal(entity)
+    local surface = entity.surface
+    local position = entity.position
+    local force = entity.force
+    entity.destroy()
+    surface.create_entity{
+        name = 'wooden-chest',
+        position = position,
+        force = force,
+        quality = 'normal',
+        fast_replace = true,
+    }
+end
+
 Event.add(defines.events.on_built_entity, function(event)
     local entity = event.entity
     if not entity or not entity.valid then return end
@@ -565,6 +582,18 @@ Event.add(defines.events.on_built_entity, function(event)
 
     local player = game.players[event.player_index]
     if not player or not player.valid then return end
+
+    -- 世界禁用传说木箱：必须早于 surface 检查。
+    -- 根因：世界15 使用 CS.create_surface() 自建表面（非 nauvis），原代码在 is_allowed_surface
+    -- 检查之后才判定 disable_legendary_wood_chest，导致世界15 永远走不到降级逻辑，传说木箱残留并生效。
+    if entity.quality.name == 'legendary' then
+        local this = G()
+        local world_number = this.world_number or 1
+        if World.get_field(world_number, 'disable_legendary_wood_chest') then
+            downgrade_legendary_to_normal(entity)
+            return
+        end
+    end
 
     if not Public.is_allowed_surface(entity.surface) then
         player.print {'magic_wood.invalid_surface'}
@@ -576,22 +605,6 @@ Event.add(defines.events.on_built_entity, function(event)
         -- 超出则替换为普通木箱，不触发传说木箱特殊功能
         local this = G()
         local world_number = this.world_number or 1
-
-        -- 框架内禁用：世界15 不发放传说木箱奖励（def 中 disable_legendary_wood_chest = true）
-        if World.get_field(world_number, 'disable_legendary_wood_chest') then
-            local surface = entity.surface
-            local position = entity.position
-            local force = entity.force
-            entity.destroy()
-            surface.create_entity{
-                name = 'wooden-chest',
-                position = position,
-                force = force,
-                quality = 'normal',
-                fast_replace = true,
-            }
-            return
-        end
 
         if world_number ~= 13 then
             local count = 0
@@ -605,17 +618,7 @@ Event.add(defines.events.on_built_entity, function(event)
                 end
             end
             if count >= 1 then
-                local surface = entity.surface
-                local position = entity.position
-                local force = entity.force
-                entity.destroy()
-                surface.create_entity{
-                    name = 'wooden-chest',
-                    position = position,
-                    force = force,
-                    quality = 'normal',
-                    fast_replace = true,
-                }
+                downgrade_legendary_to_normal(entity)
                 player.print {'magic_wood.legendary_limit'}
                 return
             end
@@ -625,6 +628,21 @@ Event.add(defines.events.on_built_entity, function(event)
         entity.minable_flag = false
         Public.register_chest(entity, player)
         Public.show_selection_gui(player, entity)
+    end
+end)
+
+-- 施工机器人建造：玩家手动放置之外的旁路，同样需要执行传说木箱禁用降级，
+-- 否则机器人放置的传说木箱会绕过 on_built_entity 的禁用逻辑（世界15 实测残留）。
+Event.add(defines.events.on_robot_built_entity, function(event)
+    local entity = event.entity
+    if not entity or not entity.valid then return end
+    if entity.name ~= 'wooden-chest' then return end
+    if entity.quality.name ~= 'legendary' then return end
+
+    local this = G()
+    local world_number = this.world_number or 1
+    if World.get_field(world_number, 'disable_legendary_wood_chest') then
+        downgrade_legendary_to_normal(entity)
     end
 end)
 
