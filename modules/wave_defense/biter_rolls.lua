@@ -83,11 +83,11 @@ local EnemyEvolutionConfig = {
 -- @return table biter_raffle, table spitter_raffle
 local function calculate_unit_raffles(level, config)
     local raffles = { biter = {}, spitter = {} }
-    
+
     for _, cfg in ipairs(config) do
         if level >= cfg.s and level < (cfg.e or 1e8) then
             local weight = 0
-            if cfg.c then 
+            if cfg.c then
                 -- 模型 3: 线性 (y = kx + c)
                 weight = cfg.k * level + cfg.c
             elseif cfg.e and cfg.e < 1e6 then
@@ -140,13 +140,13 @@ function Public.wave_defense_set_worm_raffle(level)
     if level > 800 then
         worm_raffle['behemoth-worm-turret'] = (level - 800) * 3
     end
-    
+
     for k, v in pairs(worm_raffle) do
         if v < 0 then
             worm_raffle[k] = 0
         end
     end
-    
+
     WD.set('worm_raffle', worm_raffle)
 end
 
@@ -160,14 +160,14 @@ local function calculate_quality_raffle(wave_number)
         total_weight = 0,
         total_chance = 0
     }
-    
+
     local current_tick = game.ticks_played
-    
-    if quality_raffle_cache.wave_number == wave_number and 
+
+    if quality_raffle_cache.wave_number == wave_number and
        (current_tick - quality_raffle_cache.last_update_tick) < CACHE_UPDATE_INTERVAL then
         return quality_raffle_cache.raffle, quality_raffle_cache.total_weight, quality_raffle_cache.total_chance
     end
-    
+
     if wave_number < 300 then
         quality_raffle_cache.wave_number = wave_number
         quality_raffle_cache.last_update_tick = current_tick
@@ -177,17 +177,17 @@ local function calculate_quality_raffle(wave_number)
         WD.set('quality_raffle_cache', quality_raffle_cache)
         return {}, 0, 0
     end
-    
-    local quality_upgrades = { 
+
+    local quality_upgrades = {
         { name = "legendary", base_chance = 0.005 },
         { name = "epic",      base_chance = 0.015 },
         { name = "rare",      base_chance = 0.025 },
-        { name = "uncommon",  base_chance = 0.05 } 
+        { name = "uncommon",  base_chance = 0.05 }
     }
-    
+
     local progress = math.min((wave_number - 300) / (3000 - 300), 1)
     local total_quality_chance = progress * 1.0
-    
+
     if total_quality_chance <= 0 then
         quality_raffle_cache.wave_number = wave_number
         quality_raffle_cache.last_update_tick = current_tick
@@ -197,48 +197,48 @@ local function calculate_quality_raffle(wave_number)
         WD.set('quality_raffle_cache', quality_raffle_cache)
         return {}, 0, 0
     end
-    
+
     local decay_progress = 0
     if wave_number >= 3000 then
         decay_progress = math.min((wave_number - 3000) / (6000 - 3000), 1)
     end
-    
+
     local quality_raffle_cache_temp = {}
     local total_quality_weight = 0
     local base_total = 0.005 + 0.015 + 0.025 + 0.05
-    
+
     for _, item in ipairs(quality_upgrades) do
         local scaled_chance = (item.base_chance / base_total) * total_quality_chance
         quality_raffle_cache_temp[item.name] = scaled_chance
     end
-    
+
     if decay_progress > 0 then
         local transferable_qualities = {"epic", "rare", "uncommon"}
         local total_transfer = 0
-        
+
         for _, name in ipairs(transferable_qualities) do
             local transfer_amount = quality_raffle_cache_temp[name] * decay_progress
             quality_raffle_cache_temp[name] = quality_raffle_cache_temp[name] - transfer_amount
             total_transfer = total_transfer + transfer_amount
         end
-        
+
         quality_raffle_cache_temp["legendary"] = quality_raffle_cache_temp["legendary"] + total_transfer
     end
-    
+
     local result_raffle = {}
     for name, chance in pairs(quality_raffle_cache_temp) do
         table.insert(result_raffle, {name = name, weight = chance})
         total_quality_weight = total_quality_weight + chance
     end
-    
+
     quality_raffle_cache.wave_number = wave_number
     quality_raffle_cache.last_update_tick = current_tick
     quality_raffle_cache.raffle = result_raffle
     quality_raffle_cache.total_weight = total_quality_weight
     quality_raffle_cache.total_chance = total_quality_chance
-    
+
     WD.set('quality_raffle_cache', quality_raffle_cache)
-    
+
     return result_raffle, total_quality_weight, total_quality_chance
 end
 
@@ -246,25 +246,25 @@ local function select_random_quality(quality_raffle_cache, total_quality_weight,
     if script.active_mods['quality'] == nil or #quality_raffle_cache == 0 then
         return nil
     end
-    
+
     if math.random() > total_quality_chance then
         return nil
     end
-    
+
     if total_quality_weight <= 0 then
         return nil
     end
-    
+
     local r = math.random() * total_quality_weight
     local current_weight = 0
-    
+
     for _, item in ipairs(quality_raffle_cache) do
         current_weight = current_weight + item.weight
         if r <= current_weight then
             return item.name
         end
     end
-    
+
     return #quality_raffle_cache > 0 and quality_raffle_cache[#quality_raffle_cache].name or nil
 end
 
@@ -272,13 +272,13 @@ local function build_raffle_cache(raffle)
     local cache = {}
     local total_weight = 0
     local current_weight = 0
-    
+
     for k, v in pairs(raffle) do
         current_weight = current_weight + v
         table.insert(cache, {unit = k, weight = current_weight})
         total_weight = total_weight + v
     end
-    
+
     return cache, total_weight
 end
 
@@ -286,19 +286,19 @@ local function generate_units_from_raffles(total_units, melee_ratio, melee_cache
     local unit_table = {}
     local total_threat = 0
     local total_generated = 0
-    
+
     local melee_count = math.floor(total_units * melee_ratio)
     local ranged_count = total_units - melee_count
-    
+
     local function select_unit_by_binary_search(cache, total_weight)
         if total_weight <= 0 then
             return nil
         end
-        
+
         -- 用浮点随机数避免 floor 截断导致小数权重（如五足虫 0.7）永远选不到
         local r = math.random() * total_weight
         local low, high = 1, #cache
-        
+
         while low <= high do
             local mid = math.floor((low + high) / 2)
             if r <= cache[mid].weight then
@@ -307,25 +307,25 @@ local function generate_units_from_raffles(total_units, melee_ratio, melee_cache
                 low = mid + 1
             end
         end
-        
+
         return cache[low] and cache[low].unit or nil
     end
-    
+
     local function generate_units(cache, total_weight, count)
         for i = 1, count do
             if max_threat and max_threat > 0 and total_threat >= max_threat then
                 break
             end
-            
+
             local selected_unit = select_unit_by_binary_search(cache, total_weight)
-            
+
             if selected_unit then
                 local unit_threat = math_round((threat_values[selected_unit] or 1) * 1, 2)
-                
+
                 if max_threat and max_threat > 0 and (total_threat + unit_threat) > max_threat then
                     break
                 end
-                
+
                 local quality_name = select_random_quality(quality_raffle_cache, total_quality_weight, total_quality_chance) or "normal"
                 unit_table[#unit_table + 1] = {
                     unit_name = selected_unit,
@@ -336,10 +336,10 @@ local function generate_units_from_raffles(total_units, melee_ratio, melee_cache
             end
         end
     end
-    
+
     generate_units(melee_cache, melee_weight, melee_count)
     generate_units(ranged_cache, ranged_weight, ranged_count)
-    
+
     return unit_table
 end
 
@@ -347,10 +347,10 @@ local function calculate_demolisher_chance(wave_number)
     if wave_number < 2500 then
         return nil, 0
     end
-    
+
     local unit_name
     local range_start
-    
+
     if wave_number < 3000 then
         unit_name = 'small-demolisher'
         range_start = 2500
@@ -361,10 +361,10 @@ local function calculate_demolisher_chance(wave_number)
         unit_name = 'big-demolisher'
         range_start = 3500
     end
-    
+
     local progress = math.min((wave_number - range_start) / 500, 1)
     local probability = 0.10 + progress * 0.10
-    
+
     return unit_name, probability
 end
 
@@ -406,27 +406,27 @@ function Public.wave_defense_generate_unit_table(total_units, melee_ratio, range
         melee_ratio = 0.6
         ranged_ratio = 0.4
     end
-    
+
     local total_ratio = melee_ratio + ranged_ratio
     if total_ratio ~= 1 then
         melee_ratio = melee_ratio / total_ratio
         ranged_ratio = ranged_ratio / total_ratio
     end
-    
+
     local biter_raffle = WD.get('biter_raffle')
     local spitter_raffle = WD.get('spitter_raffle')
     local wave_number = WD.get('wave_number')
-    
+
     local quality_raffle_cache, total_quality_weight, total_quality_chance = calculate_quality_raffle(wave_number)
-    
+
     local melee_cache, melee_weight = build_raffle_cache(biter_raffle)
     local ranged_cache, ranged_weight = build_raffle_cache(spitter_raffle)
-    
+
     if melee_weight <= 0 and ranged_weight <= 0 then
         table.insert(melee_cache, {unit = "small-biter", weight = 1})
         melee_weight = 1
     end
-    
+
     local unit_table = generate_units_from_raffles(total_units, melee_ratio, melee_cache, melee_weight, ranged_cache, ranged_weight, max_threat, quality_raffle_cache, total_quality_weight, total_quality_chance)
 
     return unit_table
@@ -435,7 +435,7 @@ end
 
 local on_init = function()
   -- biter_raffle 和 spitter_raffle 已在 table.lua 的 reset_wave_defense() 中初始化
-  
+
   Public.wave_defense_set_worm_raffle(100)
   Public.wave_defense_set_unit_raffle(100)
 

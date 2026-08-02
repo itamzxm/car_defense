@@ -92,19 +92,19 @@ end
 local function shit_luck(player, q_idx)
     -- 随机决定抽奖次数（品质越高次数越多）
     local draw_count = ({2, 3, 4, 5, 6})[q_idx or 1]
-    
+
     for i = 1, draw_count do
         local luck = math.floor(math.random(1, 150))
         new_print(player, {'amap.lucknb', luck})
         local magic = luck * 5 + 100
         local position = player.physical_surface.find_non_colliding_position("steel-chest", player.physical_position, 20, 1, true) or player.physical_position
-        
+
         -- 50%概率升级为品质宝箱
         if math.random() <= 0.5 then
             -- 使用品质开箱函数
             Loot.cool_with_quality(
-                player.physical_surface, 
-                position, 
+                player.physical_surface,
+                position,
                 'steel-chest',
                 magic
             )

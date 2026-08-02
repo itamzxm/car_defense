@@ -240,9 +240,9 @@ local market_items = {{
 local function get_rand_item()
     local rand_item = {}
     local wave_number = WD.get('wave_number') or 0
-    
+
     local rarity = math.floor( (wave_number / 100))
-    
+
     if rarity < 2 then
         rarity = 2
     end
@@ -273,7 +273,7 @@ function Public.refresh_shop(market)
         end
     end
 
-    
+
     if this.world_number ~= 11 then
             local rand_item = get_rand_item()
 
@@ -582,7 +582,7 @@ function Public.market(surface)
             ICW.register_wagon(cargo, 0)
             ICWT.get('cargo_wagons')[cargo.unit_number] = cargo
             ICWT.set('wagon_count', 1)
-            
+
             -- 往火车车厢里放4个传说木箱子
             local cargo_inv = cargo.get_inventory(defines.inventory.cargo_wagon)
             if cargo_inv then
@@ -600,7 +600,7 @@ function Public.market(surface)
                 force = game.forces.player
             }
             silo.grid.inhibit_movement_bonus = true
-            
+
             -- 在世界7的主世界创建不可被挖掘不可被破坏的蓄电池
             local accumulator = surface.create_entity({
                 name = 'electric-energy-interface',
@@ -623,7 +623,7 @@ function Public.market(surface)
         position = silo_position,
         force = game.forces.player
       })
-      
+
       if silo and silo.valid then
         silo.destructible = false
         silo.minable_flag = false
@@ -666,7 +666,7 @@ function Public.market(surface)
             {x = 0, y = -350},
             {x = -100, y = -350}
           }
-          
+
           for _, pos in pairs(baolei_positions) do
             EnemyArty.baolei(pos, 650, surface)
           end
@@ -694,7 +694,7 @@ function Public.market(surface)
 
         e3.destructible = false
         e3.minable_flag = false
-        
+
         -- 在世界8的主世界创建不可被挖掘不可被破坏的蓄电池
         local accumulator = surface.create_entity({
             name = 'electric-energy-interface',
@@ -715,7 +715,7 @@ function Public.market(surface)
         position = silo_position,
         force = game.forces.player
       })
-      
+
       if silo and silo.valid then
         silo.destructible = false
         silo.minable_flag = false
@@ -749,7 +749,7 @@ function Public.market(surface)
                     -- 参考世界1布局：组装机在上 → 商店在中 → 水坑在下
                     -- 世界1相对位置（相对于y=0）：组装机 y=-18/-12，商店 y=-5，水坑 y=-2~1
                     -- 锚点：商店放在 area.left_top.y + 30（车头中间偏上）
-                    
+
                     -- 组装机（只在车头内部创建一次，位于商店上方）
                     local factory = "assembling-machine-2"
                     for key = 1, 20, 1 do
@@ -787,7 +787,7 @@ function Public.market(surface)
                             end
                         end
                     end
-                    
+
                     -- 商店（中间）
                     local market = wagon_surface.create_entity({
                         name = "market",
@@ -797,7 +797,7 @@ function Public.market(surface)
                     this.shop = market
                     market.destructible = false
                     Public.refresh_shop(market)
-                    
+
                     -- 水坑（9x9，商店下方，原3x3的3倍）
                     local water_pos = {x = 0, y = area.left_top.y + 44}
                     for i = 1, 9 do
@@ -871,9 +871,9 @@ local function on_rocket_launched(event)
             name = 'coin',
             count = money
         }
-      
 
-       
+
+
         -- if not map.cunkuang[player.name] then
         --     map.cunkuang[player.name] = 0
         -- end

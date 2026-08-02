@@ -192,7 +192,7 @@ Event.add(defines.events.on_player_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'simple-entity'},
     {filter = "type", type = 'linked-chest'},
     {filter = "type", type = 'car'},
-    
+
     {filter = "type", type = 'artillery-wagon'},
     {filter = "type", type = 'artillery-turret'},
     {filter = "type", type = 'land-mine'},

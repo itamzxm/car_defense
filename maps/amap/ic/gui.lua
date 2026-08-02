@@ -103,7 +103,7 @@ local function crate_ore(surface, position)
         abc = 6
     end
     local amount = 125
-    
+
     -- 创建方向配置数组，每个配置包含x方向因子、y方向因子和对应的矿石索引
     local directions = {
         {x_dir = 1, y_dir = 1, ore_index = 1},  -- 右上
@@ -111,7 +111,7 @@ local function crate_ore(surface, position)
         {x_dir = 1, y_dir = -1, ore_index = 3}, -- 右下
         {x_dir = -1, y_dir = -1, ore_index = 4} -- 左下
     }
-    
+
     -- 使用单个循环处理所有方向
     for _, dir in pairs(directions) do
         for a = 1, 20 do
@@ -127,7 +127,7 @@ local function crate_ore(surface, position)
                     radius = 0.5,
                     type = 'resource'
                 }
-                
+
                 if #existing_entities > 0 then
                     -- 已有矿物存在
                     local existing_entity = existing_entities[1]
@@ -439,7 +439,7 @@ local function draw_integration_frame(player)
     -- 【修改点1】改为单列布局，避免列宽相互影响
     local inside_table = inside_frame.add {
         type = 'table',
-        column_count = 1  
+        column_count = 1
     }
     local inside_table_style = inside_table.style
     inside_table_style.vertical_spacing = 10
@@ -496,12 +496,12 @@ local function draw_integration_frame(player)
     local index = player.index
     local has_chaoshikongshangdian = false
     local shop_items = nil
-    
+
     if tianfu_this.chaoshikongshangdian_items and tianfu_this.chaoshikongshangdian_items[index] then
         has_chaoshikongshangdian = true
         shop_items = tianfu_this.chaoshikongshangdian_items[index]
     end
-    
+
     if has_chaoshikongshangdian and shop_items and #shop_items > 0 then
         local spent = tianfu_this.chaoshikongshangdian_spent[index] or 0
         local remaining = 10000 - spent
@@ -557,10 +557,10 @@ local function draw_integration_frame(player)
         direction = 'vertical'
     }
     info_flow.style.vertical_spacing = 1
-    
+
     local this = WPT.get()
     local index = player.index
-    
+
     -- 显示当前等级信息
     if this.qcdj[index] then
         local xp = 2 + (this.qcdj[index] - 1) * 2
@@ -582,7 +582,7 @@ local function draw_integration_frame(player)
             type = 'label',
             caption = {'ic.quality_chest_free'}
         })
-        
+
          quality_progress_label.style.font = 'default-bold'
         quality_progress_label.style.font_color = {r = 1, g = 0.8, b = 0.2}
 
@@ -594,8 +594,8 @@ local function draw_integration_frame(player)
          quality_progress_label.style.font = 'default-bold'
         quality_progress_label.style.font_color = {r = 1, g = 0.8, b = 0.2}
         end
-    
-       
+
+
     end
 
     -- 显示资源信息
@@ -641,11 +641,11 @@ end
 local function draw_chaoshikongshangdian_frame(player)
     local tianfu_this = TPT.get()
     local index = player.index
-    
+
     if not tianfu_this.chaoshikongshangdian_items or not tianfu_this.chaoshikongshangdian_items[index] then
         return
     end
-    
+
     local shop_items = tianfu_this.chaoshikongshangdian_items[index]
     if #shop_items == 0 then
         return
@@ -711,7 +711,7 @@ local function draw_chaoshikongshangdian_frame(player)
             })
             item_btn.style.minimal_width = 60
             item_btn.style.minimal_height = 60
-            
+
             Gui.set_data(item_btn, item.item_name)
 
             local price_label = item_flow.add({
@@ -909,7 +909,7 @@ local function toggle(player, recreate)
     local main_frame = screen[main_frame_name]
 
     if recreate and main_frame then
-      
+
         remove_main_frame(main_frame)
         draw_main_frame(player)
         return
@@ -934,7 +934,7 @@ add_toolbar = function(player, remove)
     if flow[integration_button_name] then
         return
     end
-    
+
     TopBar.add_button(player, {
         type = 'sprite-button',
         sprite = 'item/rocket-silo',
@@ -953,14 +953,14 @@ remove_toolbar = function(player)
 
     if TopBar.get_button_flow(player)[integration_button_name] then
         TopBar.get_button_flow(player)[integration_button_name].destroy()
-        
 
-         
+
+
     local chaoshikongshangdian_frame = screen['chaoshikongshangdian_frame']
     if chaoshikongshangdian_frame and chaoshikongshangdian_frame.valid then
         chaoshikongshangdian_frame.destroy()
     end
-    
+
     local integration_frame = screen[integration_frame_name]
     if integration_frame and integration_frame.valid then
         integration_frame.destroy()
@@ -970,7 +970,7 @@ remove_toolbar = function(player)
         if frame and frame.valid then
             frame.destroy()
         end
-        
+
         return
     end
 end
@@ -1016,10 +1016,10 @@ end)
 GuiDispatcher.register_click('integration_chest_quality', function(event)
     local player = event.player
     if not player or not player.valid then return end
-    
+
     local need_coin = 5000
     local this = WPT.get()
-    
+
     -- 初始化玩家购买计数器
     if not this.quality_chest_purchases then
         this.quality_chest_purchases = {}
@@ -1027,19 +1027,19 @@ GuiDispatcher.register_click('integration_chest_quality', function(event)
     if not this.quality_chest_purchases[player.index] then
         this.quality_chest_purchases[player.index] = 0
     end
-    
+
     local purchase_count = this.quality_chest_purchases[player.index]
     local is_free = (purchase_count >= 10)
     local actual_cost = is_free and 0 or need_coin
-    
+
     -- 检查玩家是否有足够的硬币（如果不是免费的）
     if player.character.get_item_count('coin') >= actual_cost then
         local luck = math.floor(math.random(1, 150))
         player.print({'amap.lucknb', luck})
-        
+
         local magic = luck * 5 + 100
         local msg = {'amap.whatopen'}
-        
+
         -- 如果是免费的，显示特殊消息
         if is_free then
             player.print({'amap.quality_chest_free'})
@@ -1051,21 +1051,21 @@ GuiDispatcher.register_click('integration_chest_quality', function(event)
                 count = need_coin
             }
         end
-        
+
         -- 显示购买进度
         local remaining_for_free = 10 - this.quality_chest_purchases[player.index]
         if remaining_for_free > 0 then
             player.print({'amap.quality_chest_purchases_left', remaining_for_free})
         end
-        
+
         -- 调用品质开箱函数
         Loot.cool_with_quality(
-            player.physical_surface, 
-            player.physical_surface.find_non_colliding_position("steel-chest", player.physical_position, 20, 1, true) or player.physical_position, 
+            player.physical_surface,
+            player.physical_surface.find_non_colliding_position("steel-chest", player.physical_position, 20, 1, true) or player.physical_position,
             'steel-chest',
             magic
         )
-        
+
         Alert.alert_player(player, 5, msg)
     else
         player.print({'amap.noenough'})
@@ -1076,14 +1076,14 @@ end)
 GuiDispatcher.register_click('integration_car_settings', function(event)
     local player = event.player
     if not player or not player.valid then return end
-    
+
     -- 关闭整合面板
     local screen = player.gui.screen
     local frame = screen[integration_frame_name]
     if frame and frame.valid then
         frame.destroy()
     end
-    
+
     -- 打开汽车设置面板
     draw_main_frame(player)
 end)
@@ -1091,23 +1091,23 @@ end)
 GuiDispatcher.register_click('integration_chest', function(event)
     local player = event.player
     if not player or not player.valid then return end
-    
+
     -- 执行存储箱功能
     local can_buy = false
     local need_coin = 3000
-    
+
     if player.character.get_item_count('coin') >= need_coin then
         local luck = math.floor(math.random(1, 150))
         player.print({'amap.lucknb', luck})
 
         local magic = luck * 5 + 100
         local msg = {'amap.whatopen'}
-        
+
         player.remove_item {
             name = 'coin',
             count = need_coin
         }
-        
+
         Loot.cool(player.physical_surface, player.physical_surface
             .find_non_colliding_position("steel-chest", player.physical_position, 20, 1, true) or player.physical_position, 'steel-chest',
             magic)
@@ -1120,7 +1120,7 @@ end)
 GuiDispatcher.register_click('integration_buy_xp', function(event)
     local player = event.player
     if not player or not player.valid then return end
-    
+
     -- 执行购买经验功能
     local can_buy = false
     local need_coin = 5000
@@ -1166,7 +1166,7 @@ GuiDispatcher.register_click('integration_buy_resources', function(event)
     end
     local need_coin = math.floor(this.ore_record[index] / 2) * 10000 + 10000
 
- 
+
 
     if player.character.get_item_count('coin') >= need_coin then
         player.print({'amap.over_ore'})
@@ -1177,7 +1177,7 @@ GuiDispatcher.register_click('integration_buy_resources', function(event)
         local entity = this.tank[player.index]
         local position = entity.position
         local surface = entity.surface
-        
+
         crate_ore(surface, position)
         crate_water(surface, position)
         this.ore_record[index] = this.ore_record[index] + 1
@@ -1189,7 +1189,7 @@ end)
 GuiDispatcher.register_click('integration_stop_wave', function(event)
     local player = event.player
     if not player or not player.valid then return end
-    
+
     -- 执行暂停波次功能
     local this = WPT.get()
 
@@ -1244,28 +1244,28 @@ end)
 GuiDispatcher.register_click('integration_chaoshikongshangdian', function(event)
     local player = event.player
     if not player or not player.valid then return end
-    
+
     local tianfu_this = TPT.get()
     local index = player.index
-    
+
     if not tianfu_this.chaoshikongshangdian_items or not tianfu_this.chaoshikongshangdian_items[index] then
         player.print({'tianfu.chaoshikongshangdian_no_item'})
         return
     end
-    
+
     local shop_items = tianfu_this.chaoshikongshangdian_items[index]
     if #shop_items == 0 then
         player.print({'tianfu.chaoshikongshangdian_no_item'})
         return
     end
-    
+
     draw_chaoshikongshangdian_frame(player)
 end)
 
 GuiDispatcher.register_click('integration_close', function(event)
     local player = event.player
     if not player or not player.valid then return end
-    
+
     -- 关闭整合面板
     local screen = player.gui.screen
     local frame = screen[integration_frame_name]
@@ -1277,7 +1277,7 @@ end)
 GuiDispatcher.register_click('chaoshikongshangdian_close', function(event)
     local player = event.player
     if not player or not player.valid then return end
-    
+
     -- 关闭超时空商店面板
     local screen = player.gui.screen
     local frame = screen['chaoshikongshangdian_frame']
@@ -1289,22 +1289,22 @@ end)
 GuiDispatcher.register_click('chaoshikongshangdian_purchase_btn', function(event)
     local player = event.player
     if not player or not player.valid then return end
-    
+
     local element = event.element
     local item_name = Gui.get_data(element)
-    
+
     if not item_name then return end
-    
+
     local tianfu_this = TPT.get()
     local index = player.index
-    
+
     if not tianfu_this.chaoshikongshangdian_items or not tianfu_this.chaoshikongshangdian_items[index] then
         player.print({'tianfu.chaoshikongshangdian_no_item'})
         return
     end
-    
+
     local shop_items = tianfu_this.chaoshikongshangdian_items[index]
-    
+
     local item_index = nil
     for i, item in ipairs(shop_items) do
         if item.item_name == item_name then
@@ -1312,21 +1312,21 @@ GuiDispatcher.register_click('chaoshikongshangdian_purchase_btn', function(event
             break
         end
     end
-    
+
     if not item_index then return end
-    
+
     local item = shop_items[item_index]
     local price = item.price
     local item_count = item.item_count
-    
+
     local spent = tianfu_this.chaoshikongshangdian_spent[index] or 0
     local max_spent = 10000
-    
+
     if spent + price > max_spent then
         player.print({'tianfu.chaoshikongshangdian_limit_reached', max_spent})
         return
     end
-    
+
     if player.character.get_item_count('coin') >= price then
         player.remove_item {
             name = 'coin',

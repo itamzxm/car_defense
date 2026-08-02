@@ -148,14 +148,14 @@ local market_items = {{
 local function add_upgrade_items(market_entity, island_id)
     local this = WPT.get()
     local island = this.islands[island_id]
-    
+
     local price_mine = this.urgrad_mine * 4000 + 1000
     local price_wall = this.health * 2000 + 15000
     local price_arty = this.arty * 10000 + 20000
     local price_all_dam = this.urgrad_all_dam * 10000 + 10000
-    
+
     local max_price = 65000
-    
+
     if price_mine >= max_price then
         price_mine = max_price
     end
@@ -168,7 +168,7 @@ local function add_upgrade_items(market_entity, island_id)
     if price_all_dam >= max_price then
         price_all_dam = max_price
     end
-    
+
     local health_wall = {
         price = {{name = "coin", count = price_wall}},
         offer = {
@@ -176,7 +176,7 @@ local function add_upgrade_items(market_entity, island_id)
             effect_description = {'amap.buy_health_wall', this.health * 0.1}
         }
     }
-    
+
     local buy_urgrade_all_dam = {
         price = {{name = "coin", count = price_all_dam}},
         offer = {
@@ -184,7 +184,7 @@ local function add_upgrade_items(market_entity, island_id)
             effect_description = {'amap.buy_all_dam', this.urgrad_all_dam * 0.01}
         }
     }
-    
+
     local arty_dam = {
         price = {{name = "coin", count = price_arty}},
         offer = {
@@ -192,7 +192,7 @@ local function add_upgrade_items(market_entity, island_id)
             effect_description = {'amap.buy_arty_dam', this.arty * 0.1}
         }
     }
-    
+
     local urgrade_mine = {
         price = {{name = "coin", count = price_mine}},
         offer = {
@@ -200,7 +200,7 @@ local function add_upgrade_items(market_entity, island_id)
             effect_description = {'amap.urgrade_mine', this.urgrad_mine * 200 + 400}
         }
     }
-    
+
     local buy_tianfu = {
         price = {{name = "coin", count = 65000}},
         offer = {
@@ -208,7 +208,7 @@ local function add_upgrade_items(market_entity, island_id)
             effect_description = {'amap.buy_talent'}
         }
     }
-    
+
     local enter_dungeon = {
         price = {{name = "coin", count = 10000}},
         offer = {
@@ -307,7 +307,7 @@ local function calculate_base_item_value(item_name, depth)
     local this=WPT.get()
     depth = depth or 0
     if depth > 10 then return 1 end
-    
+
     if not this.time_cache then
         this.time_cache = {}
     end
@@ -316,14 +316,14 @@ local function calculate_base_item_value(item_name, depth)
     end
 
     local recipe =prototypes.recipe[item_name]
-    
+
     if not recipe then
         this.time_cache[item_name] = 1
         return 1
     end
 
     local total_time = recipe.energy
-    
+
     local product_amount = 1
     for _, product in pairs(recipe.products) do
         if product.name == item_name then
@@ -331,7 +331,7 @@ local function calculate_base_item_value(item_name, depth)
             break
         end
     end
-    
+
     for _, ingredient in pairs(recipe.ingredients) do
         if ingredient.type == "item" then
             local sub_time = calculate_base_item_value(ingredient.name, depth + 1)
@@ -371,15 +371,15 @@ local island_types = {
 -- 随机获取岛屿类型
 local function get_random_island_type()
     local this = WPT.get()
-    
+
     if not this.island_type_index then
         this.island_type_index = 1
     end
-    
+
     local island_type = island_types[this.island_type_index]
-    
+
     this.island_type_index = this.island_type_index % #island_types + 1
-    
+
     return island_type
 end
 
@@ -387,7 +387,7 @@ end
 local function get_production_items(island_type)
     local items = {}
     local source_items
-    
+
     if island_type == "military" then
         source_items = military_items
     elseif island_type == "industrial" then
@@ -401,22 +401,22 @@ local function get_production_items(island_type)
     else
         return items
     end
-    
+
     local shuffled = {}
     for i, item in ipairs(source_items) do
         shuffled[i] = item
     end
-    
+
     for i = #shuffled, 2, -1 do
         local j = math.random(1, i)
         shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
     end
-    
+
     local count = math.min(6, #shuffled)
     for i = 1, count do
         table.insert(items, shuffled[i])
     end
-    
+
     return items
 end
 
@@ -425,24 +425,24 @@ end
 local function generate_enemies_near_market(surface, market_position)
     local distance_from_base = math.sqrt(market_position.x ^ 2 + market_position.y ^ 2)
     local base_value = 70 + distance_from_base * 0.03
-    
+
     local difficulty_multiplier = 1 + distance_from_base * 0.01
     local adjusted_value = base_value * difficulty_multiplier
-    
+
     local can_build = {}
     for _, building in pairs(enemy_base_value) do
         if distance_from_base >= building.distance_threshold then
             table.insert(can_build, building)
         end
     end
-    
-    if #can_build == 0 then 
-        return 
+
+    if #can_build == 0 then
+        return
     end
-    
+
     local buildings_to_spawn = {}
     local remaining_value = adjusted_value
-    
+
     while remaining_value > 0 do
         local available_buildings = {}
         for _, building in ipairs(can_build) do
@@ -450,35 +450,35 @@ local function generate_enemies_near_market(surface, market_position)
                 table.insert(available_buildings, building)
             end
         end
-        
-        if #available_buildings == 0 then 
-            break 
+
+        if #available_buildings == 0 then
+            break
         end
-        
+
         local selected_building = available_buildings[math.random(1, #available_buildings)]
         table.insert(buildings_to_spawn, selected_building)
         remaining_value = remaining_value - selected_building.worth
     end
-    
+
     for _, building in ipairs(buildings_to_spawn) do
         local spawn_position = surface.find_non_colliding_position(building.name, market_position, 50, 1)
-        
+
         if spawn_position then
             local distance_from_market = math.sqrt((spawn_position.x - market_position.x) ^ 2 + (spawn_position.y - market_position.y) ^ 2)
-            
-     
+
+
                 local entity_data = {
                     name = building.name,
                     position = spawn_position,
                     force = "enemy"
                 }
-                
+
                 if building.name == 'flamethrower-turret' then
                     entity_data.direction = math.random(0, 3)*4
                 end
-                
+
                 local entity = surface.create_entity(entity_data)
-                
+
                 if entity then
                     if entity.name == 'gun-turret' then
                         enemy_arty.add_gun(entity)
@@ -490,7 +490,7 @@ local function generate_enemies_near_market(surface, market_position)
                         enemy_arty.add_arty(entity)
                     end
                 end
-            
+
         end
     end
 end
@@ -521,7 +521,7 @@ local function create_storage_chests(surface, market_position, player_index, isl
     local chests = {}
     local player = game.players[player_index]
     local player_force = player and player.force or "player"
-    
+
     local quality = "normal"
     if island_level and island_level >= 2 then
         if island_level == 2 then
@@ -534,7 +534,7 @@ local function create_storage_chests(surface, market_position, player_index, isl
             quality = "legendary"
         end
     end
-    
+
     local chest_positions = {
         {x = market_position.x - 1, y = market_position.y + 6},
         {x = market_position.x, y = market_position.y + 6},
@@ -543,7 +543,7 @@ local function create_storage_chests(surface, market_position, player_index, isl
         {x = market_position.x, y = market_position.y + 7},
         {x = market_position.x + 1, y = market_position.y + 7}
     }
-    
+
     for _, pos in ipairs(chest_positions) do
         local chest = surface.create_entity({
             name = "steel-chest",
@@ -552,14 +552,14 @@ local function create_storage_chests(surface, market_position, player_index, isl
             quality = quality,
             create_build_effect_smoke = false
         })
-        
+
         if chest then
             chest.destructible = false
             chest.minable_flag = false
             table.insert(chests, chest)
         end
     end
-    
+
     return chests
 end
 
@@ -569,18 +569,18 @@ end
 -- 更新岛屿存储箱子的品质（按原箱子索引还原物品）
 local function update_chest_quality(island_id)
     local this = WPT.get()
-    
+
     if not this.islands or not this.islands[island_id] then
         return
     end
-    
+
     local island = this.islands[island_id]
-    
+
     -- 如果箱子列表不存在，直接跳过
     if not island.storage_chests then
         return
     end
-    
+
     local surface = island.market_entity.surface
     local market_pos = island.market_entity.position
     local owner = island.owner
@@ -589,7 +589,7 @@ local function update_chest_quality(island_id)
     -- 1. 备份数据：按索引存储每个箱子的内容
     -- backup_data[1] 对应 1号箱子的内容，以此类推
     local backup_data = {}
-    
+
     for i, chest in ipairs(island.storage_chests) do
         backup_data[i] = {} -- 默认为空
         if chest and chest.valid then
@@ -602,11 +602,11 @@ local function update_chest_quality(island_id)
             chest.destroy()
         end
     end
-    
+
     -- 2. 创建新品质的箱子
     -- 这个函数内部会生成新的 storage_chests 数组（同样是 1-6 个）
     island.storage_chests = create_storage_chests(surface, market_pos, owner, level)
-    
+
     -- 3. 还原数据：将备份的内容按索引塞回新箱子
     for i, contents in ipairs(backup_data) do
         local new_chest = island.storage_chests[i]
@@ -628,24 +628,24 @@ end
 -- 返回: 岛屿ID
 function Public.register_island(surface, market_entity, island_type, generate_enemies)
     local this = WPT.get()
-    
+
     if not this.islands then
         this.islands = {}
     end
-    
+
     if not island_type then
         island_type = get_random_island_type()
     end
-    
+
     if generate_enemies == nil then
         generate_enemies = true
     end
-    
+
     local island_id = #this.islands + 1
-    
+
     local tag_id = nil
     local tag_text = nil
-    
+
     if island_type == "military" then
         tag_text = '军事岛'
     elseif island_type == "industrial" then
@@ -657,14 +657,14 @@ function Public.register_island(surface, market_entity, island_type, generate_en
     elseif island_type == "construction" then
         tag_text = '建筑岛'
     end
-    
+
     if tag_text then
         tag_id = game.forces.player.add_chart_tag(surface, {
             position = market_entity.position,
             text = tag_text
         })
     end
-    
+
     local island_data = {
         id = island_id,
         level = 0,
@@ -680,13 +680,13 @@ function Public.register_island(surface, market_entity, island_type, generate_en
         tag_id = tag_id,
         investments = {}
     }
-    
+
     this.islands[island_id] = island_data
-    
+
     if generate_enemies then
         generate_enemies_near_market(surface, market_entity.position)
     end
-    
+
     return island_id
 end
 
@@ -695,19 +695,19 @@ end
 -- island_id: 岛屿ID
 function Public.setup_island_market(market_entity, island_id)
     local this = WPT.get()
-    
+
     if not this.islands or not this.islands[island_id] then
         return
     end
-    
+
     local island = this.islands[island_id]
-    
+
     if island.owner ~= nil then
         return
     end
-    
+
     local island_type_name = get_island_type_name(island.type)
-    
+
     local source_items_count = 0
     if island.type == "military" then
         source_items_count = #military_items
@@ -720,7 +720,7 @@ function Public.setup_island_market(market_entity, island_id)
     elseif island.type == "construction" then
         source_items_count = #construction_items
     end
-    
+
     local buy_island_item = {
         price = {{name = "coin", count = 10000}},
         offer = {
@@ -728,7 +728,7 @@ function Public.setup_island_market(market_entity, island_id)
             effect_description = {'amap.buy_island', island_type_name, source_items_count, '10000'}
         }
     }
-    
+
     market_entity.add_market_item(buy_island_item)
 end
 
@@ -739,52 +739,52 @@ end
 function Public.purchase_island(player_index, island_id)
     local this = WPT.get()
     local player = game.players[player_index]
-    
+
     if not this.islands or not this.islands[island_id] then
         if player and player.valid then
             new_print(player, {'amap.island_not_found'})
         end
         return false
     end
-    
+
     local island = this.islands[island_id]
-    
+
     if island.owner ~= nil then
         if player and player.valid then
             new_print(player, {'amap.island_already_owned'})
         end
         return false
     end
-    
-    
+
+
     island.owner = player_index
     island.owner_name = player.name
     island.level = 1
     island.production_capacity = 7500
     island.production_items = get_production_items(island.type)
     island.last_production_time = game.tick
-    
+
     if not island.investments then
         island.investments = {}
     end
     island.investments[player_index] = 10000
-    
+
     island.storage_chests = create_storage_chests(island.market_entity.surface, island.market_entity.position, player_index)
 
     local surface = island.market_entity.surface
     local player_position = player.physical_position
-    
+
     if player_position then
         local safe_position = surface.find_non_colliding_position('character', player_position, 10, 1)
         if safe_position then
             player.teleport(safe_position, surface)
         end
     end
-    
+
     if island.text_id and island.text_id.valid then
         island.text_id.destroy()
     end
-    
+
     island.text_id = rendering.draw_text {
         text = {'', player.name, {'amap.possessive_particle'}, get_island_type_name(island.type)},
         surface = island.market_entity.surface,
@@ -803,13 +803,13 @@ function Public.purchase_island(player_index, island_id)
         alignment = 'center',
         scale_with_zoom = false
     }
-    
+
     Public.refresh_island_market(island.market_entity, island_id)
-    
+
     if player and player.valid then
         new_print(player, {'amap.island_purchased', get_island_type_name(island.type), 10000})
     end
-    
+
     return true
 end
 
@@ -820,45 +820,45 @@ end
 function Public.upgrade_island(player_index, island_id)
     local this = WPT.get()
     local player = game.players[player_index]
-    
+
     if not this.islands or not this.islands[island_id] then
         if player and player.valid then
             new_print(player, {'amap.island_not_found'})
         end
         return false
     end
-    
+
     local island = this.islands[island_id]
-    
+
     if island.level >= 5 then
         if player and player.valid then
             new_print(player, {'amap.island_max_level'})
         end
         return false
     end
-    
+
     island.level = island.level + 1
     island.production_capacity = island.level * 5000
-    
+
     local upgrade_cost = island.level * 10000
     if not island.investments then
         island.investments = {}
     end
     island.investments[player_index] = (island.investments[player_index] or 0) + upgrade_cost
-    
+
     if island.level == 5 then
         island.urgrad_mine = 0
         island.health = 0
         island.arty = 0
         island.urgrad_all_dam = 0
     end
-    
+
     update_chest_quality(island_id)
-    
+
     if island.text_id and island.text_id.valid then
         island.text_id.destroy()
     end
-    
+
     island.text_id = rendering.draw_text {
         text = {'', island.owner_name, {'amap.possessive_particle'}, get_island_type_name(island.type), ' (Lv.', island.level, ')'},
         surface = island.market_entity.surface,
@@ -877,13 +877,13 @@ function Public.upgrade_island(player_index, island_id)
         alignment = 'center',
         scale_with_zoom = false
     }
-    
+
     Public.refresh_island_market(island.market_entity, island_id)
-    
+
     if player and player.valid then
         new_print(player, {'amap.island_upgraded', island.level, upgrade_cost})
     end
-    
+
     return true
 end
 
@@ -892,15 +892,15 @@ end
 -- island_id: 岛屿ID
 function Public.refresh_island_market(market_entity, island_id)
     local this = WPT.get()
-    
+
     if not this.islands or not this.islands[island_id] then
         return
     end
-    
+
     local island = this.islands[island_id]
-    
+
     market_entity.clear_market_items()
-    
+
     if island.owner == nil then
         Public.setup_island_market(market_entity, island_id)
     else
@@ -914,7 +914,7 @@ function Public.refresh_island_market(market_entity, island_id)
                 }
             }
             market_entity.add_market_item(buy_fish_item)
-            
+
             local sell_fish_item = {
                 price = {{name = "raw-fish", count = 1}},
                 offer = {
@@ -925,14 +925,14 @@ function Public.refresh_island_market(market_entity, island_id)
             }
             market_entity.add_market_item(sell_fish_item)
         end
-        
+
         if island.level >= 5 then
             add_upgrade_items(market_entity, island_id)
-            
+
             for _, item in pairs(market_items) do
                 market_entity.add_market_item(item)
             end
-            
+
             local rand_item = MT.get_random_item(6, false, false)
             for _, item in pairs(rand_item) do
                 item.price[1].count = math.floor(item.price[1].count * 1.1)
@@ -973,18 +973,18 @@ function Public.refresh_island_market(market_entity, island_id)
                     }
                 }
             }
-            
+
             for _, item in pairs(loader_items) do
                 market_entity.add_market_item(item)
             end
-            
+
             local rand_item = MT.get_random_item(6, false, false)
             for _, item in pairs(rand_item) do
                 item.price[1].count = math.floor(item.price[1].count * 1.1)
                 market_entity.add_market_item(item)
             end
         end
-        
+
         if island.level < 5 then
             local cost = (island.level + 1) * 10000
             local upgrade_item = {
@@ -1012,43 +1012,43 @@ end
 -- 为所有已购买的岛屿生产资源、经验和金币
 function Public.process_island_production()
     local this = WPT.get()
-    
+
     if not this.islands then
         return
     end
-    
+
     local island_list = {}
     for _, island in pairs(this.islands) do
         if island.owner ~= nil and island.market_entity and island.market_entity.valid then
             table.insert(island_list, island)
         end
     end
-    
+
     if #island_list == 0 then
         return
     end
-    
+
     this.island_production_index = this.island_production_index % #island_list + 1
     local island = island_list[this.island_production_index]
-    
+
     local current_tick = game.tick
     local time_since_last_production = current_tick - island.last_production_time
-    
+
     if time_since_last_production >= 60 * 60 then
         local total_value = island.production_capacity
-        
+
         if island.type == "technology" then
              local set_cost = 0
             for _, item_name in ipairs(island.production_items) do
                 set_cost = set_cost + calculate_base_item_value(item_name)
             end
-            
+
             -- 防止除以0
             if set_cost <= 0 then set_cost = 1 end
-            
+
             -- 计算能生产多少“套”
             local item_count = math.floor(total_value / set_cost)
-            
+
             -- 如果产能太低不足以生产一套，至少生产1个（可选，或者保持0）
             if item_count < 1 and total_value > 0 then item_count = 1 end
 
@@ -1061,28 +1061,28 @@ function Public.process_island_production()
             for i, item_name in ipairs(island.production_items) do
                 local item_value = calculate_base_item_value(item_name)
                 local item_count = math.floor(total_value / item_value / #island.production_items)
-                
+
                 if item_count > 0 and island.storage_chests and island.storage_chests[i] and island.storage_chests[i].valid then
                     island.storage_chests[i].insert({name = item_name, count = item_count})
                 end
             end
         end
-        
+
         local total_xp = 0
         local total_coin = 0
-        
+
         for i = 1, island.level do
             total_xp = total_xp + i * 4
             total_coin = total_coin + i * 40
         end
-        
+
         local total_investment = 0
         if island.investments then
             for _, investment in pairs(island.investments) do
                 total_investment = total_investment + investment
             end
         end
-        
+
         if total_investment > 0 and island.investments then
             for player_index, investment in pairs(island.investments) do
                 local player = game.players[player_index]
@@ -1090,23 +1090,23 @@ function Public.process_island_production()
                     local share = investment / total_investment
                     local xp_gained = math.floor(total_xp * share)
                     local coin_gained = math.floor(total_coin * share)
-                    
+
                     if xp_gained > 0 then
                         local rpg_t = rpgtable.get('rpg_t')
                         rpg_t[player_index].xp = rpg_t[player_index].xp + xp_gained
                     end
-                    
+
                     if coin_gained > 0 then
                         insert_coin_to_player(player, coin_gained)
                     end
-                    
+
                     if player.connected and (xp_gained > 0 or coin_gained > 0) then
                         new_print(player, {'amap.island_production', island.level, coin_gained, xp_gained})
                     end
                 end
             end
         end
-        
+
         island.last_production_time = current_tick
     end
 end
@@ -1116,11 +1116,11 @@ end
 -- 返回: 岛屿信息表
 function Public.get_island_info(island_id)
     local this = WPT.get()
-    
+
     if not this.islands or not this.islands[island_id] then
         return nil
     end
-    
+
     local island = this.islands[island_id]
     return {
         id = island.id,
@@ -1138,11 +1138,11 @@ end
 function Public.get_player_islands(player_index)
     local this = WPT.get()
     local player_islands = {}
-    
+
     if not this.islands then
         return player_islands
     end
-    
+
     for _, island in pairs(this.islands) do
         if island.owner == player_index then
             table.insert(player_islands, {
@@ -1154,7 +1154,7 @@ function Public.get_player_islands(player_index)
             })
         end
     end
-    
+
     return player_islands
 end
 
@@ -1163,17 +1163,17 @@ end
 -- 返回: 岛屿ID
 function Public.get_island_id_by_market(market_entity)
     local this = WPT.get()
-    
+
     if not this.islands then
         return nil
     end
-    
+
     for island_id, island in pairs(this.islands) do
         if island.market_entity == market_entity then
             return island_id
         end
     end
-    
+
     return nil
 end
 
@@ -1183,28 +1183,28 @@ local function on_market_item_purchased(event)
     local market = event.market
     local player_index = event.player_index
     local player = game.players[player_index]
-    
+
     if not player or not player.valid then
         return
     end
-    
+
     local this = WPT.get()
-    
+
     local island_id = Public.get_island_id_by_market(market)
     if not island_id then
         return
     end
-    
- 
+
+
     local island = this.islands[island_id]
     if not island then
         return
     end
-    
+
     -- 获取购买的物品信息
     local offers = market.get_market_items()
     local offer_data = offers[event.offer_index]
-    
+
     if not offer_data or offer_data.offer.type ~= "nothing" then
         return
     end
@@ -1239,7 +1239,7 @@ local function on_market_item_purchased(event)
                 local price_all_dam = (this.urgrad_all_dam or 0) * 10000 + 10000
                 local max_price = 65000
                 if price_all_dam >= max_price then price_all_dam = max_price end
-                
+
                 player.insert({name = "coin", count = price_all_dam})
                 game.print({'amap.damage_multiplier_max', player.name})
                 return -- 达到上限，直接返回，不刷新市场
@@ -1265,22 +1265,22 @@ local function on_market_item_purchased(event)
             if not this.tianfu_buy_count[player.index] then
                 this.tianfu_buy_count[player.index] = 0
             end
-            
+
             if this.tianfu_buy_count[player.index] >= 25 then
                 player.insert({name = 'coin', count = 65000})
                 player.print({'amap.tianfu_limit_reached', player.name})
                 return
             end
-            
+
             this.tianfu_count[player.index] = this.tianfu_count[player.index] - 1
             this.tianfu_buy_count[player.index] = this.tianfu_buy_count[player.index] + 1
             game.print(player.name .. '购买了1个天赋（已购买' .. this.tianfu_buy_count[player.index] .. '次）')
-        
+
         elseif offer_index == 6 then
             -- 进入副本
             Dungeon.show_difficulty_selection_gui(player)
         end
-        
+
         -- 等级>=5的购买项执行完后刷新市场内容
         Public.refresh_island_market(market, island_id)
     end

@@ -21,7 +21,7 @@ function Public.init_enemy_weapon_damage()
         ['shotgun-shell'] = 0,
         ['beam'] = 0,
         ['laser'] = 0,
-        
+
        -- ['railgun'] = 0,
        -- ['combat-robot-beam'] = 0,
       --  ['combat-robot-laser'] = 0,
@@ -59,7 +59,7 @@ local function enemy_weapon_damage()
         --['shotgun-shell'] = 0.08
     }
 
-    
+
 
     for k, v in pairs(data) do
         local new = Difficulty.get().difficulty_vote_value * v

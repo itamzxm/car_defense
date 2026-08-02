@@ -14,7 +14,7 @@ local this = {
     warrior_biter_units = {},
     suicide_biter_units = {}
 }
- 
+
 
 local function get_opposite_force(force)
     if force == 'player' then
@@ -55,18 +55,18 @@ local function find_nearby_entities(surface, position, radius, force)
         force = force,
         type = goal
     })
-    
+
     local characters = {}
     for _, entity in pairs(entities) do
         if entity.type == 'character' then
             characters[#characters + 1] = entity
         end
     end
-    
+
     if #characters > 0 then
         return characters
     end
-    
+
     return entities
 end
 
@@ -76,23 +76,23 @@ local function leitingwanjun(entity)
     local surface = entity.surface
     local position = entity.position
     local target_force = get_opposite_force(entity.force.name)
-    
+
     local laser_damage_bonus = game.forces[entity.force.name].get_ammo_damage_modifier("laser") + 1
     local attack_speed_bonus = game.forces[entity.force.name].get_gun_speed_modifier('laser') + 1
-    
+
     local base_damage = 500
     local damage = base_damage * laser_damage_bonus * attack_speed_bonus *2
-    
+
     local nearby_enemies = find_nearby_entities(surface, position, 16, target_force)
-    
+
     if #nearby_enemies <= 0 then
         return
     end
-    
+
     create_flying_text(entity, 'amap.flying_text_leitingwanjun')
-    
+
     local target_entity = nearby_enemies[1]
-    
+
     if target_entity and target_entity.valid then
         surface.create_entity({
             name = 'lightning',
@@ -102,7 +102,7 @@ local function leitingwanjun(entity)
             target = target_entity,
             speed = 1.0
         })
-        
+
 
         if target_entity.type == 'unit' or target_entity.type == 'character' or target_entity.type == 'spider-unit' then
             surface.create_entity {
@@ -115,7 +115,7 @@ local function leitingwanjun(entity)
         end
         local radius = 7
         local target_position = target_entity.position
-        
+
         for _, e in pairs(surface.find_entities_filtered({
             position = target_position,
             radius = radius,
@@ -125,7 +125,7 @@ local function leitingwanjun(entity)
             if e.valid and e.health and damage > 0 then
                 local distance_from_center = math.sqrt((e.position.x - target_position.x) ^ 2 + (e.position.y - target_position.y) ^ 2)
                 local damage_distance_modifier = 1 - distance_from_center / radius
-                
+
                 if damage_distance_modifier > 0 then
                     e.damage(damage * damage_distance_modifier, entity.force.name, 'electric')
                 end
@@ -135,8 +135,8 @@ local function leitingwanjun(entity)
 end
 
 local function water_dragon_ball(entity)
-    
-    
+
+
     local surface = entity.surface
     local position = entity.position
     local base_damage = 600
@@ -191,8 +191,8 @@ local function water_dragon_ball(entity)
 end
 
 local function fire_shield(entity)
-    
-    
+
+
     local surface = entity.surface
     local position = entity.position
     local base_damage = 500
@@ -261,13 +261,13 @@ local function fire_shield(entity)
 end
 
 local function throw_offensive_drone(entity)
-    
-    
+
+
     local surface = entity.surface
     local position = entity.position
     local target_force = get_opposite_force(entity.force.name)
     local players = find_nearby_entities(surface, position, 20, target_force)
-    
+
     if #players > 0 then
     for _, player in pairs(players) do
         if player and player.valid then
@@ -287,12 +287,12 @@ end
 
 local function throw_poison_capsule(entity)
 
-    
+
     local surface = entity.surface
     local position = entity.position
     local target_force = get_opposite_force(entity.force.name)
     local players = find_nearby_entities(surface, position, 20, target_force)
-    
+
     if #players > 0 then
     for _, player in pairs(players) do
         if player and player.valid then
@@ -311,20 +311,20 @@ end
 end
 
 local function ignite_target(entity)
-    
-    
+
+
     local surface = entity.surface
     local position = entity.position
     local target_force = get_opposite_force(entity.force.name)
     local players = find_nearby_entities(surface, position, 20, target_force)
-    
+
     local valid_targets = {}
     for _, player in pairs(players) do
         if player and player.valid and (player.type == 'unit' or player.type == 'character' or player.type == 'spider-unit') then
             valid_targets[#valid_targets + 1] = player
         end
     end
-    
+
     if #valid_targets > 0 then
         local target = valid_targets[math.random(#valid_targets)]
         surface.create_entity({
@@ -340,7 +340,7 @@ end
 
 local function speed_up_allies(entity)
     create_flying_text(entity, 'amap.flying_text_speed_up_allies')
-    
+
     local surface = entity.surface
     local position = entity.position
     local radius = 20
@@ -365,7 +365,7 @@ end
 
 local function electric_beam_attack(entity)
 
-    
+
     local surface = entity.surface
     local position = entity.position
     local radius = 20
@@ -382,13 +382,13 @@ local function electric_beam_attack(entity)
     if #players > 0 then
         local target_count = math.min(10, #players)
         local selected_targets = {}
-        
+
         for i = 1, target_count do
             local random_index = math.random(#players)
             selected_targets[i] = players[random_index]
             table.remove(players, random_index)
         end
-        
+
         for _, target in pairs(selected_targets) do
             if target and target.valid then
                 surface.create_entity({
@@ -407,8 +407,8 @@ local function electric_beam_attack(entity)
 end
 
 local function revive_corpses(entity)
-    
-    
+
+
     local surface = entity.surface
     local position = entity.position
     local radius = 33
@@ -427,10 +427,10 @@ local function revive_corpses(entity)
 
     local summon_points = 0
     for _, corpse in pairs(corpses) do
-      
+
             corpse.destroy()
             summon_points = summon_points + 5
-       
+
     end
 
     if summon_points >= 2000 then
@@ -446,7 +446,7 @@ local function revive_corpses(entity)
     ['small-stomper-pentapod'] = 350,
     ['medium-stomper-pentapod'] = 640,
     ['big-stomper-pentapod'] = 1280,
-    
+
 
     ['small-strafer-pentapod'] = 160,
     ['medium-strafer-pentapod'] = 240,
@@ -456,10 +456,10 @@ local function revive_corpses(entity)
     ['medium-wriggler-pentapod'] = 8,
     ['big-wriggler-pentapod'] = 32,
 
-    
+
     ['big-biter'] = 16,
     ['big-spitter'] = 16,
-   
+
     ['medium-biter'] = 4,
     ['medium-spitter'] = 4,
 
@@ -577,11 +577,11 @@ function(data)
     local total_count = data.total_count
     local created_count = data.created_count
     local unit_number = data.unit_number
-    
+
     local batch_size = 8
     local start_index = (batch_index - 1) * batch_size + 1
     local end_index = math.min(batch_index * batch_size, total_count)
-    
+
     local created_this_batch = 0
     for i = start_index, end_index do
         local pos = surface.find_non_colliding_position(entity_name, position, 32, 4)
@@ -590,11 +590,11 @@ function(data)
             created_this_batch = created_this_batch + 1
         end
     end
-    
-    local new_created_count = created_count + created_this_batch
-    
 
-    
+    local new_created_count = created_count + created_this_batch
+
+
+
     if batch_index < total_batches then
         data.batch_index = batch_index + 1
         data.created_count = new_created_count
@@ -618,7 +618,7 @@ local function spawn_biters_on_death(entity, total_count)
         created_count = 0,
         unit_number = entity.unit_number
     }
-    
+
     Task.set_timeout_in_ticks(0, spawn_biter_batch_token, data)
 end
 
@@ -764,17 +764,17 @@ end
 
 local function process_mage_spells()
 
-    if not this.mage_biter_units then 
+    if not this.mage_biter_units then
     this.boss_units = {}
     this.mage_biter_units = {}
     this.warrior_biter_units = {}
     this.suicide_biter_units = {}
-    
+
     end
     for unit_number, mage_data in pairs(this.mage_biter_units) do
         if mage_data and mage_data.entity and mage_data.entity.valid then
             mage_data.cast_time = mage_data.cast_time + 2
-            
+
             if mage_data.cast_time >= 300 then
                 local spell_key = spell_keys[math.random(#spell_keys)]
                 local spell_func = mage_spells[spell_key]
@@ -799,28 +799,28 @@ Event.on_nth_tick(2, process_mage_spells)
 
 local function warrior_pull(entity, cause, damage)
     create_flying_text(entity, 'amap.flying_text_pull')
-    
+
     if not (cause and cause.valid) then return end
 
     local surface = entity.surface
     local entity_pos = entity.position
     local cause_pos = cause.position
-    
+
     local pull_distance = 5
     local distance = math.sqrt((cause_pos.x - entity_pos.x)^2 + (cause_pos.y - entity_pos.y)^2)
-    
+
     if distance <= pull_distance then
         return
     end
-    
+
     local direction_x = (entity_pos.x - cause_pos.x) / distance
     local direction_y = (entity_pos.y - cause_pos.y) / distance
-    
+
     local new_pos = {
         x = cause_pos.x + direction_x * pull_distance,
         y = cause_pos.y + direction_y * pull_distance
     }
-    
+
     local safe_position = surface.find_non_colliding_position(cause.name, new_pos, 3, 0.5)
     if safe_position then
         cause.teleport(safe_position)
@@ -829,14 +829,14 @@ end
 
 local function warrior_heal(entity, damage)
     create_flying_text(entity, 'amap.flying_text_heal')
-    
+
     local heal_amount = damage * 0.5
     entity.health = entity.health + heal_amount
 end
 
 local function warrior_reflect(entity, cause, damage)
     create_flying_text(entity, 'amap.flying_text_reflect')
-    
+
     if not (cause and cause.valid) then return end
 
     local base_damage = 30
@@ -848,7 +848,7 @@ end
 
 local function warrior_summon(entity, cause, damage)
     create_flying_text(entity, 'amap.flying_text_summon')
-    
+
     local surface = entity.surface
     local position = entity.position
 
@@ -866,7 +866,7 @@ end
 
 local function warrior_aoe_damage(entity, cause, damage)
     create_flying_text(entity, 'amap.flying_text_aoe_damage')
-    
+
     if not (cause and cause.valid) then return end
 
     local surface = entity.surface
@@ -888,8 +888,8 @@ local function warrior_aoe_damage(entity, cause, damage)
 end
 
 local function warrior_tesla_stun(entity, cause, damage)
-    
-   
+
+
     if not (cause and cause.valid) then return end
 
     local surface = entity.surface
@@ -1023,7 +1023,7 @@ local warrior_skills = {
     skill_airstrike = function(entity, cause, damage)
         warrior_airstrike(entity, cause, damage)
     end,
-   
+
 }
 
 local warrior_offensive_skills = {
@@ -1035,7 +1035,7 @@ local warrior_offensive_skills = {
     end,
     skill_heal = function(entity, cause, damage)
         warrior_heal(entity, damage)
-    end, 
+    end,
     skill_rockets = function(entity, cause, damage)
         warrior_rockets(entity, cause, damage)
     end
@@ -1076,7 +1076,7 @@ local function on_entity_damaged(event)
 end
 
 Event.add(defines.events.on_entity_damaged, on_entity_damaged, {
-    {filter = "type", type = 'character'}, 
+    {filter = "type", type = 'character'},
     {filter = "type", type = 'electric-turret'}
     })
 

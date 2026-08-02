@@ -168,34 +168,34 @@ function Public.spell_info_gui(player)
             }
         )
         main_frame.auto_center = true
-        
+
         local scroll_pane = main_frame.add({type = 'scroll-pane'})
         scroll_pane.style.maximal_height = 560
         scroll_pane.style.minimal_width = 500
-        
+
         local table = scroll_pane.add({type = 'table', column_count = 4, name = 'spell_info_table'})
         for i = 1, #spells do
             local spell = spells[i]
             local sprite_button = table.add({type = 'sprite-button', sprite = spell.sprite})
             sprite_button.style.size = 48
             sprite_button.style.padding = 2
-            
+
             local name_label = table.add({type = 'label', caption = spell.name})
             name_label.style.font = 'default-bold'
             name_label.style.vertical_align = 'center'
             name_label.style.padding = {2, 4}
-            
+
             local level_label = table.add({type = 'label', caption = {'rpg_settings.level_label', spell.level}})
             level_label.style.font_color = {r = 1, g = 0.8, b = 0}
             level_label.style.vertical_align = 'center'
             level_label.style.padding = {2, 4}
-            
+
             local mana_cost_label = table.add({type = 'label', caption = {'rpg_settings.mana_cost_label', spell.mana_cost}})
             mana_cost_label.style.font_color = {r = 0.3, g = 0.7, b = 1}
             mana_cost_label.style.vertical_align = 'center'
             mana_cost_label.style.padding = {2, 4}
         end
-        
+
         local bottom_flow = main_frame.add({type = 'flow', name = 'bottom_flow', direction = 'horizontal'})
         bottom_flow.style.horizontal_align = 'center'
         bottom_flow.style.vertical_align = 'bottom'
@@ -464,9 +464,9 @@ function Public.extra_settings(player)
         spell_gui_input3 = create_input_element(spell_grid, 'dropdown', false, names, rpg_t.dropdown_select_index3)
         spell_gui_input3.style.maximal_width = 135
         spell_grid.add({type = 'sprite-button', name = spell_gui_button_name, sprite = 'item/raw-fish'})
-        
+
         mana_frame.add({type = 'button', name = spell_info_button_name, caption = {'rpg_settings.spell_info_button_label'}})
-        
+
         -- 添加自动施法设置
         local auto_cast_label =
             setting_grid_2.add(
@@ -495,7 +495,7 @@ function Public.extra_settings(player)
         end
         auto_cast_gui_input = create_input_element(auto_cast_input, 'boolean', auto_cast_mod)
         auto_cast_gui_input.tooltip = ({'rpg_settings.tooltip_check'})
-        
+
         -- 暂时不设置到data表中，等到data表定义后再设置
     end
 
@@ -551,7 +551,7 @@ function Public.extra_settings(player)
         name_input_style.height = 35
         name_input_style.vertical_align = 'center'
         auto_allocate_gui_input = create_input_element(name_input, 'dropdown', false, names, rpg_t.allocate_index)
-        
+
         data.auto_allocate_gui_input = auto_allocate_gui_input
     end
 
@@ -565,7 +565,7 @@ function Public.extra_settings(player)
         data.spell_gui_input3 = spell_gui_input3
         data.auto_cast_gui_input = auto_cast_gui_input
     end
-    
+
     -- 确保auto_cast_gui_input被正确设置到data表中
     if auto_cast_gui_input then
         data.auto_cast_gui_input = auto_cast_gui_input

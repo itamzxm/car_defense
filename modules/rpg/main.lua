@@ -279,7 +279,7 @@ local function on_entity_died(event)
       if rpg_extra.rpg_xp_yield[entity.name] then
         local amount = rpg_extra.rpg_xp_yield[entity.name]
         amount = amount / 5
-        
+
         -- 尝试给放置炮塔的玩家经验
         local this = WPT.get()
         if this.gun_turret and this.gun_turret[cause.unit_number] then
@@ -330,14 +330,14 @@ local function on_entity_died(event)
   end
 
   local this=WPT.get()
- 
+
   --Grant normal XP
   -- 检查是否是炮塔击杀
   if die_cause[cause.type] then
     -- 炮塔击杀普通敌人，直接给炮塔所有者经验
     if rpg_extra.rpg_xp_yield[entity.name] then
       local amount = rpg_extra.rpg_xp_yield[entity.name]
-      
+
       -- 尝试给放置炮塔的玩家经验
       if this.gun_turret and this.gun_turret[cause.unit_number] then
         local player = game.players[this.gun_turret[cause.unit_number]]
@@ -1039,17 +1039,17 @@ local function on_player_used_capsule(event)
     local index = player.index
     local spawn_pos = game.forces.player.get_spawn_position(player.physical_surface)
     if player.physical_surface.index == main_surface.index then
-     if this.silo and this.silo.valid then 
+     if this.silo and this.silo.valid then
       player.teleport(main_surface.find_non_colliding_position('character',this.shop.position, 20, 1, false) or spawn_pos)
     end
     end
-   
+
     if this.tank[index] and this.tank[index].valid and this.tank[index].surface==player.physical_surface then
       player.teleport(player.physical_surface.find_non_colliding_position('character', this.tank[player.index].position, 20, 1, false))
     else
       player.teleport(player.physical_surface.find_non_colliding_position('character', spawn_pos, 20, 1, false))
     end
-  
+
     Public.remove_mana(player, 999999)
     Public.damage_player_over_time(player, math.random(8, 16))
     player.play_sound {path = 'utility/armor_insert', volume_modifier = 1}
@@ -1083,21 +1083,21 @@ local function on_player_used_capsule(event)
         local unit = surface.create_entity({name = object.entityName, position = position, force = force})
         pet.biter_pets_tame_unit(player, unit)
         Public.remove_mana(player, object.mana_cost)
-        if object.entityName =='biter-spawner' or object.entityName =='spitter-spawner' then 
+        if object.entityName =='biter-spawner' or object.entityName =='spitter-spawner' then
           local this=WPT.get()
           if not this.nest then this.nest ={} end
           --整理生成新的数组
           local new_nest={}
-          for i ,v in pairs(this.nest) do 
-            if v.valid then 
+          for i ,v in pairs(this.nest) do
+            if v.valid then
               new_nest[#new_nest+1]=v
             end
           end
           this.nest=new_nest
-          if #this.nest >= this.max_nest_number then 
+          if #this.nest >= this.max_nest_number then
             this.nest[1].destroy()
             this.nest[1]=nil
-          end 
+          end
           this.nest[#this.nest+1]=unit
         end
 
@@ -1107,21 +1107,21 @@ local function on_player_used_capsule(event)
         ['big-worm-turret'] = true,
         ['behemoth-worm-turret'] = true
       }
-      if worm_name[object.entityName] then 
+      if worm_name[object.entityName] then
         local this=WPT.get()
         if not this.worm then this.worm ={} end
         --整理生成新的数组
         local new_nest={}
-        for i ,v in pairs(this.worm) do 
-          if v.valid then 
+        for i ,v in pairs(this.worm) do
+          if v.valid then
             new_nest[#new_nest+1]=v
           end
         end
         this.worm=new_nest
-        if #this.worm >= this.max_worm_number then 
+        if #this.worm >= this.max_worm_number then
           this.worm[1].destroy()
           this.worm[1]=nil
-        end 
+        end
         this.worm[#this.worm+1]=unit
       end
 
@@ -1161,7 +1161,7 @@ local function on_player_used_capsule(event)
     x = position.x - player_pos.x,
     y = position.y - player_pos.y
   }
- 
+
   rpg_t.last_cast_position = offset
 
   Public.update_mana(player)
@@ -1201,7 +1201,7 @@ local function add_bullet()
       for _, item_data in pairs(something.get_contents()) do
         ammo_name=item_data.name
       end
-      if ammo_name then 
+      if ammo_name then
       turret.insert{name=ammo_name, count = 30}
       end
 
@@ -1212,18 +1212,18 @@ end
 
 local function auto_skill(player)
   local use_event = {}
-  
+
   local rpg_t = Public.get_value_from_player(player.index)
   if not rpg_t then
     return
   end
-  
+
   -- 检测是否开启了魔法技能
   local enable_mana = Public.get('rpg_extra').enable_mana
   if not enable_mana then
     return
   end
-  
+
   -- 检查是否开启了自动施法
   if not rpg_t.auto_cast_enabled then
     return
@@ -1232,7 +1232,7 @@ local function auto_skill(player)
     if not rpg_t.enable_entity_spawn then
     return
   end
-  
+
   --检测是否在有效表面,并且不在异次元
  -- if player.physical_surface ~= game.surfaces['nauvis'] and not string.find(player.physical_surface.name, "yiciyuan") then
   --  return
@@ -1244,21 +1244,21 @@ local function auto_skill(player)
   if not object then
     return
   end
-  
+
   -- 检查魔力值是否足够
   if rpg_t.mana < object.mana_cost then
     return
   end
-  
+
   -- 检查背包中是否有鱼
   local fish_count = player.get_item_count('raw-fish')
   if fish_count <= 0 then
     return
   end
-  
+
   -- 消耗一条鱼
   player.remove_item({name = 'raw-fish', count = 1})
-  
+
   -- 计算相对于玩家当前位置的绝对位置
   local player_pos = player.physical_position
   local relative_pos = {
@@ -1266,17 +1266,17 @@ local function auto_skill(player)
     y = player_pos.y + rpg_t.last_cast_position.y
   }
 
-  
+
   use_event.item = {name = 'raw-fish'}
   use_event.position = relative_pos
   use_event.player_index = player.index
 
 
   on_player_used_capsule(use_event)
-  
+
   -- 调用天赋系统的on_player_used_capsule函数
   Tianfu.on_player_used_capsule(use_event)
-  
+
 end
 
 

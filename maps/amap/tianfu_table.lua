@@ -20,7 +20,7 @@ function Public.reset_table()
     for k in pairs(this) do
         this[k] = nil
     end
-    
+
     -- 重新初始化所有字段
     this.all_skill = {}
     this.wanglingdajun_souls = {}

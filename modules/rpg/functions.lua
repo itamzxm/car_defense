@@ -30,18 +30,18 @@ local spell_gui_frame_name = Public.spell_gui_frame_name
 
 
     local function create_damage_floating_text(target_entity, damage_amount, damage_type, player)
-    
+
 
     -- 根据伤害类型选择颜色
     local color = {r = 1, g = 0.5, b = 0} -- 橙色
 
-    
+
     -- 在目标位置上方显示伤害数值
     local text_position = {
         x = target_entity.position.x,
         y = target_entity.position.y - 1.5
     }
-    
+
     -- 创建漂浮文本
     player.create_local_flying_text({
         text = tostring(math.floor(damage_amount)),
@@ -65,7 +65,7 @@ local function deal_damage_with_floating_text(target_entity, player, damage_amou
     damage_type = damage_type or 'explosion'
     create_damage_floating_text(target_entity, final_damage, damage_type, player)
     target_entity.damage(final_damage, 'player', damage_type, player.character)
- 
+
     return true
 end
 local car_name={
@@ -74,7 +74,7 @@ local car_name={
   ["spidertron"]=true,
   ["wood"]=true,
 }
- 
+
 local goal = {'unit', 'turret', 'unit-spawner','combat-robot','spider-leg','spider-unit'}
 local t = {
 
@@ -306,7 +306,7 @@ function Public.repair_aoe(player, position)
   local count = 0
   for i = 1, #entities do
     local e = entities[i]
-    local car= false 
+    local car= false
     if car_name[e.name] then
       car = true
     end
@@ -397,7 +397,7 @@ function Public.update_mana(player)
     return
   end
 
-  if rpg_t.mana>= rpg_t.mana_max then 
+  if rpg_t.mana>= rpg_t.mana_max then
     rpg_t.mana = rpg_t.mana_max
   end
 
@@ -1063,13 +1063,13 @@ end)
 -- 创建属性点和天赋转移界面
 function Public.create_transfer_gui(player)
   local rpg_t = Public.get_value_from_player(player.index)
-  
+
   -- 检查玩家是否已经转移过属性
   if rpg_t.transfered_once then
     player.print("您已经转移过属性和天赋，每人仅可转移一次！", {r = 1, g = 0.5, b = 0.5})
     return
   end
-  
+
   --检查玩家等级是否达到105级
   if rpg_t.level < 105 then
     player.print("您的等级还未达到105级，无法转移属性！", {r = 1, g = 0.5, b = 0.5})
@@ -1081,13 +1081,13 @@ function Public.create_transfer_gui(player)
     player.print("您没有任何属性点或天赋可以转移！", {r = 1, g = 0.5, b = 0.5})
     return
   end
-  
+
   local frame = player.gui.screen.add({type = "frame", name = Public.transfer_frame_name, caption = "选择转移目标玩家", direction = "vertical"})
   frame.auto_center = true
-  
+
   local scroll_pane = frame.add({type = "scroll-pane", direction = "vertical"})
   scroll_pane.style.maximal_height = 300
-  
+
   -- 获取在线玩家列表（排除自己）
   local online_players = {}
   for _, p in pairs(game.connected_players) do
@@ -1095,7 +1095,7 @@ function Public.create_transfer_gui(player)
       table.insert(online_players, p)
     end
   end
-  
+
   -- 如果没有其他在线玩家
   if #online_players == 0 then
     frame.add({type = "label", caption = "当前没有其他在线玩家可以转移给"})
@@ -1104,18 +1104,18 @@ function Public.create_transfer_gui(player)
     close_button.name = "transfer_cancel_button"
     return
   end
-  
+
   -- 为每个在线玩家创建按钮
   for _, target_player in pairs(online_players) do
     local button = scroll_pane.add({
-      type = "button", 
+      type = "button",
       caption = target_player.name,
       name = "transfer_to_" .. target_player.index
     })
     button.style.font = "default-bold"
     button.style.minimal_width = 200
   end
-  
+
   -- 添加关闭按钮
   local close_button = frame.add({type = "button", caption = "取消"})
   close_button.style.font = "default-bold"
@@ -1126,47 +1126,47 @@ end
 function Public.execute_transfer(source_player, target_player)
   local source_rpg = Public.get_value_from_player(source_player.index)
   local target_rpg = Public.get_value_from_player(target_player.index)
-  
+
   -- 检查玩家是否已经转移过属性
   if source_rpg.transfered_once then
     source_player.print("您已经转移过属性和天赋，每人仅可转移一次！", {r = 1, g = 0.5, b = 0.5})
     return
   end
-  
+
   -- 计算要转移的属性点（一半）
   local strength_to_transfer = math.floor((source_rpg.strength - 10) / 2)
   local magicka_to_transfer = math.floor((source_rpg.magicka - 10) / 2)
   local dexterity_to_transfer = math.floor((source_rpg.dexterity - 10) / 2)
   local vitality_to_transfer = math.floor((source_rpg.vitality - 10) / 2)
-  
+
   -- 转移属性点
   if strength_to_transfer > 0 then
     source_rpg.strength = 10
     target_rpg.strength = target_rpg.strength + strength_to_transfer
   end
-  
+
   if magicka_to_transfer > 0 then
     source_rpg.magicka = 10
     target_rpg.magicka = target_rpg.magicka + magicka_to_transfer
   end
-  
+
   if dexterity_to_transfer > 0 then
     source_rpg.dexterity = 10
     target_rpg.dexterity = target_rpg.dexterity + dexterity_to_transfer
   end
-  
+
   if vitality_to_transfer > 0 then
     source_rpg.vitality = 10
     target_rpg.vitality = target_rpg.vitality + vitality_to_transfer
   end
-  
+
   -- 转移未分配的属性点
   local points_to_transfer = math.floor(source_rpg.points_left / 2)
   if points_to_transfer > 0 then
     source_rpg.points_left = 0
     target_rpg.points_left = target_rpg.points_left + points_to_transfer
   end
-  
+
   -- 转移天赋
    local main_table = WPT.get()
    local tianfu = tianfu_table.get()
@@ -1267,14 +1267,14 @@ function Public.execute_transfer(source_player, target_player)
        end
      end
    end
-  
+
   -- 标记源玩家已经转移过
   source_rpg.transfered_once = true
-  
+
   -- 更新玩家状态
   Public.update_player_stats(source_player)
   Public.update_player_stats(target_player)
-  
+
   -- 发送通知消息
   source_player.print("成功向玩家 " .. target_player.name .. " 转移了一半的属性点和天赋！您已无法再次转移。", {r = 0.5, g = 1, b = 0.5})
   target_player.print("从玩家 " .. source_player.name .. " 处获得了属性点和天赋！", {r = 0.5, g = 1, b = 0.5})

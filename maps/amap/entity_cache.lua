@@ -11,7 +11,7 @@ local function cleanup_expired_cache()
     if not Table.get().entity_search_cache then
         return
     end
-    
+
     local cache = Table.get().entity_search_cache
     for key, cache_entry in pairs(cache) do
         if current_tick - cache_entry.tick >= CACHE_EXPIRE_TIME then
@@ -29,15 +29,15 @@ local function get_position(source)
     if not source then
         return nil
     end
-    
+
     if type(source) == 'table' and source.x and source.y then
         return {x = source.x, y = source.y}
     end
-    
+
     if type(source) == 'userdata' and source.valid and source.position then
         return {x = source.position.x, y = source.position.y}
     end
-    
+
     return nil
 end
 
@@ -70,13 +70,13 @@ local function filter_entities(entities, filters, position)
     local min_y = position.y - radius
     local max_y = position.y + radius
     local insert = table.insert
-    
+
     for _, entity in pairs(entities) do
         if entity and entity.valid and entity.health and entity.health > 0 then
             local pos = entity.position
             local px = pos.x
             local py = pos.y
-            
+
             if px >= min_x and px <= max_x and py >= min_y and py <= max_y then
                 insert(result, entity)
             end
@@ -89,9 +89,9 @@ function Public.find_entities_cached(surface, filters)
     if filters.area then
         return surface.find_entities_filtered(filters)
     end
-    
+
     local position = get_position(filters.position)
-    
+
     if not position then
         game.print({'amap.entity_cache_no_position'})
         return {}
@@ -108,12 +108,12 @@ function Public.find_entities_cached(surface, filters)
     if not Table.get().entity_search_cache then
         Table.get().entity_search_cache = {}
     end
-    
+
     local cache = Table.get().entity_search_cache
     if Table.get().entity_search_cache[cache_key] then
         local cache_entry = Table.get().entity_search_cache[cache_key]
         local result = filter_entities(cache_entry.entities, filters, position)
-        
+
         if filters.limit and #result > filters.limit then
             local limited_result = {}
             for i = 1, filters.limit do
@@ -155,7 +155,7 @@ function Public.find_entities_cached(surface, filters)
             local pos = entity.position
             local px = pos.x
             local py = pos.y
-            
+
             if px >= min_x and px <= max_x and py >= min_y and py <= max_y then
                 insert(all_entities, entity)
             end
@@ -168,7 +168,7 @@ function Public.find_entities_cached(surface, filters)
     }
 
     local result = filter_entities(all_entities, filters, position)
-    
+
     if filters.limit and #result > filters.limit then
         local limited_result = {}
         for i = 1, filters.limit do

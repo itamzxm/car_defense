@@ -28,7 +28,7 @@ local CONST = {
     CHOISE_PREFIX = 'amap_choise',
     TIANFU_FRAME_BUTTON = 'amap_tianfu_frame_button',
     BTN_TIANFU = 'tianfu',
-    
+
     -- 标签页相关
     TABBED_PANE = 'tianfu_tabbed_pane',
     TAB_OCCUPATION_COOLDOWN = 'tab_occupation_cooldown',
@@ -41,17 +41,17 @@ local CONST = {
     CONTENT_OTHER_PLAYERS = 'content_other_players',
     CONTENT_WORLD_BONUS = 'content_world_bonus',
     CONTENT_TALENT_CATEGORIES = 'content_talent_categories',
-    
+
     -- 天赋开关相关
     TALENT_TOGGLE_BUTTON_PREFIX = 'tianfu_toggle_',
     TALENT_STATUS_LABEL_PREFIX = 'tianfu_status_',
-    
+
     -- 天赋黑名单（不能被禁用的天赋）
     TALENT_BLACKLIST = {'hd', 'yanshu'},
-    
+
     -- 天赋删除按钮前缀
     TALENT_DELETE_BUTTON_PREFIX = 'tianfu_delete_',
-    
+
     -- 职业选项数据
     OCCUPATIONS = {
         {key = '随机', name = {'tianfu.random'}, tooltip = ''},
@@ -59,9 +59,9 @@ local CONST = {
         {key = '法师', name = {'tianfu.zhiye_fashi'}, tooltip = {'tianfu.zhiye_fashi_tip'}},
         {key = '建造者', name = {'tianfu.zhiye_builder'}, tooltip = {'tianfu.zhiye_builder_tip'}}
     },
-    
+
     COLORS = GuiStyles.COLORS,
-    
+
     -- 其他常量
     UPDATE_INTERVAL_COOLING = 60,  -- 冷却更新频率（tick）
     UPDATE_INTERVAL_GUI = 600      -- GUI更新频率（tick）
@@ -77,10 +77,10 @@ local handle_talent_delete_click
 
 -- 验证玩家是否有效
 local function validate_player(player)
-    return player and 
-           player.valid and 
-           player.character and 
-           player.connected and 
+    return player and
+           player.valid and
+           player.character and
+           player.connected and
            game.players[player.name]
 end
 
@@ -89,29 +89,29 @@ local function get_skill_cooling_info(player, skill)
     if not (validate_player(player) and skill) then
         return 0, 0
     end
-    
+
     local tianfu_table = TPT.get()
     local nap = tianfu_table.tianfu_cooldown[skill] or 0
-    
+
     if nap <= 0 then
         return 0, 0
     end
-    
+
     -- 使用优化的冷却时间表
     local player_index = player.index
     if not tianfu_table.skill_cooldowns[player_index] then
         tianfu_table.skill_cooldowns[player_index] = {}
     end
     local last_used = tianfu_table.skill_cooldowns[player_index][skill] or 0
-    
+
     if last_used <= 0 then
         return nap, 0
     end
-    
+
     local current_tick = game.tick
     local elapsed_time = current_tick - last_used
     local left_time = math.max(0, nap - elapsed_time)
-    
+
     return nap, left_time
 end
 
@@ -129,14 +129,14 @@ end
 local function tianfu_names(player)
     local this = WPT.get()
     local cache_key = player.name
-    
+
     -- 检查缓存是否存在且有效
-    if this.tianfu_names_cache and 
-       this.tianfu_names_cache[cache_key] and 
+    if this.tianfu_names_cache and
+       this.tianfu_names_cache[cache_key] and
        this.tianfu_names_cache[cache_key].version == this.version then
         return this.tianfu_names_cache[cache_key].data
     end
-    
+
     -- 生成新的缓存
     local names = {}
     if this.skill and this.skill[player.name] then
@@ -144,7 +144,7 @@ local function tianfu_names(player)
             table.insert(names, {'tianfu.' .. skill_name})
         end
     end
-    
+
     -- 初始化缓存结构
     if not this.tianfu_names_cache then
         this.tianfu_names_cache = {}
@@ -153,7 +153,7 @@ local function tianfu_names(player)
         data = names,
         version = this.version
     }
-    
+
     return names
 end
 
@@ -161,14 +161,14 @@ end
 local function tianfu_keys(player)
     local this = WPT.get()
     local cache_key = player.name
-    
+
     -- 检查缓存是否存在且有效
-    if this.tianfu_keys_cache and 
-       this.tianfu_keys_cache[cache_key] and 
+    if this.tianfu_keys_cache and
+       this.tianfu_keys_cache[cache_key] and
        this.tianfu_keys_cache[cache_key].version == this.version then
         return this.tianfu_keys_cache[cache_key].data
     end
-    
+
     -- 生成新的缓存
     local keys = {}
     if this.skill and this.skill[player.name] then
@@ -176,7 +176,7 @@ local function tianfu_keys(player)
             table.insert(keys, skill_name)
         end
     end
-    
+
     -- 初始化缓存结构
     if not this.tianfu_keys_cache then
         this.tianfu_keys_cache = {}
@@ -185,7 +185,7 @@ local function tianfu_keys(player)
         data = keys,
         version = this.version
     }
-    
+
     return keys
 end
 
@@ -193,7 +193,7 @@ end
 local function clear_tianfu_cache(player)
     local this = WPT.get()
     local cache_key = player.name
-    
+
     if this.tianfu_names_cache then
         this.tianfu_names_cache[cache_key] = nil
     end
@@ -225,11 +225,11 @@ local cleanup_legacy_gui = LegacyCleanup.cleanup_legacy_gui
 
 local function create_button(player)
     local flow = TopBar.get_button_flow(player)
-    
+
     for _, old_name in ipairs({'main_button'}) do
         if flow[old_name] then flow[old_name].destroy() end
     end
-    
+
     if not flow[CONST.MAIN_BUTTON] then
         local button = TopBar.add_button(player, {
             type = 'sprite-button',
@@ -260,16 +260,16 @@ end
 -- 创建统计项（带分隔线）
 local function add_stat_item(frame, name)
     local label = frame.add({
-        type = 'label', 
-        caption = ' ', 
+        type = 'label',
+        caption = ' ',
         name = name
     })
     label.style.font_color = CONST.COLORS.WHITE
     label.style.font = 'default-bold'
     label.style.right_padding = 4
-    
+
     local line = frame.add({
-        type = 'line', 
+        type = 'line',
         direction = 'vertical'
     })
     line.style.left_padding = 4
@@ -285,15 +285,15 @@ local function create_main_frame(player)
     end
 
     local frame = flow.add({
-        type = 'frame', 
+        type = 'frame',
         name = CONST.MAIN_FRAME
     })
     frame.style.minimal_height = 36
     frame.style.maximal_height = 36
 
     local label = frame.add({
-        type = 'label', 
-        caption = ' ', 
+        type = 'label',
+        caption = ' ',
         name = 'label'
     })
     label.style.font_color = CONST.COLORS.WHITE
@@ -303,11 +303,11 @@ local function create_main_frame(player)
     add_stat_item(frame, 'best_record')
     add_stat_item(frame, 'biter_target')
     add_stat_item(frame, 'landmine')
-    
+
     -- 最后一项（无分隔线）
     local flame = frame.add({
-        type = 'label', 
-        caption = ' ', 
+        type = 'label',
+        caption = ' ',
         name = 'flame_turret'
     })
     flame.style.font_color = CONST.COLORS.WHITE
@@ -321,11 +321,11 @@ local function update_tianfu_button(player)
     if not flow[CONST.BTN_TIANFU] then
         create_button(player)
     end
-    
+
     local this = WPT.get()
     local button = flow[CONST.BTN_TIANFU]
     local can_choose = this.skill_canchoise and (this.skill_canchoise[player.name] or 0) > 0
-    
+
     if can_choose then
         button.style.font_color = CONST.COLORS.GREEN
         player.print({'amap.new_tianfu'}, {r = 255, b = 0, g = 255})
@@ -343,17 +343,17 @@ end
 -- 绘制天赋列表标签页
 local function draw_talent_tab(player, frame)
     local this = WPT.get()
-    
+
     if not this.skill[player.name] then
         frame.add({
-            type = "label", 
+            type = "label",
             caption = {'amap.no_talent_selected'}
         })
         return
     end
-    
+
     local scroll = frame.add({
-        type = "scroll-pane", 
+        type = "scroll-pane",
         vertical_scroll_policy = 'auto',
         horizontal_scroll_policy = 'never'
     })
@@ -363,11 +363,11 @@ local function draw_talent_tab(player, frame)
     for talent_id, talent_quality in pairs(this.skill[player.name]) do
 
         local flow = scroll.add({
-            type = "flow", 
+            type = "flow",
             direction = 'horizontal'
         })
         flow.style.maximal_width = 510
-        
+
         -- 天赋名称（天赋品质系统：按品质染色）
         local lbl_name = flow.add({
             type = "label",
@@ -391,14 +391,14 @@ local function draw_talent_tab(player, frame)
 
         -- 天赋状态
         local is_blacklisted = is_talent_blacklisted(talent_id)
-        local is_enabled = not (this.tianfu_enabled[player.index] and 
+        local is_enabled = not (this.tianfu_enabled[player.index] and
                               this.tianfu_enabled[player.index][talent_id] == false)
-        
-        local status_text = is_blacklisted and "重要天赋" or 
+
+        local status_text = is_blacklisted and "重要天赋" or
                            (is_enabled and {'amap.talent_enabled'} or {'amap.talent_disabled'})
-        local status_tooltip = is_blacklisted and {'amap.talent_blacklisted_tip'} or 
+        local status_tooltip = is_blacklisted and {'amap.talent_blacklisted_tip'} or
                               (is_enabled and {'amap.talent_enabled_tip'} or {'amap.talent_disabled_tip'})
-        
+
         local status_label = flow.add({
             type = "label",
             caption = status_text,
@@ -414,17 +414,17 @@ local function draw_talent_tab(player, frame)
         local toggle_button = flow.add({
             type = "button",
             name = CONST.TALENT_TOGGLE_BUTTON_PREFIX .. talent_id,
-            caption = is_blacklisted and "不可禁用" or 
+            caption = is_blacklisted and "不可禁用" or
                      (is_enabled and {'amap.talent_close'} or {'amap.talent_open'}),
-            tooltip = is_blacklisted and {'amap.talent_blacklisted_tip'} or 
+            tooltip = is_blacklisted and {'amap.talent_blacklisted_tip'} or
                      (is_enabled and {'amap.disable_talent'} or {'amap.enable_talent'})
         })
         toggle_button.style.minimal_width = 55
         toggle_button.style.maximal_width = 55
         toggle_button.style.minimal_height = 30
         toggle_button.style.font_color = CONST.COLORS.BLACK
-        
-        
+
+
         if is_blacklisted then
             toggle_button.enabled = false
             toggle_button.style.font_color = CONST.COLORS.GREY
@@ -448,31 +448,31 @@ end
 local function draw_occupation_tab(player, frame)
     local this = WPT.get()
     local zhiye_flow = frame.add({
-        type = "flow", 
+        type = "flow",
         direction = "horizontal"
     })
     zhiye_flow.add({
-        type = "label", 
+        type = "label",
         caption = {'amap.select_occupation'}
     })
 
-    if not this.zhiye[player.name] then 
-        this.zhiye[player.name] = "随机" 
+    if not this.zhiye[player.name] then
+        this.zhiye[player.name] = "随机"
     end
-    
+
     local items = {}
     local selected_index = 1
     for i, occupation in ipairs(CONST.OCCUPATIONS) do
         items[i] = occupation.name
-        if occupation.key == this.zhiye[player.name] then 
-            selected_index = i 
+        if occupation.key == this.zhiye[player.name] then
+            selected_index = i
         end
     end
-    
+
     if selected_index < 1 or selected_index > #items then
         selected_index = 1
     end
-    
+
     local dropdown = zhiye_flow.add({
         type = "drop-down",
         name = CONST.ZHIYE_SELECT,
@@ -487,43 +487,43 @@ local function draw_skill_tab(player, frame)
     local this = WPT.get()
     local p_index = player.index
     local item_spell = rpgtable.get_itam_spell
-    
+
     -- 添加滚动面板
     local scroll = frame.add({
-        type = "scroll-pane", 
+        type = "scroll-pane",
         vertical_scroll_policy = 'auto',
         horizontal_scroll_policy = 'never'
     })
     scroll.style.height = 400
     scroll.style.maximal_width = 510
-    
+
     local skill_flow = scroll.add({
-        type = "flow", 
+        type = "flow",
         direction = 'vertical'
     })
-    
+
     if not (this.upgrade_spell[p_index] and next(this.upgrade_spell[p_index])) then
         local empty = skill_flow.add({
-            type = "label", 
+            type = "label",
             caption = {'amap.no_spell_data'}
         })
         empty.style.font_color = {150, 150, 150}
         return
     end
-    
+
     for skill_name, current_exp in pairs(this.upgrade_spell[p_index]) do
         local spell_cfg = item_spell[skill_name]
         if not spell_cfg then goto continue end
-        
+
         local row = skill_flow.add({
-            type = "flow", 
+            type = "flow",
             direction = 'horizontal'
         })
         row.style.maximal_width = 510
-        
+
         -- 技能名称
         local lbl = row.add({
-            type = "label", 
+            type = "label",
             caption = {'spells.' .. skill_name}
         })
         lbl.style.horizontal_align = 'left'
@@ -569,19 +569,19 @@ local function draw_skill_tab(player, frame)
         end
 
         local lbl_prog = row.add({
-            type = "label", 
+            type = "label",
             caption = '(' .. progress_str .. ')'
         })
         lbl_prog.style.minimal_width = 70
         lbl_prog.style.maximal_width = 70
-        
+
         local lbl_bonus = row.add({
-            type = "label", 
+            type = "label",
             caption = bonus_desc
         })
         lbl_bonus.style.minimal_width = 50
         lbl_bonus.style.maximal_width = 50
-        
+
         ::continue::
     end
 end
@@ -589,61 +589,61 @@ end
 -- 绘制冷却配置标签页
 local function draw_cooldown_tab(player, frame)
     local this = WPT.get()
-    
+
     if not this.skill[player.name] then
         frame.add({
-            type = "label", 
+            type = "label",
             caption = {'amap.no_talent_selected'}
         })
         return
     end
-    
+
     -- 初始化数据
     this.tianfu_lengque[player.name] = this.tianfu_lengque[player.name] or {
         dropdown_select_index1 = 1,
         dropdown_select_index2 = 1,
         dropdown_select_index3 = 1
     }
-    
+
     local settings = this.tianfu_lengque[player.name]
     local names = tianfu_names(player)
-    
+
     if #names == 0 then
         frame.add({
-            type = "label", 
+            type = "label",
             caption = {'amap.no_talent_selected'}
         })
         return
     end
-    
+
     -- 越界修正
     for i = 1, 3 do
         local key = 'dropdown_select_index' .. i
-        if settings[key] < 1 or settings[key] > #names then 
-            settings[key] = 1 
+        if settings[key] < 1 or settings[key] > #names then
+            settings[key] = 1
         end
     end
 
     local table = frame.add({
-        type = 'table', 
-        column_count = 4, 
+        type = 'table',
+        column_count = 4,
         name = 'tianfu_lengque_table'
     })
-    
+
     for i = 1, 3 do
         local dropdown = table.add({
-            type = 'drop-down', 
-            name = CONST.CHOISE_PREFIX .. i, 
-            items = names, 
+            type = 'drop-down',
+            name = CONST.CHOISE_PREFIX .. i,
+            items = names,
             selected_index = settings['dropdown_select_index' .. i]
         })
         dropdown.style.maximal_width = 120
     end
-    
+
     table.add({
-        type = 'sprite-button', 
-        name = CONST.TIANFU_FRAME_BUTTON, 
-        sprite = 'item/heat-interface', 
+        type = 'sprite-button',
+        name = CONST.TIANFU_FRAME_BUTTON,
+        sprite = 'item/heat-interface',
         tooltip = '打开/关闭 冷却监控窗口'
     })
 end
@@ -651,23 +651,23 @@ end
 -- 绘制其他玩家天赋列表
 local function draw_other_players_tab(player, frame)
     local online_players = get_online_players()
-    
+
     -- 创建滚动面板
     local scroll = frame.add({
-        type = "scroll-pane", 
+        type = "scroll-pane",
         vertical_scroll_policy = 'auto',
         horizontal_scroll_policy = 'auto'
     })
     scroll.style.height = 435
     scroll.style.maximal_width = 510
-    
+
     -- 创建垂直流布局
     local players_flow = scroll.add({
-        type = "flow", 
+        type = "flow",
         direction = "vertical"
     })
     players_flow.style.vertical_spacing = 12
-    
+
     for _, online_player in ipairs(online_players) do
         -- 创建玩家条目框架
         local player_frame = players_flow.add({
@@ -676,34 +676,34 @@ local function draw_other_players_tab(player, frame)
         })
         player_frame.style.maximal_width = 510
         player_frame.style.padding = 8
-        
+
         -- 玩家信息行：名字 + 天赋数量
         local info_flow = player_frame.add({
             type = "flow",
             direction = "horizontal"
         })
         info_flow.style.horizontal_spacing = 8
-        
+
         -- 玩家名字
         local player_label = info_flow.add({
-            type = "label", 
+            type = "label",
             caption = online_player.name
         })
         player_label.style.font_color = CONST.COLORS.YELLOW
         player_label.style.font = "default-bold"
-        
+
         -- 天赋数量
         local talents = tianfu_names(online_player)
         local count_label = info_flow.add({
-            type = "label", 
+            type = "label",
             caption = {'amap.talent_count_display', #talents}
         })
         count_label.style.font_color = CONST.COLORS.GREY
-        
+
         -- 天赋列表（Table 网格布局，4列等宽）
         if #talents == 0 then
             local empty_label = player_frame.add({
-                type = "label", 
+                type = "label",
                 caption = {'amap.no_talent_selected'}
             })
             empty_label.style.font_color = CONST.COLORS.GREY
@@ -722,8 +722,8 @@ local function draw_other_players_tab(player, frame)
                 local skill_id = talent[1]:sub(8)
                 local q = TianfuQuality.idx(online_player, skill_id)
                 local talent_label = talents_table.add({
-                    type = "label", 
-                    caption = talent, 
+                    type = "label",
+                    caption = talent,
                     tooltip = {'tianfu.' .. skill_id .. '_tip', table.unpack(TianfuQuality.tip_args(skill_id, q))}
                 })
                 local q_color = TianfuQuality.color(q)
@@ -748,7 +748,7 @@ end
 local function draw_world_bonus_tab(player, frame)
     local this = WPT.get()
     local map_data = diff.get()
-    
+
     if not map_data.world_bonus then
         frame.add({
             type = "label",
@@ -766,14 +766,14 @@ local function draw_world_bonus_tab(player, frame)
         type = "label",
         caption = {'amap.world_bonus_info_desc'}
     })
-    
+
     local info_table = frame.add({
         type = "table",
         column_count = 2
     })
     info_table.style.horizontal_spacing = 20
     info_table.style.vertical_spacing = 8
-    
+
     info_table.add({
         type = "label",
         caption = {'amap.world_bonus_start_wave', map_data.world_bonus.start_wave or 1500}
@@ -782,7 +782,7 @@ local function draw_world_bonus_tab(player, frame)
         type = "label",
         caption = {'amap.world_bonus_coefficient_interval', map_data.world_bonus.coefficient_interval or 500}
     })
-    
+
     frame.add({type = "line"})
     -- 终极挑战：每个世界各用飞船抵达一次星系边缘（奖励开局天赋+1）
     local reward_status_frame = frame.add({
@@ -830,14 +830,14 @@ local function draw_world_bonus_tab(player, frame)
         })
         reward_status.style.font_color = CONST.COLORS.GREY
     end
-    
+
     -- 添加世界加成列表
     frame.add({
         type = "label",
         caption = {'amap.world_bonus_list'},
         style = "caption_label"
     })
-    
+
     local scroll = frame.add({
         type = "scroll-pane",
         vertical_scroll_policy = 'auto',
@@ -845,14 +845,14 @@ local function draw_world_bonus_tab(player, frame)
     })
     scroll.style.height = 250
     scroll.style.maximal_width = 510
-    
+
     local worlds_table = scroll.add({
         type = "table",
         column_count = 1
     })
     worlds_table.style.horizontal_spacing = 10
     worlds_table.style.vertical_spacing = 10
-    
+
     -- 合并奖励类型表：旧表 map.world_bonus_types + 框架各世界 def.world_bonus_type，
     -- 框架优先（与 diff.apply_world_bonuses 的取值顺序一致）。
     -- 否则 world_bonus_type 只在框架 def 里声明的世界（如16平凡之日、17网格战争）
@@ -880,18 +880,18 @@ local function draw_world_bonus_tab(player, frame)
     for world_id, _ in pairs(bonus_types_merged) do
         world_names[world_id] = {'amap.world_name_' .. world_id}
     end
-    
+
     for world_id, world_name in pairs(world_names) do
         local world_data = map_data.world_bonus[world_id]
         local bonus_type = bonus_types_merged[world_id]
-        
+
         if world_data and bonus_type then
             local world_frame = worlds_table.add({
                 type = "frame",
                 direction = "horizontal"
             })
             world_frame.style.maximal_width = 510
-            
+
             -- 世界名称
             world_frame.add({
                 type = "label",
@@ -900,12 +900,12 @@ local function draw_world_bonus_tab(player, frame)
             })
             world_frame.children[1].style.minimal_width = 70
             world_frame.children[1].style.maximal_width = 70
-            
+
             -- 加成类型（World 框架优先，旧表 fallback；间隔波数支持按世界覆写）
             local bonus_name_key = 'amap.world_bonus_type_' .. world_id .. '_name'
             local bonus_type_data = bonus_type
             local tooltip_text
-            
+
             if bonus_type_data then
                 local base_value = bonus_type_data.base_value or 0
                 local growth_value
@@ -919,7 +919,7 @@ local function draw_world_bonus_tab(player, frame)
                 local bonus_interval = World.get_field(world_id, 'world_bonus_interval') or map_data.world_bonus.coefficient_interval or 500
                 tooltip_text = {'amap.world_bonus_tooltip', base_value, growth_value, bonus_interval}
             end
-            
+
             world_frame.add({
                 type = "label",
                 caption = {bonus_name_key},
@@ -928,7 +928,7 @@ local function draw_world_bonus_tab(player, frame)
             world_frame.children[2].style.minimal_width = 130
             world_frame.children[2].style.maximal_width = 130
             world_frame.children[2].style.font_color = CONST.COLORS.YELLOW
-            
+
             -- 当前加成状态
             local status_text
             local status_color
@@ -942,7 +942,7 @@ local function draw_world_bonus_tab(player, frame)
                 status_text = {'amap.world_locked'}
                 status_color = CONST.COLORS.GREY
             end
-            
+
             world_frame.add({
                 type = "label",
                 caption = status_text
@@ -950,7 +950,7 @@ local function draw_world_bonus_tab(player, frame)
             world_frame.children[3].style.minimal_width = 70
             world_frame.children[3].style.maximal_width = 70
             world_frame.children[3].style.font_color = status_color
-            
+
             -- 最大存活波数
             world_frame.add({
                 type = "label",
@@ -960,7 +960,7 @@ local function draw_world_bonus_tab(player, frame)
             world_frame.children[4].style.maximal_width = 120
         end
     end
-    
+
     -- 世界13特殊奖励行（4000波送传说木箱，非渐进加成）
     do
         local w13_record = map_data.map_record[13] or 0
@@ -1059,7 +1059,7 @@ end
 local function draw_talent_categories_tab(player, frame)
     local this = WPT.get()
     local tianfu_categories = tianfu.get_tianfu_categories()
-    
+
     -- 获取玩家已学习的天赋ID列表
     local player_talents = {}
     if this.skill and this.skill[player.name] then
@@ -1067,7 +1067,7 @@ local function draw_talent_categories_tab(player, frame)
             player_talents[talent_id] = true
         end
     end
-    
+
     -- 分类显示名称映射
     local category_names = {
         mage = {'amap.talent_category_mage'},
@@ -1075,16 +1075,16 @@ local function draw_talent_categories_tab(player, frame)
         fighter = {'amap.talent_category_fighter'},
         other = {'amap.talent_category_other'}
     }
-    
+
     -- 创建滚动面板
     local scroll = frame.add({
-        type = "scroll-pane", 
+        type = "scroll-pane",
         vertical_scroll_policy = 'auto',
         horizontal_scroll_policy = 'auto'
     })
     scroll.style.height = 435
     scroll.style.maximal_width = 510
-    
+
     -- 遍历每个分类
     for category_key, category_talents in pairs(tianfu_categories) do
         -- 创建分类框架
@@ -1101,23 +1101,23 @@ local function draw_talent_categories_tab(player, frame)
             direction = "horizontal"
         })
         header_flow.style.horizontal_spacing = 8
-        
+
         -- 分类名称
         local category_name = category_names[category_key] or category_key
         local category_label = header_flow.add({
-            type = "label", 
+            type = "label",
             caption = category_name
         })
         category_label.style.font_color = CONST.COLORS.YELLOW
         category_label.style.font = "default-bold"
-        
+
         -- 天赋数量
         local count_label = header_flow.add({
-            type = "label", 
+            type = "label",
             caption = " (" .. #category_talents .. ")"
         })
         count_label.style.font_color = CONST.COLORS.GREY
-        
+
         -- 显示该分类中的所有天赋（Table 网格布局，4列等宽）
         local column_count = 5
         local talents_table = category_frame.add({
@@ -1133,8 +1133,8 @@ local function draw_talent_categories_tab(player, frame)
             local is_learned = player_talents[talent_id]
 
             local talent_label = talents_table.add({
-                type = "label", 
-                caption = {'tianfu.' .. talent_id}, 
+                type = "label",
+                caption = {'tianfu.' .. talent_id},
                 tooltip = {'tianfu.' .. talent_id .. '_tip', table.unpack(TianfuQuality.tip_args(talent_id, is_learned and TianfuQuality.idx(player, talent_id) or 1))}
             })
 
@@ -1163,10 +1163,10 @@ end
 local function tianfu_gui(player)
     local parent = player.gui.left
     if not parent.valid then return end
-    
+
     -- 清理旧内容
-    if parent[CONST.TIANFU_FRAME] then 
-        parent[CONST.TIANFU_FRAME].destroy() 
+    if parent[CONST.TIANFU_FRAME] then
+        parent[CONST.TIANFU_FRAME].destroy()
     end
 
     local main_frame = parent.add({
@@ -1185,118 +1185,118 @@ local function tianfu_gui(player)
 
     -- 标签页1：职业、冷却与天赋
     local tab1 = tabbed_pane.add({
-        type = "tab", 
-        caption = {'amap.occupation_and_cooldown'}, 
+        type = "tab",
+        caption = {'amap.occupation_and_cooldown'},
         name = CONST.TAB_OCCUPATION_COOLDOWN
     })
     local content1 = tabbed_pane.add({
-        type = "frame", 
-        name = CONST.CONTENT_OCCUPATION_COOLDOWN, 
+        type = "frame",
+        name = CONST.CONTENT_OCCUPATION_COOLDOWN,
         direction = "vertical"
     })
     content1.style.height = 450
     content1.style.minimal_width = 510
     tabbed_pane.add_tab(tab1, content1)
-    
+
     -- 职业选择部分
     content1.add({type = "line"})
     content1.add({
-        type = "label", 
-        caption = {'amap.occupation'}, 
+        type = "label",
+        caption = {'amap.occupation'},
         style = "caption_label"
     })
     draw_occupation_tab(player, content1)
-    
+
     -- 冷却配置部分
     content1.add({type = "line"})
     content1.add({
-        type = "label", 
-        caption = {'amap.talent_cooldown'}, 
+        type = "label",
+        caption = {'amap.talent_cooldown'},
         style = "caption_label"
     })
     draw_cooldown_tab(player, content1)
-    
+
     -- 已选天赋部分
     content1.add({type = "line"})
     content1.add({
-        type = "label", 
-        caption = {'amap.talent'}, 
+        type = "label",
+        caption = {'amap.talent'},
         style = "caption_label"
     })
     draw_talent_tab(player, content1)
 
     -- 标签页2：技能升级
     local tab2 = tabbed_pane.add({
-        type = "tab", 
-        caption = {'amap.skillupgrade'}, 
+        type = "tab",
+        caption = {'amap.skillupgrade'},
         name = CONST.TAB_SKILL_UPGRADE
     })
     local content2 = tabbed_pane.add({
-        type = "frame", 
-        name = CONST.CONTENT_SKILL_UPGRADE, 
+        type = "frame",
+        name = CONST.CONTENT_SKILL_UPGRADE,
         direction = "vertical"
     })
     content2.style.height = 450
     content2.style.minimal_width = 510
     tabbed_pane.add_tab(tab2, content2)
-    
+
     -- 技能升级部分
     content2.add({
-        type = "label", 
-        caption = {'amap.skillupgrade'}, 
+        type = "label",
+        caption = {'amap.skillupgrade'},
         style = "caption_label"
     })
     draw_skill_tab(player, content2)
 
     -- 标签页3：其他玩家的天赋
     local tab3 = tabbed_pane.add({
-        type = "tab", 
-        caption = {'amap.other_players_talents'}, 
+        type = "tab",
+        caption = {'amap.other_players_talents'},
         name = CONST.TAB_OTHER_PLAYERS
     })
     local content3 = tabbed_pane.add({
-        type = "frame", 
-        name = CONST.CONTENT_OTHER_PLAYERS, 
+        type = "frame",
+        name = CONST.CONTENT_OTHER_PLAYERS,
         direction = "vertical"
     })
     content3.style.height = 450
     content3.style.minimal_width = 510
     tabbed_pane.add_tab(tab3, content3)
-    
+
     draw_other_players_tab(player, content3)
 
     -- 标签页4：世界加成
     local tab4 = tabbed_pane.add({
-        type = "tab", 
-        caption = {'amap.world_bonus_tab'}, 
+        type = "tab",
+        caption = {'amap.world_bonus_tab'},
         name = CONST.TAB_WORLD_BONUS
     })
     local content4 = tabbed_pane.add({
-        type = "frame", 
-        name = CONST.CONTENT_WORLD_BONUS, 
+        type = "frame",
+        name = CONST.CONTENT_WORLD_BONUS,
         direction = "vertical"
     })
     content4.style.height = 450
     content4.style.minimal_width = 510
     tabbed_pane.add_tab(tab4, content4)
-    
+
     draw_world_bonus_tab(player, content4)
 
     -- 标签页5：天赋分类
     local tab5 = tabbed_pane.add({
-        type = "tab", 
-        caption = {'amap.talent_categories'}, 
+        type = "tab",
+        caption = {'amap.talent_categories'},
         name = CONST.TAB_TALENT_CATEGORIES
     })
     local content5 = tabbed_pane.add({
-        type = "frame", 
-        name = CONST.CONTENT_TALENT_CATEGORIES, 
+        type = "frame",
+        name = CONST.CONTENT_TALENT_CATEGORIES,
         direction = "vertical"
     })
     content5.style.height = 450
     content5.style.minimal_width = 510
     tabbed_pane.add_tab(tab5, content5)
-    
+
     draw_talent_categories_tab(player, content5)
 end
 
@@ -1307,29 +1307,29 @@ end
 -- 更新单个天赋的冷却显示
 -- 更新单个天赋的冷却显示
 local function update_single_tianfu_cooling(player, index, skill, nap, left_time)
-    if not (validate_player(player) and skill) then 
-        return 
+    if not (validate_player(player) and skill) then
+        return
     end
-    
+
     local frame = player.gui.screen[CONST.SPELL_FRAME]
-    if not (frame and frame.valid) then 
-        return 
+    if not (frame and frame.valid) then
+        return
     end
-    
+
     local table_element = frame.tianfu_table
-    if not (table_element and table_element.valid) then 
-        return 
+    if not (table_element and table_element.valid) then
+        return
     end
-    
+
     local row_index = (index - 1) * 3 + 1
-    
+
     -- 更新天赋名称
     local name_label = table_element.children[row_index]
     if name_label and name_label.valid then
         name_label.caption = {'tianfu.' .. skill}
         name_label.tooltip = {'tianfu.' .. skill .. '_tip', table.unpack(TianfuQuality.tip_args(skill, TianfuQuality.idx(player, skill)))}
     end
-    
+
     -- 更新进度条
     local progress_container = table_element.children[row_index + 1]
     if progress_container and progress_container.valid then
@@ -1340,9 +1340,9 @@ local function update_single_tianfu_cooling(player, index, skill, nap, left_time
                 ratio = left_time / nap
                 ratio = math.max(0, math.min(1, ratio))
             end
-            
+
             bar.value = 1 - ratio  -- 反转比例，从左到右加载
-            
+
             -- 简单工具提示
             if ratio <= 0 then
                 bar.tooltip = "冷却就绪"
@@ -1351,7 +1351,7 @@ local function update_single_tianfu_cooling(player, index, skill, nap, left_time
             end
         end
     end
-    
+
     -- 更新百分比
     local percentage_label = table_element.children[row_index + 2]
     if percentage_label and percentage_label.valid then
@@ -1363,16 +1363,16 @@ end
 
 -- 更新所有天赋的冷却显示
 local function update_all_tianfu_cooling(player)
-    if not validate_player(player) then 
-        return 
+    if not validate_player(player) then
+        return
     end
-    
+
     local this = WPT.get()
     local settings = this.tianfu_lengque and this.tianfu_lengque[player.name]
-    if not settings then 
-        return 
+    if not settings then
+        return
     end
-    
+
     local keys = tianfu_keys(player)
 
     for i = 1, 3 do
@@ -1389,18 +1389,18 @@ end
 
 -- 更新冷却条（可指定特定技能）
 local function update_tianfu_lengque_gui(player, skill)
-    if not validate_player(player) then 
-        return 
+    if not validate_player(player) then
+        return
     end
-    
+
     local this = WPT.get()
     local settings = this.tianfu_lengque and this.tianfu_lengque[player.name]
-    if not settings then 
-        return 
+    if not settings then
+        return
     end
-    
+
     local keys = tianfu_keys(player)
-    
+
     -- 如果指定了特定技能，只更新该技能
     if skill then
         for i = 1, 3 do
@@ -1421,7 +1421,7 @@ end
 -- 创建冷却监控窗口
 local function tianfu_lengque_gui(player)
     local screen = player.gui.screen
-    
+
     -- 如果窗口已存在，则关闭
     if screen[CONST.SPELL_FRAME] then
         screen[CONST.SPELL_FRAME].destroy()
@@ -1449,7 +1449,7 @@ local function tianfu_lengque_gui(player)
     table_element.style.vertical_spacing = 2    -- 减小垂直间距
     table_element.draw_horizontal_lines = false   -- 不绘制水平线（行分割线）
     table_element.draw_vertical_lines = true     -- 绘制垂直线（列分割线）
-    
+
     -- 设置列宽
     table_element.style.column_alignments[1] = 'left'
     table_element.style.column_alignments[2] = 'center'
@@ -1458,7 +1458,7 @@ local function tianfu_lengque_gui(player)
     local this = WPT.get()
     local settings = this.tianfu_lengque[player.name] or {}
     local keys = tianfu_keys(player)
-    
+
     -- 为每个天赋创建一行
     for i = 1, 3 do
         local talent_idx = settings['dropdown_select_index' .. i] or 1
@@ -1467,7 +1467,7 @@ local function tianfu_lengque_gui(player)
         end
         local talent_key = keys[talent_idx] or ""
         local talent_name = talent_key ~= "" and {'tianfu.' .. talent_key} or "未选择"
-        
+
         -- 天赋名称列（白色字体，带工具提示，字体缩小）
         local name_label = table_element.add({
             type = 'label',
@@ -1493,7 +1493,7 @@ local function tianfu_lengque_gui(player)
         progress_container.style.top_padding = 0
         progress_container.style.bottom_padding = 0
         progress_container.style.height = 20
-        
+
         local bar = progress_container.add({
             type = 'progressbar',
             name = 'progressbar' .. i,
@@ -1521,7 +1521,7 @@ local function tianfu_lengque_gui(player)
         percentage_label.style.top_padding = 0
         percentage_label.style.bottom_padding = 0
     end
-    
+
     -- 立即刷新数据
     update_all_tianfu_cooling(player)
 end
@@ -1533,24 +1533,24 @@ end
 -- 刷新天赋列表显示
 local function refresh_talent_list(player)
     local parent = player.gui.left
-    if not parent.tianfu_frame then 
-        return 
+    if not parent.tianfu_frame then
+        return
     end
-    
+
     local frame = parent.tianfu_frame
     local tabbed_pane = frame[CONST.TABBED_PANE]
-    if not tabbed_pane then 
-        return 
+    if not tabbed_pane then
+        return
     end
-    
+
     local tab_content = tabbed_pane[CONST.CONTENT_OCCUPATION_COOLDOWN]
-    if not tab_content then 
-        return 
+    if not tab_content then
+        return
     end
-    
+
     local children = tab_content.children
     local talent_section_start = nil
-    
+
     -- 找到天赋部分的开始位置
     for i = #children, 1, -1 do
         local child = children[i]
@@ -1562,16 +1562,16 @@ local function refresh_talent_list(player)
             end
         end
     end
-    
-    if not talent_section_start then 
-        return 
+
+    if not talent_section_start then
+        return
     end
-    
+
     -- 清除旧的天赋显示内容
     for i = #children, talent_section_start, -1 do
         children[i].destroy()
     end
-    
+
     -- 重新绘制天赋部分
     draw_talent_tab(player, tab_content)
 end
@@ -1579,38 +1579,38 @@ end
 -- 切换天赋状态
 local function toggle_talent_state(player, skill_id)
     local this = WPT.get()
-    
+
     -- 检查天赋是否在黑名单中
     if is_talent_blacklisted(skill_id) then
         player.print({'amap.talent_blacklisted_tip'}, {r = 255, g = 165, b = 0})
         return
     end
-    
+
     -- 确保数据结构存在
     if not this.tianfu_enabled[player.index] then
         this.tianfu_enabled[player.index] = {}
     end
-    
+
     -- 获取当前值并切换状态
     local current_val = this.tianfu_enabled[player.index][skill_id]
     local new_state = (current_val == false) and true or false
-    
+
     -- 保存新状态
     this.tianfu_enabled[player.index][skill_id] = new_state
-    
+
     -- 刷新天赋列表显示
     refresh_talent_list(player)
-    
+
     -- 通知玩家
     local talent_name = {'tianfu.' .. skill_id}
     if new_state then
-        player.print({"", talent_name, " ", {'amap.talent_enabled_msg'}}, 
+        player.print({"", talent_name, " ", {'amap.talent_enabled_msg'}},
                      {r = 0, g = 255, b = 0})
     else
-        player.print({"", talent_name, " ", {'amap.talent_disabled_msg'}}, 
+        player.print({"", talent_name, " ", {'amap.talent_disabled_msg'}},
                      {r = 255, g = 0, b = 0})
     end
-    
+
     -- 清除缓存
     clear_tianfu_cache(player)
 end
@@ -1620,18 +1620,18 @@ local function delete_talent(player, talent_id)
     local this = WPT.get()
     local tpt = TPT.get()
     local DELETE_COST = 20000
-    
+
     if not this.skill[player.name] then
         player.print({'amap.no_talent_selected'}, {r = 255, g = 0, b = 0})
         return
     end
-    
+
     local player_coin_count = player.get_item_count('coin')
     if player_coin_count < DELETE_COST then
         player.print({'amap.delete_talent_no_coins', DELETE_COST}, {r = 255, g = 0, b = 0})
         return
     end
-    
+
     -- ★ 方案 D 简化版：字典存储 skill_name -> q_idx，直接置 nil 删除（quality 随键一起消失）
     local found = (this.skill[player.name][talent_id] ~= nil)
     if found then
@@ -1642,11 +1642,11 @@ local function delete_talent(player, talent_id)
         player.print({'amap.talent_not_found'}, {r = 255, g = 0, b = 0})
         return
     end
-    
+
     player.remove_item({name = 'coin', count = DELETE_COST})
-    
+
     this.tianfu_buy_count[player.index] = (this.tianfu_buy_count[player.index] or 0) - 1
-    
+
     if tpt.player_time_skills and tpt.player_time_skills[player.name] then
         tpt.player_time_skills[player.name][talent_id] = nil
     end
@@ -1659,13 +1659,13 @@ local function delete_talent(player, talent_id)
     if this.tianfu_enabled and this.tianfu_enabled[player.index] then
         this.tianfu_enabled[player.index][talent_id] = nil
     end
-    
+
     refresh_talent_list(player)
-    
+
     clear_tianfu_cache(player)
-    
+
     local talent_name = {'tianfu.' .. talent_id}
-    player.print({"", talent_name, " ", {'amap.delete_talent_success'}, " ", DELETE_COST, " ", {'amap.coins'}}, 
+    player.print({"", talent_name, " ", {'amap.delete_talent_success'}, " ", DELETE_COST, " ", {'amap.coins'}},
                  {r = 255, g = 165, b = 0})
 end
 
@@ -1675,22 +1675,22 @@ end
 
 -- 更新主信息面板
 local function update_gui(player)
-    if not validate_player(player) then 
-        return 
+    if not validate_player(player) then
+        return
     end
-    
+
     local frame = TopBar.get_button_flow(player)[CONST.MAIN_FRAME]
-    if not (frame and frame.visible) then 
-        return 
+    if not (frame and frame.visible) then
+        return
     end
 
     local map = diff.get()
     local this = WPT.get()
     local wave_number = WD.get('wave_number') or 0
-    
+
     -- 数据准备
     local best_record = math.max(map.map_record[map.world] or 0, wave_number)
-    
+
     local car_name = "  "
     if this.silo and this.silo.valid then
         car_name = {'entity-name.' .. this.silo.name}

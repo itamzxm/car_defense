@@ -134,7 +134,7 @@ local function item_build_car(player)
       -- 火箭平台启动包（太空平台）
       player.insert({name = 'space-platform-starter-pack', count = 1})
       player.print({"", "[color=255, 200, 0]", {"amap.world14_start_items"}, "[/color]"})
-      
+
       -- 世界14通关加成：每通关2波，下次汽车物资多获得1金币
       local world14_record = map.map_record[14] or 0
       local bonus_coins = math.floor(world14_record / 2)
@@ -142,7 +142,7 @@ local function item_build_car(player)
         player.insert({name = 'coin', count = bonus_coins})
         player.print({"", "[color=0, 255, 200]", {"amap.world14_coin_bonus", bonus_coins}, "[/color]"})
       end
-      
+
       -- 不再 return，继续执行下方通用物资发放
     end
 
@@ -217,7 +217,7 @@ local function item_build_car(player)
             count = 20
         })
     end
-    
+
     -- 当this.jjc == 2时，额外给予5K金币
     local this = WPT.get()
     if this.jjc == 2 then
@@ -268,7 +268,7 @@ local function get_car_number()
     local car_number = 0
     local map = diff.get()
     local active_surface_index = this.active_surface_index
-    
+
     for k, player in pairs(game.connected_players) do
         if this.tank[player.index] and this.tank[player.index].valid then
             if this.tank[player.index].surface.index == game.surfaces[active_surface_index].index then
@@ -287,20 +287,20 @@ end
 local function check_silo_and_car_status()
     local this = WPT.get()
     local map = diff.get()
-    
+
     -- 如果火箭发射井存在，则不执行重开逻辑
     if this.silo and this.silo.valid then
         return false
     end
-    
+
     -- 获取当前车子数量
     local car_number = get_car_number()
-    
+
     -- 如果车子数量为0且游戏状态不是重开倒计时状态，则开始重开倒计时
     if car_number == 0 and this.start_game ~= 3 then
         this.reset_time = 600 * 3
         this.start_game = 3
-        
+
         -- 判断是否是第一次游戏
         if map.sum == 0 then
             game.print({'amap.ready_to_reset_first', 30}, {255, 0, 0})
@@ -309,7 +309,7 @@ local function check_silo_and_car_status()
         end
         return true
     end
-    
+
     return false
 end
 
@@ -323,7 +323,7 @@ local function on_player_build_entity(event)
     if not entity.valid then
         return
     end
-   
+
     local player = game.players[event.player_index]
     local index = player.index
 
@@ -757,7 +757,7 @@ local function game_over()
     -- map.world=math.random(1, 9)
     -- map.world=8
     map.rocket_diff = true
-    
+
     for _, player in pairs(game.connected_players) do
         local index = player.index
         local this = WPT.get()
@@ -765,7 +765,7 @@ local function game_over()
             Dungeon.exit_dungeon(player, "manual")
         end
     end
-    
+
     local saved_auto_cast_settings = {}
     for _, player in pairs(game.connected_players) do
         local index = player.index
@@ -775,18 +775,18 @@ local function game_over()
                 dropdown_select_index1 = rpg_t[index].dropdown_select_index1,
                 dropdown_select_index2 = rpg_t[index].dropdown_select_index2,
                 dropdown_select_index3 = rpg_t[index].dropdown_select_index3,
-                
+
             }
         end
-  
+
     end
-    
+
     Reset_map()
 
     -- 恢复投票结果
     this.vote_map_number = saved_vote_map_number
     vote_choise_map.refresh_all()
-    
+
     rpg_t = RPG.get('rpg_t')
     for index, settings in pairs(saved_auto_cast_settings) do
         if rpg_t[index] then
@@ -794,10 +794,10 @@ local function game_over()
             rpg_t[index].dropdown_select_index1 = settings.dropdown_select_index1
             rpg_t[index].dropdown_select_index2 = settings.dropdown_select_index2
             rpg_t[index].dropdown_select_index3 = settings.dropdown_select_index3
-            
+
         end
     end
-    
+
     for _, player in pairs(game.connected_players) do
         player.play_sound {
             path = 'utility/game_lost',
@@ -928,7 +928,7 @@ local function on_entity_died(event)
             if distance_from_origin >= 120 * 120 then
             if entity.type == 'unit-spawner' or entity.type == 'turret' then
                 -- 计算区块ke
-                
+
                 -- 检查是否已被世界8机制保存过
                 if not this.chunk_layout_data then
                     local data = {}
@@ -1005,7 +1005,7 @@ local function on_entity_died(event)
             this.tank[index] = nil
             this.whos_tank[index] = nil
             this.have_been_put_tank[index] = false
-            
+
             -- 销毁渲染对象（Factorio 2.0新方式）
             if this.draw_circle[index] then
                  this.draw_circle[index].destroy()
@@ -1028,7 +1028,7 @@ local function on_entity_died(event)
         end
 
         local car_number = get_car_number()
-        
+
         -- 检查是否需要重开
         check_silo_and_car_status()
 
@@ -1079,7 +1079,7 @@ local choois_target = function()
     if this.start_game ~= 2 then
         return
     end
-    
+
     -- 检查是否需要重开
     check_silo_and_car_status()
 
@@ -1112,8 +1112,8 @@ local function on_pre_player_left_game(event)
     local this = WPT.get()
     local index = player.index
         -- 销毁渲染对象（Factorio 2.0兼容性）
-    
-    
+
+
     if player.online_time <= 60 * 60 * 30 then
         if not this.tank[index] then
             return
@@ -1157,11 +1157,11 @@ local entity=event.entity
         return
     end
     local cause = event.cause
-    -- if (cause and cause.force == game.forces.player ) and event.damage_type.name=='explosion' then 
+    -- if (cause and cause.force == game.forces.player ) and event.damage_type.name=='explosion' then
 
-    -- entity.health=event.final_damage_amount+event.final_health 
+    -- entity.health=event.final_damage_amount+event.final_health
     -- game.print('[gps=' .. entity.position.x .. ',' .. entity.position.y .. ',' .. entity.surface.name .. ']'..'检测到有人在试图炸车！')
-    -- return 
+    -- return
 
     -- end
     if cause then
@@ -1237,7 +1237,7 @@ local function car_pollute()
                     else
                         mian_surface.pollute(entity.position, pollution)
                     end
-         
+
                 surface.clear_pollution()
             end
         end
@@ -1247,7 +1247,7 @@ local function car_pollute()
     if this.silo and this.silo.valid then
         return
     end
-    
+
     -- 检查是否需要重开
     check_silo_and_car_status()
 
@@ -1299,13 +1299,13 @@ local function on_player_respawned(event)
     -- 移除重生后装备栏中的所有物品
     if player.character and player.character.valid then
         -- 清空主背包
-        
+
         -- 清空武器栏
         local guns_inv = player.get_inventory(defines.inventory.character_guns)
         if guns_inv then
             guns_inv.clear()
         end
-        
+
         -- 清空弹药栏
         local ammo_inv = player.get_inventory(defines.inventory.character_ammo)
         if ammo_inv then
@@ -1330,7 +1330,7 @@ end
 local function daojishi()
     local this = WPT.get()
     local map = diff.get()
-    
+
     if this.world_number == 7 and this.silo and this.silo.valid then
         local goal = {'turret', 'unit-spawner'}
 
@@ -1396,12 +1396,12 @@ end
 -- 定期检查火箭发射井和车子状态
 local function check_reset_conditions()
     local this = WPT.get()
-    
+
     -- 只有在游戏进行中才检查
     if this.start_game ~= 2 then
         return
     end
-    
+
     -- 检查是否需要重开
     check_silo_and_car_status()
 end
@@ -1463,7 +1463,7 @@ Event.on_nth_tick(900, clean_invalid_car)
 Event.on_nth_tick(900, car_pollute)
 Event.on_nth_tick(60, daojishi)
 Event.on_nth_tick(300, check_reset_conditions) -- 每5秒检查一次重开条件
-Event.on_nth_tick(60 * 60, function() 
+Event.on_nth_tick(60 * 60, function()
     local wave_number = WD.get('wave_number') or 0
     local this = WPT.get()
     local start_number =1200
@@ -1474,8 +1474,8 @@ Event.on_nth_tick(60 * 60, function()
     if wave_number <= start_number then
         return
     end
-    
-    
+
+
     reduce_player_damage_over_time()
 end) -- 每分钟检查一次，如果波数大于10则削弱玩家阵营5%伤害
 -- Event.add(defines.events.on_equipment_inserted, on_equipment_inserted)
@@ -1486,7 +1486,7 @@ Event.add(defines.events.on_player_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'linked-chest'},
     {filter = "type", type = 'container'},
     {filter = "type", type = 'car'},
-    
+
     {filter = "type", type = 'artillery-wagon'},
     {filter = "type", type = 'artillery-turret'},
     {filter = "type", type = 'land-mine'},
@@ -1501,7 +1501,7 @@ Event.add(defines.events.on_robot_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'linked-chest'},
     {filter = "type", type = 'container'},
     {filter = "type", type = 'car'},
-    
+
     {filter = "type", type = 'artillery-wagon'},
     {filter = "type", type = 'artillery-turret'},
     {filter = "type", type = 'land-mine'},

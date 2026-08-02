@@ -219,20 +219,20 @@ local function attack_nearby_enemies(group, position)
   if #nearby_entities == 0 then
     return
   end
-  
+
   local valid_targets = {}
   for _, entity_obj in pairs(nearby_entities) do
     if entity_obj.valid and entity_obj.health and entity_obj.type ~= "projectile" then
       table.insert(valid_targets, entity_obj)
     end
   end
-  
+
   if #valid_targets == 0 then
     return
   end
-  
+
   local commands = {}
-  
+
 
   commands[#commands + 1] = {
     type = defines.command.attack_area,
@@ -240,7 +240,7 @@ local function attack_nearby_enemies(group, position)
     radius = 16,
     distraction = defines.distraction.by_anything
   }
-  
+
   for i = 1, #valid_targets, 1 do
     commands[#commands + 1] = {
       type = defines.command.attack,
@@ -271,15 +271,15 @@ function(data)
   local wave_number = data.wave_number
   local total_count = data.total_count
   local created_count = data.created_count
-  
+
   if not group or not group.valid then
     return
   end
-  
+
   local batch_size = 12
   local start_index = (batch_index - 1) * batch_size + 1
   local end_index = math.min(batch_index * batch_size, #unit_table)
-  
+
   local created_units = {}
   for i = start_index, end_index do
     if unit_table[i] then
@@ -301,7 +301,7 @@ function(data)
       end
     end
   end
-  
+
   local active_biter_count = WD.get('active_biter_count')
   local active_biter_threat = WD.get('active_biter_threat')
   local active_biters = WD.get('active_biters')
@@ -338,12 +338,12 @@ function(data)
   WD.set('active_biters', active_biters)
   WD.set('active_biter_count', active_biter_count)
   WD.set('active_biter_threat', active_biter_threat)
-  
+
   local new_created_count = created_count + #created_units
-  
+
   if batch_index == 1 then
   end
-  
+
   if batch_index < total_batches then
     data.batch_index = batch_index + 1
     data.created_count = new_created_count
@@ -366,40 +366,40 @@ local function remove_unit(entity, skip_revive)
     end
     return
   end
-  
+
   local active_threat_loss = threat_values[entity.name]
   local active_biter_threat = WD.get('active_biter_threat')
   local active_biter_count = WD.get('active_biter_count')
-  
+
   local new_active_biter_count = active_biter_count - 1
   local new_active_biter_threat = active_biter_threat - active_threat_loss
-  
+
   if new_active_biter_count <= 0 then
     new_active_biter_count = 0
     new_active_biter_threat = 0
   elseif new_active_biter_threat <= 0 then
     new_active_biter_threat = 0
   end
-  
+
   WD.set('active_biter_threat', new_active_biter_threat)
   WD.set('active_biter_count', new_active_biter_count)
   WD.dec_type_counter(entity.name)
   active_biters[unit_number] = nil
-  
+
   -- 受管理虫子：两条复活路径均可
   if not skip_revive then
     WD.on_managed_biter_death(entity, true)
   end
-  
-  if active_threat_loss>= 64 then 
+
+  if active_threat_loss>= 64 then
     if math_random(1, 20) == 1 then
     local position=entity.position
     local entities = entity.surface.find_entities_filtered{position = position, radius = 5,type = 'corpse'}
     if #entities == 0 then return false end
     for _, entity in pairs(entities) do
-      
+
             entity.destroy()
-   
+
     end
   end
 end
@@ -596,17 +596,17 @@ local function check_and_update_spawn_throttle()
   local current_time = game.tick
   local spawn_count = WD.get('spawn_unit_spawner_count')
   local spawn_time = WD.get('spawn_unit_spawner_time')
-  
+
   if current_time - spawn_time >= 120 then
     spawn_count = 0
     spawn_time = current_time
   end
-  
+
   if spawn_count >= 10 then
     more_biter()
     return false
   end
-  
+
   spawn_count = spawn_count + 1
   WD.set('spawn_unit_spawner_count', spawn_count)
   WD.set('spawn_unit_spawner_time', spawn_time)
@@ -616,11 +616,11 @@ end
 local function get_or_generate_unit_table(count, current_time)
   local cached_unit_table = WD.get('unit_table')
   local cached_time = WD.get('unit_table_time')
-  
+
   if cached_unit_table and next(cached_unit_table) and cached_time and (current_time - cached_time) < 600 then
     return cached_unit_table
   end
-  
+
   local unit_table = BiterRolls.wave_defense_generate_unit_table(count, 0.75, 0.25, 6500)
   WD.set('unit_table', unit_table)
   WD.set('unit_table_time', current_time)
@@ -636,39 +636,39 @@ local function spawn_unit_spawner_inhabitants(entity, cause)
   if not check_and_update_spawn_throttle() then
     return
   end
-  
+
   local current_time = game.tick
   local wave_number = WD.get('wave_number')
   local k = game.forces.enemy.get_evolution_factor() * 1000
   if k > wave_number then
     wave_number = k
   end
-  
+
   local count = math.floor((32 + math.floor(wave_number * 0.1)) * 0.8)
   if count > 51 then
     count = 51
   end
-  
+
   BiterRolls.wave_defense_set_unit_raffle(wave_number)
-  
+
   local valid_position = entity.surface.find_non_colliding_position('behemoth-biter', entity.position, 15, 1)
   if not valid_position then
     valid_position = entity.position
   end
-  
+
   local group = entity.surface.create_unit_group({position = entity.position, force = entity.force})
   local unit_table = get_or_generate_unit_table(count, current_time)
-  
+
   local batch_size = 12
   local total_batches = math.ceil(count / batch_size)
-  
+
   local flat_unit_table = {}
   local has_quality_mod = script.active_mods['quality'] ~= nil
 
   for _, unit_info in ipairs(unit_table) do
     table.insert(flat_unit_table, {name = unit_info.unit_name, quality = unit_info.quality_name})
   end
-  
+
   local data = {
     surface = entity.surface,
     valid_position = valid_position,
@@ -681,7 +681,7 @@ local function spawn_unit_spawner_inhabitants(entity, cause)
     total_count = #flat_unit_table,
     created_count = 0
   }
-  
+
   -- 过量杀虫惩罚（更新2）：每次巢穴生成事件触发一次
   local nk = WD.get('nest_kills_per_minute')
   if nk >= 25 then
@@ -716,7 +716,7 @@ local function on_entity_died(event)
     if entity.surface ~= game.surfaces['nauvis'] then
         return
     end
-    
+
     local disable_threat_below_zero = WD.get('disable_threat_below_zero')
 
     if entity.type == 'unit' or entity.type == 'spider-unit' then
@@ -747,7 +747,7 @@ local function on_entity_died(event)
                 local threat = WD.get('threat')
                 WD.set('threat', threat - threat_values[entity.name])
             end
-            
+
             local cause = event.cause
             if not cause then
                 more_biter()
@@ -755,10 +755,10 @@ local function on_entity_died(event)
                 local dx = entity.position.x - cause.position.x
                 local dy = entity.position.y - cause.position.y
                 local dist = dx * dx + dy * dy
-                if dist <= 62500 then 
+                if dist <= 62500 then
                     spawn_unit_spawner_inhabitants(entity, cause)
-                 
-                else 
+
+                else
                     more_biter()
                 end
             end

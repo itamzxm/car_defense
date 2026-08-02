@@ -121,7 +121,7 @@ end
 
 local function on_built_entity(event)
 
- 
+
     local ce = event.entity
 
     if not ce or not ce.valid then
@@ -141,11 +141,11 @@ local function on_built_entity(event)
     if (valid_types[ce.type] or valid_types[ce.name]) ~= true then
         return
     end
-    if this.world_number==8 and ce.name == 'car'  then 
+    if this.world_number==8 and ce.name == 'car'  then
         return
     end
 
-    if this.world_number==7 and ce.name == 'car'  then 
+    if this.world_number==7 and ce.name == 'car'  then
         return
     end
     local player = game.get_player(event.player_index)
@@ -331,7 +331,7 @@ Event.add(defines.events.on_player_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'car'},
     {filter = "type", type = 'locomotive'},
     {filter = "type", type = 'cargo-wagon'},
-    
+
     {filter = "type", type = 'artillery-wagon'},
     {filter = "type", type = 'artillery-turret'},
     {filter = "type", type = 'land-mine'},
@@ -347,7 +347,7 @@ Event.add(defines.events.on_robot_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'car'},
     {filter = "type", type = 'locomotive'},
     {filter = "type", type = 'cargo-wagon'},
-    
+
     {filter = "type", type = 'artillery-wagon'},
     {filter = "type", type = 'artillery-turret'},
     {filter = "type", type = 'land-mine'},

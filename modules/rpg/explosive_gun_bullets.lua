@@ -6,7 +6,7 @@ local sqrt = math.sqrt
 local function splash_damage(surface, position, final_damage_amount)
     local create = surface.create_entity
     local damage = math.random(floor(final_damage_amount * 3), floor(final_damage_amount * 4))
-    
+
     -- 使用圆形区域搜索，比矩形搜索更高效
     for _, e in pairs(surface.find_entities_filtered({
         position = position,
@@ -15,7 +15,7 @@ local function splash_damage(surface, position, final_damage_amount)
         if e.valid and e.health and damage > 0 then
             local distance_from_center = sqrt((e.position.x - position.x) ^ 2 + (e.position.y - position.y) ^ 2)
             local damage_distance_modifier = 1 - distance_from_center / radius
-            
+
             if math.random(1, 3) == 1 then
                 create({name = 'explosion', position = e.position})
             end

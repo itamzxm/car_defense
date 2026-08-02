@@ -93,27 +93,27 @@ local function insert_coin_to_player(player, coin_count)
   if not player or not player.valid then
     return false
   end
-  
+
   if not coin_count or coin_count <= 0 then
     return false
   end
-  
+
   local this = WPT.get()
   local dungeon_data = nil
   if this.dungeons then
     dungeon_data = this.dungeons[player.index]
   end
-  
+
   local target_character = player.character
-  
+
   if dungeon_data and dungeon_data.active and dungeon_data.original_character and dungeon_data.original_character.valid then
     target_character = dungeon_data.original_character
   end
-  
+
   if not target_character or not target_character.valid then
     return false
   end
-  
+
   local inserted = target_character.insert({name = 'coin', count = coin_count})
   return inserted > 0
 end
@@ -194,7 +194,7 @@ local function create_planet_surface(planet_name, active_surface_index, ziyuan, 
         end
         local map_gen_settings = table.deepcopy(game.planets[base_planet].prototype.map_gen_settings)
         map_gen_settings.seed = game.surfaces[active_surface_index].map_gen_settings.seed
-        
+
         -- 定义各星球的特色资源列表
         local planet_specials = {
             ["vulcanus"] = {"tungsten-ore", "calcite", "sulfuric-acid-geyser"},
@@ -490,7 +490,7 @@ function Public.reset_map()
     --else
         this.active_surface_index = CS.create_surface()
   --  end
-    
+
 
     if world_number == 8 or world_number == 7 or world_number == 13 then
         this.yiciyuan_surface = CS.create_yiciyuan_surface()
@@ -564,7 +564,7 @@ function Public.reset_map()
         Modifiers.reset_player_modifiers(player)
         ICMinimap.kill_minimap(player)
     end
-   
+
 
     WD.reset_wave_defense()
 
@@ -586,12 +586,12 @@ function Public.reset_map()
     end
     this.world_number = world_number
     WD.set().next_wave = game.tick + World.get_field(world_number, 'time_limit')
-    
+
     apply_ammo_damage_modifiers(world_number)
     apply_enemy_expansion_settings(world_number)
     apply_planet_surface_settings(world_number, this.active_surface_index)
     apply_technology_settings(world_number)
-    
+
     WorldTable.reset_table()
     tianfu.reset_table()
     pet_system.reset_table()
@@ -620,10 +620,10 @@ function Public.reset_map()
 
     Collapse.set_position({0, 101})
     Collapse.set_direction('north')
-    
+
     setting()
     init_qiche_force()
-    
+
     if world_number == 6 then
         game.difficulty_settings.technology_price_multiplier = 1
     else
@@ -642,7 +642,7 @@ function Public.reset_map()
   global.rocks_yield_ore_base_amount = 100
   global.rocks_yield_ore_distance_modifier = 0.020
   global.watery_world_fishes = {}
-  
+
 game.forces.player.technologies['atomic-bomb'].enabled=false
 game.forces.player.technologies['productivity-module-2'].enabled=false
 game.forces.player.technologies['productivity-module-3'].enabled=false
@@ -667,7 +667,7 @@ end
 
     diff.apply_world_bonuses()
 
-    
+
 end
 
 local on_init = function()
@@ -735,7 +735,7 @@ local wheel = function(player, many)
     local q = math.random(1, 18)
     local k = math.floor(many / 100)
     local get_point = math.min(k * 5 + 5, 25)
-    
+
     local wheel_results = {
         [18] = function()
             local get_xp = 100 + k * 50
@@ -849,7 +849,7 @@ local wheel = function(player, many)
             player.print({'amap.what'})
         end
     }
-    
+
     if wheel_results[q] then
         wheel_results[q]()
     end
@@ -878,22 +878,22 @@ local wheel_destiny = function()
     local this = WPT.get()
     local last = this.last
     local wave_number = WD.get('wave_number')
-    
+
     if last >= wave_number then
         return
     end
-    
+
     if wave_number % 25 ~= 0 then
         return
     end
-    
+
     this.last = wave_number
     game.print({'amap.roll'}, {
         r = 0.22,
         g = 0.88,
         b = 0.22
     })
-    
+
     for _, player in pairs(game.connected_players) do
         if this.jjc == 2 then
             local rpg_t = RPG.get('rpg_t')
@@ -904,7 +904,7 @@ local wheel_destiny = function()
             rpg_t[player.index].xp = (rpg_t[player.index].xp or 0) + 200
             player.print({'amap.jjc_25_bonus'}, {r=255, g=215, b=0})
         end
-        
+
         if not ban_player[player.name] and player.force.name == 'player' then
             wheel(player, wave_number)
         end
@@ -1038,19 +1038,19 @@ local function get_biter_point()
             this.emengyingrao_lock_end_tick = 0
         end
     end
-    
+
     -- 更新循环计数器，在1-4之间循环
     this.roll = (this.roll % 4) + 1
-    
+
     -- 应用世界特殊规则，计算生成方向
     local world_rule = World.get_field(this.world_number, 'biter_spawn_rule')
-    
+
     -- 崩落线出生点模式：x=0固定，y跟随崩落线偏移（不依赖目标实体，先检测）
     if world_rule and world_rule.collapse_spawn then
         local collapse_pos = Collapse.get_position()
         local offset = world_rule.collapse_spawn_offset or -25
         local spawn_y = collapse_pos.y + offset
-        
+
         -- 世界13：虫子离火车最远100米，超了就限制在火车后方100米
         if this.world_number == 13 then
             local target = wave_defense_table.target
@@ -1062,14 +1062,14 @@ local function get_biter_point()
                 end
             end
         end
-        
+
         wave_defense_table.spawn_position = {
             x = 0,
             y = spawn_y
         }
         return
     end
-    
+
     -- 世界框架：四路同时进攻（由 world 的 biter_spawn_rule.four_way 配置驱动）
     if world_rule and world_rule.four_way then
         local entity = wave_defense_table.target
@@ -1104,12 +1104,12 @@ local function get_biter_point()
     if not entity or not entity.valid then
         return
     end
-    
+
     local position = entity.position
     local surface = entity.surface
     local juli = 30
     local k = this.roll
-    
+
     if world_rule and world_rule.k_value then
         local k_value = world_rule.k_value
         if type(k_value) == "number" then
@@ -1123,22 +1123,22 @@ local function get_biter_point()
             k = (this.silo and this.silo.valid) and math.random(3, 4) or this.roll
         end
     end
-    
+
     -- 方向偏移表 [x_offset, y_offset]
     local directions = {
         [1] = { juli,  juli},   -- 右下
-        [2] = {-juli,  juli},   -- 左下  
+        [2] = {-juli,  juli},   -- 左下
         [3] = { juli, -juli},   -- 右上
         [4] = {-juli, -juli}    -- 左上
     }
-    
+
     -- 计算初始位置
     local dir = directions[k] or directions[1]
     local temp_pos = {
         x = position.x + dir[1],
         y = position.y + dir[2]
     }
-    
+
     -- 应用世界特殊位置调整（强制x坐标对齐目标）
     if world_rule then
         local force_align = world_rule.force_x_align
@@ -1150,14 +1150,14 @@ local function get_biter_point()
             temp_pos.x = entity.position.x
         end
     end
-    
+
     -- 世界7污染转移：当k=2或k=4且silo有效时，将整个地图的污染转移到silo位置
     if world_rule and world_rule.transfer_pollution and (k == 2 or k == 4) and this.silo and this.silo.valid then
         local pollution = surface.get_total_pollution()
         surface.clear_pollution()
         surface.pollute(this.silo.position, pollution)
     end
-    
+
     -- 检查并调整位置避免玩家建筑
     local function has_player_buildings(pos)
         return surface.count_entities_filtered({
@@ -1168,13 +1168,13 @@ local function get_biter_point()
             limit = 1
         }) > 0
     end
-    
+
     -- 沿原方向移动直到找到没有玩家建筑的位置
     while has_player_buildings(temp_pos) do
         -- 沿原方向继续移动
         temp_pos.x = temp_pos.x + dir[1]
         temp_pos.y = temp_pos.y + dir[2]
-        
+
         -- 保持世界特殊规则（强制x坐标对齐）
         if world_rule then
             local force_align = world_rule.force_x_align
@@ -1185,7 +1185,7 @@ local function get_biter_point()
             end
         end
     end
-    
+
     -- 特殊模式处理：竞技场模式需要检查位置是否可放置rocket-silo
     if this.jjc == 2 then
         local valid_position = surface.find_non_colliding_position('rocket-silo', temp_pos, 128, 1)
@@ -1196,7 +1196,7 @@ local function get_biter_point()
             return
         end
     end
-    
+
     -- 世界8边界处理：当目标超出边界时，重置生成位置为目标位置
     if world_rule and world_rule.boundary_limit and world_rule.boundary_action == "reset_to_target" then
         local limit = world_rule.boundary_limit
@@ -1204,7 +1204,7 @@ local function get_biter_point()
             temp_pos = entity.position
         end
     end
-    
+
     -- 设置生成位置
     wave_defense_table.spawn_position = temp_pos
     -- game.print('[gps=' .. temp_pos.x .. ',' .. temp_pos.y .. ',' .. surface.name .. ']')
@@ -1324,16 +1324,16 @@ local function on_chunk_generated(event)
         -- 标记宝箱已创建
         rock.ft(surface, 0)
         --设置波防目标
-       
+
         rock.market(surface)
-       
+
         --清空全局经验池
         local rpg_extra = RPG.get('rpg_extra')
         if rpg_extra and rpg_extra.global_pool then
             rpg_extra.global_pool = 0
             RPG.set('rpg_extra', rpg_extra)
         end
-        
+
         if e and e.valid then
             this.treasure_chest_created = true
         end

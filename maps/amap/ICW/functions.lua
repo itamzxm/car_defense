@@ -277,14 +277,14 @@ function Public.create_wagon_room(wagon)
     if entity_name == 'cargo-wagon' then
         local chests = create_linked_chests(surface, area, wagon.entity.unit_number)
         wagon.chests = chests
-        
+
         -- 添加输入/输出标签（上排为输入，下排为输出）
         -- 注意：当箱子销毁时，Factorio 会自动清理附着在其上的渲染对象
         for i, chest in ipairs(chests) do
             local is_input = (i <= 2)  -- 前两个是输入箱（上排）
             local label = is_input and '输入箱' or '输出箱'
             local color = is_input and {r=0.2, g=0.8, b=0.2, a=1} or {r=0.8, g=0.2, b=0.2, a=1}
-            
+
             rendering.draw_text{
                 text = label,
                 surface = surface,
@@ -976,7 +976,7 @@ function Public.item_transfer()
                     local area = wagon.area
                     if area then
                         local room_middle_y = (area.left_top.y + area.right_bottom.y) / 2
-                        
+
                         for _, chest in pairs(wagon.chests) do
                             if validate_entity(chest) then
                                 local chest_inv = chest.get_inventory(defines.inventory.chest)

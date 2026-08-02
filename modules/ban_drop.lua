@@ -10,7 +10,7 @@ local function drop_inventory(player, inventory)
 		if inventory[i] and inventory[i].valid_for_read then
 			surface.spill_item_stack(position, inventory[i], true)
 		end
-	end	
+	end
 	inventory.clear()
 end
 

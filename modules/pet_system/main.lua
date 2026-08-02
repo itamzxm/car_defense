@@ -1069,7 +1069,7 @@ end
 
 -- 检查宠物是否符合出战条件
 local function can_deploy(pet)
-    return pet.hunger >= 60 
+    return pet.hunger >= 60
         and pet.hp >= pet.max_hp * 0.8
         and (not pet.unit or not pet.unit.valid)
 end

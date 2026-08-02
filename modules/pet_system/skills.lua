@@ -1720,7 +1720,7 @@ skill_defs['分裂攻击'] = {
         end
     end,
 }
-        
+
 -- 技能：远程裂变（combat / time）
 -- 每 3 秒扫描 18 米内敌人，造成 atk*0.5 伤害，目标数 3~7
 skill_defs['远程裂变'] = {
@@ -2238,17 +2238,17 @@ skill_defs['编织者'] = {
             -- 没有手搓物品，静默跳过（不显示文本，因为宠物可能未出战）
             return
         end
-        
+
         local recipe = prototypes.recipe[item_name]
         if not recipe then
             show_skill_text(player, pet, ({'pet_system.skill_bianzhizhe_no_recipe'}), {r = 0.8, g = 0.4, b = 0.4})
             return
         end
-        
+
         -- 计算合成数量 = floor(攻击力 × 0.1)，最小为1
         local count = math.floor(pet.attack * 0.1)
         if count < 1 then count = 1 end
-        
+
         -- 计算配方单次产出量
         local product_amount = 1
         for _, product in pairs(recipe.products) do
@@ -2257,10 +2257,10 @@ skill_defs['编织者'] = {
                 break
             end
         end
-        
+
         -- 需要执行的配方次数（取整）
         local runs = math.ceil(count / product_amount)
-        
+
         -- 检查材料是否充足
         for _, ingredient in pairs(recipe.ingredients) do
             if ingredient.type == 'item' then
@@ -2273,18 +2273,18 @@ skill_defs['编织者'] = {
                 end
             end
         end
-        
+
         -- 消耗材料
         for _, ingredient in pairs(recipe.ingredients) do
             if ingredient.type == 'item' then
                 player.remove_item({name = ingredient.name, count = runs * ingredient.amount})
             end
         end
-        
+
         -- 给予产物（一次插入总量，避免重复调用）
         local total_products = runs * product_amount
         player.insert({name = item_name, count = total_products})
-        
+
         -- 金币 = 最大Mana × 品质系数%
         local rpg_t = RPG.get_value_from_player(player.index)
         local mana_max = (rpg_t and rpg_t.mana_max) or 100
@@ -2292,7 +2292,7 @@ skill_defs['编织者'] = {
         if coins > 0 then
             player.insert({name = 'coin', count = coins})
         end
-        
+
         show_skill_text(player, pet, ({'pet_system.skill_bianzhizhe_text', total_products, coins}), {r = 0.3, g = 0.8, b = 0.2})
     end,
 }

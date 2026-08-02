@@ -661,7 +661,7 @@ local function on_init()
 
     -- 在Factorio 2.0中，研究队列默认启用，不需要手动设置
     -- 如果需要兼容旧版本，可以使用版本检查
- 
+
 
     is_branch_18 = is_branch_18 .. sub(branch_version, 6, 7)
     get_active_version = get_active_version .. sub(script.active_mods.base, 6, 7)

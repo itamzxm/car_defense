@@ -4,7 +4,7 @@ local event = require 'utils.event'
 local valid_entities = {
 	["big-rock"] = true,
 	["huge-rock"] = true,
-	["big-sand-rock"] = true	
+	["big-sand-rock"] = true
 }
 
 local replacement_tiles = {
@@ -12,7 +12,7 @@ local replacement_tiles = {
 	["dirt-7"] = "dirt-6",
 	["dirt-6"] = "dirt-5",
 	["dirt-5"] = "dirt-4",
-	["dirt-4"] = "dirt-3",	
+	["dirt-4"] = "dirt-3",
 	["dirt-3"] = "dirt-2"
 }
 
@@ -25,23 +25,23 @@ local coords = {
 
 local function on_pre_player_mined_item(event)
 	local entity = event.entity
-	if not valid_entities[entity.name] then return end	
-	
+	if not valid_entities[entity.name] then return end
+
 	local tiles = {}
 	for _, p in pairs(coords) do
 		local pos = {x = entity.position.x + p.x, y = entity.position.y + p.y}
-		local tile = entity.surface.get_tile(pos)		
+		local tile = entity.surface.get_tile(pos)
 		if not tile.collides_with("player") then
 			if replacement_tiles[tile.name] and math.random(1,2) == 1 then
 				table.insert(tiles, {name = replacement_tiles[tile.name], position = pos})
 			end
-		end			
+		end
 	end
-	if #tiles == 0 then return end		
+	if #tiles == 0 then return end
 	entity.surface.set_tiles(tiles, true)
 end
 
-local function on_entity_died(event)	
+local function on_entity_died(event)
 	if not event.entity.valid then return end
 	on_pre_player_mined_item(event)
 end

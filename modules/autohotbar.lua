@@ -1,4 +1,4 @@
-local event = require 'utils.event' 
+local event = require 'utils.event'
 
 local function get_empty_hotbar_slot(player)
 	local quick_bar_width = player.quick_bar_width or 10
@@ -43,17 +43,17 @@ end
 
 local function on_player_crafted_item(event)
 	if not storage.auto_hotbar_enabled[event.player_index] then return end
-	set_hotbar(game.players[event.player_index], event.item_stack.name) 		
+	set_hotbar(game.players[event.player_index], event.item_stack.name)
 end
 
 local function on_picked_up_item(event)
 	if not storage.auto_hotbar_enabled[event.player_index] then return end
-	set_hotbar(game.players[event.player_index], event.item_stack.name) 		
+	set_hotbar(game.players[event.player_index], event.item_stack.name)
 end
 
 local function on_player_mined_entity(event)
 	if not storage.auto_hotbar_enabled[event.player_index] then return end
-	set_hotbar(game.players[event.player_index], event.entity.name) 		
+	set_hotbar(game.players[event.player_index], event.entity.name)
 end
 
 local function on_init()

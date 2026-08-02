@@ -39,32 +39,32 @@ local quality_upgrades = {
   { name = "legendary", base_chance = 0.005 },
   { name = "epic",      base_chance = 0.015 },
   { name = "rare",      base_chance = 0.025 },
-  { name = "uncommon",  base_chance = 0.05 } 
+  { name = "uncommon",  base_chance = 0.05 }
 }
 
 local function select_random_quality(quality_raffle_cache, total_quality_weight, total_quality_chance)
     if script.active_mods['quality'] == nil or #quality_raffle_cache == 0 then
         return nil
     end
-    
+
     if math.random() > total_quality_chance then
         return nil
     end
-    
+
     if total_quality_weight <= 0 then
         return nil
     end
-    
+
     local r = math.random() * total_quality_weight
     local current_weight = 0
-    
+
     for _, item in ipairs(quality_raffle_cache) do
         current_weight = current_weight + item.weight
         if r <= current_weight then
             return item.name
         end
     end
-    
+
     return #quality_raffle_cache > 0 and quality_raffle_cache[#quality_raffle_cache].name or nil
 end
 
@@ -72,24 +72,24 @@ local function calculate_quality_raffle(wave_number)
     if wave_number < 300 then
         return {}, 0, 0
     end
-    
+
     local this = WPT.get()
     local current_tick = game.tick
-    
+
     if this.quality_raffle_cache_tick and current_tick - this.quality_raffle_cache_tick < 6000 then
         return this.quality_raffle_cache, this.quality_total_weight, this.quality_total_chance
     end
-    
-    local quality_upgrades = { 
+
+    local quality_upgrades = {
         { name = "legendary", base_chance = 0.005 },
         { name = "epic",      base_chance = 0.015 },
         { name = "rare",      base_chance = 0.025 },
-        { name = "uncommon",  base_chance = 0.05 } 
+        { name = "uncommon",  base_chance = 0.05 }
     }
-    
+
     local progress = math.min((wave_number - 300) / (3000 - 300), 1)
     local total_quality_chance = progress * 1.0
-    
+
     if total_quality_chance <= 0 then
         this.quality_raffle_cache = {}
         this.quality_total_weight = 0
@@ -97,44 +97,44 @@ local function calculate_quality_raffle(wave_number)
         this.quality_raffle_cache_tick = current_tick
         return {}, 0, 0
     end
-    
+
     local decay_progress = 0
     if wave_number >= 3000 then
         decay_progress = math.min((wave_number - 3000) / (6000 - 3000), 1)
     end
-    
+
     local quality_raffle_cache = {}
     local total_quality_weight = 0
     local base_total = 0.005 + 0.015 + 0.025 + 0.05
-    
+
     for _, item in ipairs(quality_upgrades) do
         local scaled_chance = (item.base_chance / base_total) * total_quality_chance
         quality_raffle_cache[item.name] = scaled_chance
     end
-    
+
     if decay_progress > 0 then
         local transferable_qualities = {"epic", "rare", "uncommon"}
         local total_transfer = 0
-        
+
         for _, name in ipairs(transferable_qualities) do
             local transfer_amount = quality_raffle_cache[name] * decay_progress
             quality_raffle_cache[name] = quality_raffle_cache[name] - transfer_amount
             total_transfer = total_transfer + transfer_amount
         end
-        
+
         quality_raffle_cache["legendary"] = quality_raffle_cache["legendary"] + total_transfer
     end
-    
+
     for name, chance in pairs(quality_raffle_cache) do
         table.insert(quality_raffle_cache, {name = name, weight = chance})
         total_quality_weight = total_quality_weight + chance
     end
-    
+
     this.quality_raffle_cache = quality_raffle_cache
     this.quality_total_weight = total_quality_weight
     this.quality_total_chance = total_quality_chance
     this.quality_raffle_cache_tick = current_tick
-    
+
     return quality_raffle_cache, total_quality_weight, total_quality_chance
 end
 
@@ -142,18 +142,18 @@ local function select_quality_by_chance()
   if not script.active_mods['quality'] then
     return nil
   end
-  
+
   local wave_number = WD.get('wave_number')
   if wave_number < 300 then
     return nil
   end
-  
+
   local quality_raffle_cache, total_quality_weight, total_quality_chance = calculate_quality_raffle(wave_number)
-  
+
   if total_quality_chance <= 0 then
     return nil
   end
-  
+
   return select_random_quality(quality_raffle_cache, total_quality_weight, total_quality_chance)
 end
 
@@ -185,24 +185,24 @@ local do_die = Token.register(
     local name = data.name
     local should_offset = data.change
     local this = WPT.get()
-    
+
     if should_offset and name ~= 'biter-spawner' then
       source = {
         x = source.x + math.random(-5, 5),
         y = source.y + math.random(-5, 5)
       }
     end
-    
+
     local spawn_multiple_biters = false
-    
+
     if name == 'shachong' then
       local wave_number = WD.get('wave_number')
       name = get_worm_name(wave_number)
     end
-    
+
     local selected_quality = select_quality_by_chance()
     local e
-    
+
     if not spawn_multiple_biters then
       e = surface.create_entity(create_entity_params(name, source, surface, position, selected_quality))
     else
@@ -211,16 +211,16 @@ local do_die = Token.register(
         e = surface.create_entity(create_entity_params('behemoth-biter', source, surface, position, quality))
       end
     end
-    
+
     if e.name == 'gun-turret' then
       local ammo_name = arty.get_ammo()
       e.insert { name = ammo_name, count = 200 }
     end
-    
+
     if e.name == 'laser-turret' then
       arty.add_laser(e)
     end
-    
+
     if e.name == 'biter-spawner' then
       e.destructible = false
       this.biter_wudi[#this.biter_wudi + 1] = e
@@ -292,7 +292,7 @@ local function loaded_biters(entity, cause, count)
   -- 但新增脚本击杀逻辑时必须确保 cause 与 entity 同 surface，或在此加检查：
   --   if cause and cause.valid and cause.surface ~= entity.surface then cause = nil end
   local position
-  
+
   if cause and cause.valid then
     position = cause.position
   else
@@ -304,13 +304,13 @@ local function loaded_biters(entity, cause, count)
 
   local category_list, is_building = get_random_spawn_category()
   local name = category_list[1]
-  
+
   if is_building then
     if cause and cause.valid then
       local dx = cause.position.x - entity.position.x
       local dy = cause.position.y - entity.position.y
       local distance = math.sqrt(dx * dx + dy * dy)
-      
+
       if distance > 18 then
         local offset = math.min(distance, 3)
         position = {
@@ -357,31 +357,31 @@ local function process_death_queue()
 
   local data = this.biter_death_queue[1]
   table.remove(this.biter_death_queue, 1)
-  
+
   local position = data.position
   local surface = data.surface
   local source = data.source
   local name = data.name
   local should_offset = data.change
   local this_local = this
-  
+
   if should_offset and name ~= 'biter-spawner' then
     source = {
       x = source.x + math.random(-5, 5),
       y = source.y + math.random(-5, 5)
     }
   end
-  
+
   local spawn_multiple_biters = false
-  
+
   if name == 'shachong' then
     local wave_number = WD.get('wave_number')
     name = get_worm_name(wave_number)
   end
-  
+
   local selected_quality = select_quality_by_chance()
   local e
-  
+
   if not spawn_multiple_biters then
     e = surface.create_entity(create_entity_params(name, source, surface, position, selected_quality))
   else
@@ -390,17 +390,17 @@ local function process_death_queue()
       e = surface.create_entity(create_entity_params('behemoth-biter', source, surface, position, quality))
     end
   end
-  
+
   if e and e.valid then
     if e.name == 'gun-turret' then
       local ammo_name = arty.get_ammo()
       e.insert { name = ammo_name, count = 200 }
     end
-    
+
     if e.name == 'laser-turret' then
       arty.add_laser(e)
     end
-    
+
     if e.name == 'biter-spawner' then
       e.destructible = false
       this_local.biter_wudi[#this_local.biter_wudi + 1] = e
@@ -427,7 +427,7 @@ local on_entity_died = function(event)
       biter_class_data.suicide_biter_units[unit_number] = nil
       return
     end
-  
+
   if entity.force.index == game.forces.player.index then
     return
   end
@@ -444,14 +444,14 @@ local on_entity_died = function(event)
 
   local wave_number = WD.get('wave_number')
   if wave_number < 800 then return end
-  
+
   local k = wave_number * 0.002 - 1
   if k >= 3 then k = 3 end
   k = 1
   if wave_number >= 1600 then
     k = 2
   end
-  
+
   if math.random(1, 100) <= k then
     loaded_biters(entity, event.cause)
   end
@@ -470,7 +470,7 @@ local no_wudi = function()
     end
   end
 end
-    
+
 Event.on_nth_tick(480, no_wudi)
 Event.on_nth_tick(1, process_death_queue)
 Event.add(defines.events.on_entity_died, on_entity_died)

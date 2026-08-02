@@ -41,21 +41,21 @@ local function create_biter_unit(surface, position, unit_name, force, quality_na
         position = position,
         force = force
     }
-    
+
     if quality_name then
         entity_params.quality = quality_name
     end
 
     local biter = surface.create_entity(entity_params)
-    
+
     if not biter or not biter.valid then
         return nil
     end
-    
+
     biter.ai_settings.allow_destroy_when_commands_fail = true
     biter.ai_settings.allow_try_return_to_spawner = true
     biter.ai_settings.do_separation = true
-    
+
     return biter
 end
 
@@ -156,7 +156,7 @@ local function fill_tiles(entity, size)
     local surface = entity.surface
     local radius = size or 10
     local pos = entity.position
-    local t = {'water', 'water-green', 'water-mud', 'water-shallow', 'deepwater', 
+    local t = {'water', 'water-green', 'water-mud', 'water-shallow', 'deepwater',
     'deepwater-green', 'lava-hot','lava','ammoniacal-ocean','ammoniacal-ocean-2'
 }
     local area = {{pos.x - radius, pos.y - radius}, {pos.x + radius, pos.y + radius}}
@@ -254,15 +254,15 @@ end
 local function process_active_biters(check_timeout)
     local active_biters = WD.get('active_biters')
     local max_biter_age = WD.get('max_biter_age')
-    
+
     local biter_threat = 0
     local count = 0
     local timeout_threat_loss = 0
-    
+
     for k, biter in pairs(active_biters) do
         local is_valid = false
         local entity = biter.entity
-        
+
         if entity and entity.valid then
             if check_timeout then
                 if biter.spawn_tick + max_biter_age >= game.tick then
@@ -284,17 +284,17 @@ local function process_active_biters(check_timeout)
                 count = count + 1
             end
         end
-        
+
         if not is_valid then
             active_biters[k] = nil
         end
     end
-    
+
     if timeout_threat_loss > 0 then
         local current_threat = WD.get('active_biter_threat')
         WD.set('active_biter_threat', math.max(0, current_threat - timeout_threat_loss))
     end
-    
+
     if count == 0 then
         WD.set('active_biter_threat', 0)
         WD.set('active_biter_count', 0)
@@ -493,15 +493,15 @@ local function set_next_wave()
     -- 取消获得威胁的难度上限：有效波数不再封顶（原 math.min(wave_number, 4000)）
     local effective_wave_number = wave_number
     local threat_gain = effective_wave_number * threat_gain_multiplier
-   
+
     -- 整体虫子生成量减少20%
     threat_gain = threat_gain * 0.8
 
     -- 世界10堡垒数量对威胁值的影响
-  
+
     if this.world_number == 10 then
         local arty_num = this.baolei_count
-        
+
         if arty_num < 3 then
             -- 每少1个堡垒，威胁减少15%
             local reduction = (3 - arty_num) * 0.15
@@ -516,7 +516,7 @@ local function set_next_wave()
     local active_biters = WD.get('active_biters')
     local count = 0
     local threat_loss = 0
-    
+
     for k, biter in pairs(active_biters) do
         if biter.entity and biter.entity.valid then
             count = count + 1
@@ -530,13 +530,13 @@ local function set_next_wave()
             active_biters[k] = nil
         end
     end
-    
+
     -- 如果有威胁值损失，更新总威胁值
     if threat_loss > 0 then
         local current_threat = WD.get('active_biter_threat')
         WD.set('active_biter_threat', math.max(0, current_threat - threat_loss))
     end
-    
+
     -- 如果没有活跃虫子，确保威胁值为0
     if count == 0 then
         WD.set('active_biter_threat', 0)
@@ -567,15 +567,15 @@ end
 local function get_main_command(group)
     local unit_group_command_step_length = WD.get('unit_group_command_step_length')
     local commands = {}
-    
+
     local group_position = {
         x = group.position.x,
         y = group.position.y
     }
-    
+
     local step_length = unit_group_command_step_length
     local target = WD.get('target')
-    
+
     if not valid(target) then
         return
     end
@@ -583,21 +583,21 @@ local function get_main_command(group)
     local target_position = target.position
     local distance_to_target = math_floor(math_sqrt((target_position.x - group_position.x) ^ 2 +
                                                         (target_position.y - group_position.y) ^ 2))
-    
+
     local steps = math_floor(distance_to_target / step_length) + 1
-    
+
     local vector = {math_round((target_position.x - group_position.x) / steps, 3),
                     math_round((target_position.y - group_position.y) / steps, 3)}
 
     local search_interval = 3
     local search_radius = step_length * 1.5
-    
+
     for i = 1, steps, 1 do
         local old_position = group_position
-        
+
         group_position.x = group_position.x + vector[1]
         group_position.y = group_position.y + vector[2]
-        
+
         if i % search_interval == 0 or i == steps then
             local obstacles = group.surface.find_entities_filtered {
                 position = old_position,
@@ -605,10 +605,10 @@ local function get_main_command(group)
                 type = {'simple-entity', 'tree', "wall", "inserter", "loader"},
                 limit = 30
             }
-            
+
             if obstacles and #obstacles > 0 then
                 shuffle_distance(obstacles, old_position)
-                
+
                 for j = 1, #obstacles, 1 do
                     if obstacles[j].valid then
                         commands[#commands + 1] = {
@@ -711,12 +711,12 @@ local function command_to_main_target(group, bypass)
 
     if valid(group) then
         unit_group_last_command[group.unique_id] = game.tick
-        
+
         local this = WPT.get()
         if not this.enemy_missions then
             this.enemy_missions = {}
         end
-        
+
         local target = WD.get('target')
         if valid(target) then
             this.enemy_missions[group.unique_id] = {
@@ -863,7 +863,7 @@ end
 
 local cleanup_mission_task = Token.register(function(data)
     local group = data.group
-    
+
     -- 检查队伍是否存在
     if group and group.valid then
         -- 遍历所有成员并销毁（防止队伍解散后虫子变成野生并在原地发呆）
@@ -873,7 +873,7 @@ local cleanup_mission_task = Token.register(function(data)
                 -- 或者用 member.die() 让它们原地暴毙留尸体
             end
         end
-        
+
         -- 销毁队伍对象
         group.destroy()
     else
@@ -938,7 +938,7 @@ local function attempt_regroup_and_restart(surface, search_position, target_posi
     -- 【关键】更新全局注册表
     local this = WPT.get()
     if not this.allied_missions then this.allied_missions = {} end
-    
+
     -- 记录新组的信息，继承之前的重试次数+1
     this.allied_missions[new_group.unique_id] = {
         target_pos = target_position,
@@ -993,27 +993,27 @@ local function attempt_enemy_regroup_and_restart(surface, search_position, targe
         x = new_group.position.x,
         y = new_group.position.y
     }
-    
+
     local unit_group_command_step_length = WD.get('unit_group_command_step_length')
     local step_length = unit_group_command_step_length
     local target_position_vec = target_position
     local distance_to_target = math_floor(math_sqrt((target_position_vec.x - group_position.x) ^ 2 +
                                                         (target_position_vec.y - group_position.y) ^ 2))
-    
+
     local steps = math_floor(distance_to_target / step_length) + 1
-    
+
     local vector = {math_round((target_position_vec.x - group_position.x) / steps, 3),
                     math_round((target_position_vec.y - group_position.y) / steps, 3)}
 
     local search_interval = 6
     local search_radius = step_length * 1.5
-    
+
     for i = 1, steps, 1 do
         local old_position = group_position
-        
+
         group_position.x = group_position.x + vector[1]
         group_position.y = group_position.y + vector[2]
-        
+
         if i % search_interval == 0 or i == steps then
             local obstacles = new_group.surface.find_entities_filtered {
                 position = old_position,
@@ -1021,10 +1021,10 @@ local function attempt_enemy_regroup_and_restart(surface, search_position, targe
                 type = {'simple-entity', 'tree', "wall", "inserter", "loader"},
                 limit = 10
             }
-            
+
             if obstacles and #obstacles > 0 then
                 shuffle_distance(obstacles, old_position)
-                
+
                 for j = 1, #obstacles, 1 do
                     if obstacles[j].valid then
                         commands[#commands + 1] = {
@@ -1056,7 +1056,7 @@ local function attempt_enemy_regroup_and_restart(surface, search_position, targe
 
     local this = WPT.get()
     if not this.enemy_missions then this.enemy_missions = {} end
-    
+
     this.enemy_missions[new_group.unique_id] = {
         target_pos = target_position,
         retry_count = retry_count + 1,
@@ -1073,24 +1073,24 @@ end)
 -- 世界10特殊功能：为玩家生产虫子攻击敌方机器人平台
 local function spawn_player_biters_against_enemy_roboport()
     -- 检查是否为世界10
-  
+
     local this = WPT.get()
     if this.world_number ~= 10 then
         return
     end
-    
+
     -- 检查玩家是否有火箭发射井
- 
+
     if not this.silo or not this.silo.valid then
         return
     end
-    
+
     -- 检查敌方堡垒是否有机器人平台
 
     local arty_data = enemy_arty.get()
     local has_enemy_roboport = false
     local roboport_position = nil
-    
+
     for _, baolei in pairs(arty_data.arty) do
         if baolei.roboport and baolei.roboport.valid then
             has_enemy_roboport = true
@@ -1098,11 +1098,11 @@ local function spawn_player_biters_against_enemy_roboport()
             break
         end
     end
-    
+
     -- 如果敌方有机器人平台，则为玩家生产虫子攻击敌方机器人平台附近区域
     if has_enemy_roboport and roboport_position then
         local surface = game.surfaces['nauvis']
-        
+
         -- 查找火箭发射井位置
         local rocket_silo_position = this.silo.position
         local group={}
@@ -1111,18 +1111,18 @@ local function spawn_player_biters_against_enemy_roboport()
             local wave_number = WD.get('wave_number')
             local values= 50+1*wave_number+this.science*2+this.protectors_value*10
             -- 使用wave_defense_generate_unit_table函数生成虫子表
-            
+
             local unit_table = BiterRolls.wave_defense_generate_unit_table(64, 0.6, 0.4, values)
-            
+
             -- 检测是否启用了品质mod
             local has_quality_mod = script.active_mods['quality'] ~= nil
-            
+
             -- 创建玩家虫子组
             local unit_group = surface.create_unit_group({
                 position = rocket_silo_position,
                 force = 'player'
             })
-            
+
             -- biter_rolls 生成的虫子表已抽离 demolisher，联军无需再对其特殊处理
             -- 同时限制「单次召唤」放进去的五足虫（pentapod）不超过 5 只（不查场上存量、不跨次累计）
             local MAX_PENTAPODS_PER_SUMMON = 5
@@ -1145,12 +1145,12 @@ local function spawn_player_biters_against_enemy_roboport()
             for _, unit_info in ipairs(allied_unit_table) do
                 local unit_name = unit_info.unit_name
                 local quality_name = unit_info.quality_name
-                
+
                 local random_offset = {
                         x = rocket_silo_position.x ,
-                        y = rocket_silo_position.y 
+                        y = rocket_silo_position.y
                     }
-                    
+
                     -- 在火箭发射井附近随机位置生成虫子
                      local valid_position = surface.find_non_colliding_position(
                         unit_name,
@@ -1176,10 +1176,10 @@ local function spawn_player_biters_against_enemy_roboport()
                                 force = 'player'
                             })
                         end
-                        
+
                         if unit and unit.valid then
                             -- 将虫子加入组
-                         group[#group + 1] = unit  
+                         group[#group + 1] = unit
     unit.ai_settings.allow_try_return_to_spawner = false
                             unit_group.add_member(unit)
                                 rendering.draw_text {
@@ -1198,11 +1198,11 @@ local function spawn_player_biters_against_enemy_roboport()
         alignment = 'center',
         scale_with_zoom = false
     }
-                       
+
                     end
                 end
             end
-            
+
             -- 为虫子组设置攻击命令
             if unit_group.valid then
                 -- 1. 确保AI设置正确，防止寻路失败直接自杀（这步依然很重要）
@@ -1214,15 +1214,15 @@ local function spawn_player_biters_against_enemy_roboport()
                 -- 2. 下达命令
                 unit_group.set_command({
                     type = defines.command.attack_area,
-                    destination = roboport_position, 
-                    radius = 16,                     
-                    distraction = defines.distraction.by_enemy 
+                    destination = roboport_position,
+                    radius = 16,
+                    distraction = defines.distraction.by_enemy
                 })
-               
+
                -- 【修改】不再使用 Task.set_timeout，改为注册到任务表
                local this = WPT.get()
-              
-               
+
+
                -- 注册这个组的任务信息
                this.allied_missions[unit_group.unique_id] = {
                    target_pos = roboport_position, -- 记录目标
@@ -1231,14 +1231,14 @@ local function spawn_player_biters_against_enemy_roboport()
                }
                 Task.set_timeout_in_ticks(60 * 60*2, kill_forces, group)
             end
-            
+
         end
     else
         -- 如果敌方没有机器人平台但我方有火箭发射井，则将values转化为金币并平均分给在线玩家
         if this.silo and this.silo.valid then
             local wave_number = WD.get('wave_number')
             local values= 50+1*wave_number+this.science*2+this.protectors_value*8
-            
+
             -- 获取在线玩家
             local online_players = {}
             for _, player in pairs(game.connected_players) do
@@ -1246,7 +1246,7 @@ local function spawn_player_biters_against_enemy_roboport()
                     table.insert(online_players, player)
                 end
             end
-            
+
             -- 如果有在线玩家，则分配金币
             if #online_players > 0 then
                 local gold_per_player = math.floor(values / #online_players)
@@ -1255,7 +1255,7 @@ local function spawn_player_biters_against_enemy_roboport()
                     if player.character and player.character.valid then
                 player.insert({name = "coin", count = gold_per_player})
                     end
-                
+
                 end
                 game.print("联军：如今胜利在即，军粮有余，每名将领获得" .. gold_per_player .. " 金币")
             end
@@ -1321,7 +1321,7 @@ local function on_tick()
         for _, player in pairs(players) do
             update_gui(player)
         end
-        
+
         -- 每秒执行一次的任务
         set_main_target()
         spawn_unit_group()
@@ -1341,11 +1341,11 @@ local function on_tick()
     if tick % 120 == 0 then check_group_positions() end
     if tick % 150 == 0 then ThreatEvent.build_nest() end
     if tick % 180 == 0 then ThreatEvent.build_worm() end
-    
+
     if tick % 1800 == 0 then
         spawn_player_biters_against_enemy_roboport()
     end
-    
+
     if tick % 3600 == 0 then time_out_biters() end
     if tick % 1800 == 0 then WD.reconcile_pentapod_counts() end
     if tick % 7200 == 0 then refresh_active_unit_threat() end
@@ -1377,33 +1377,33 @@ Event.on_nth_tick(30, on_tick)
 local function on_ai_command_completed(event)
     local unit_number = event.unit_number
     local result = event.result
-    
+
     local this = WPT.get()
-    
+
     if not this.allied_missions then
         this.allied_missions = {}
     end
-    
+
     if not this.enemy_missions then
         this.enemy_missions = {}
     end
 
     local mission = this.allied_missions[unit_number]
     local enemy_mission = this.enemy_missions[unit_number]
-    
+
     if not mission and not enemy_mission then
         return
     end
 
     local group = event.unit_group
     local search_pos = nil
-    
+
     if group and group.valid then
         search_pos = group.position
     else
         return
     end
-    
+
     if mission then
         this.allied_missions[unit_number] = nil
 
@@ -1411,7 +1411,7 @@ local function on_ai_command_completed(event)
             attempt_regroup_and_restart(group.surface, search_pos, mission.target_pos, mission.retry_count)
         end
     end
-    
+
     if enemy_mission then
         this.enemy_missions[unit_number] = nil
 

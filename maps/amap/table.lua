@@ -131,11 +131,11 @@ this.gun_turret={}
   this.tianfu_enabled = {}  -- 存储玩家天赋启用状态：this.tianfu_enabled[player_index][skill_id] = true/false
   this.tianfu_islands = {}  -- 存储海景房天赋的岛屿信息：this.tianfu_islands[player_index] = {island_id = island_id, surface_index = surface_index}
   --引入结束
-  
+
   -- 玩家手搓经验倍数
   this.crafting_exp_multiplier = {}
   this.need_chest=nil
-  
+
   -- 精灵数据存储（从RPG模块迁移过来）
   this.fairy_spirits = {}
 
@@ -199,12 +199,12 @@ this.bio_labs = {}
         decay_rate = 1,
         last_update = 0
       }
-  
+
   this.quality_raffle_cache = {}
   this.quality_raffle_cache_tick = 0
   this.quality_total_weight = 0
   this.quality_total_chance = 0
-  
+
       this.laser_turrets_created=nil
   this.energy_recycler=nil
   this.registered_laser_turrets={}

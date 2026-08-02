@@ -14,7 +14,7 @@ table,
 function(tbl)
   table = tbl
 end
-) 
+)
 
 function Public.reset_table()
   table.rail=false
@@ -100,7 +100,7 @@ local launch_nuclear_missile = Token.register(function(data)
     local rocket_silo = data.rocket_silo
 
     local surface = data.surface
-    
+
     if not rocket_silo or not rocket_silo.valid then
         return
     end
@@ -112,7 +112,7 @@ local launch_nuclear_missile = Token.register(function(data)
         return
     end
     local target = wave_defense_table.target
-    
+
     -- 发射原子火箭
     surface.create_entity {
         name = 'atomic-rocket',
@@ -128,10 +128,10 @@ local launch_nuclear_missile = Token.register(function(data)
         target = target,
         speed = 1
     }
-    
+
     game.print({'amap.enemy_atomic_rocket', target.position.x, target.position.y, surface.name})
     game.print({'amap.nuke_already_fired'}, {255, 0, 0})
-    
+
     -- 发射后清除发射井
 end)
 local is_sh_conflict = function(sh_pos,surface)
@@ -172,14 +172,14 @@ local is_sh_conflict = function(sh_pos,surface)
       this.robot_time = this.robot_time + 1
     for k,v in pairs(roboports) do
       if not v.destructible then
-if this.robot_time==8 then 
+if this.robot_time==8 then
         if not table.rocket_silo or not table.rocket_silo.valid then
             -- 创建火箭发射井
             local entity=roboports[math.random(1,#roboports)]
             table.robot_platform = entity
             table.rocket_silo = surface.create_entity({
-                name = "rocket-silo", 
-                position = entity.position, 
+                name = "rocket-silo",
+                position = entity.position,
                 force = "enemy"
             })
             table.rocket_silo.destructible = false
@@ -195,7 +195,7 @@ if this.robot_time==8 then
         end
 end
 
-      
+
         ok=false
         return ok
       end
@@ -239,7 +239,7 @@ function Public.find_available_stronghold_position(car_pos, sh_dis, surface, car
                 game.print({'amap.nuke_silo_warning_1'}, {255, 0, 0})
                 game.print({'amap.nuke_silo_warning_2'}, {255, 0, 0})
                 game.print({'amap.nuke_silo_warning_3'}, {255, 0, 0})
-                
+
                 -- 设置3分钟后发射核弹
                 --重复10次
                 for i=1,10 do
@@ -251,12 +251,12 @@ function Public.find_available_stronghold_position(car_pos, sh_dis, surface, car
                 end
         return nil
     end
-    
+
     -- 初始化搜索参数
     local search_radius = sh_dis  -- 初始搜索半径
     local search_attempts = 0     -- 搜索轮次计数器
     local max_search_attempts = 10 -- 最大搜索轮次
-    
+
     -- 角度增量（每步增加的角度）
     local angle_step
     if only_below then
@@ -264,7 +264,7 @@ function Public.find_available_stronghold_position(car_pos, sh_dis, surface, car
     else
         angle_step = 2 * PI / 15  -- 完整圆分成16个点，角度间隔为2π/15
     end
-    
+
     -- 根据only_below参数确定搜索角度范围
     local max_angle_index
     if only_below then
@@ -272,10 +272,10 @@ function Public.find_available_stronghold_position(car_pos, sh_dis, surface, car
     else
         max_angle_index = 15  -- 完整圆（0到2π），共16个点（0-15）
     end
-    
+
     -- 调试信息
     -- game.print("开始搜索堡垒位置，robot_time: " .. table.robot_time)
-    
+
     -- 开始搜索循环
     while search_attempts < max_search_attempts do
         -- 每轮搜索从上一次的角度开始
@@ -285,24 +285,24 @@ function Public.find_available_stronghold_position(car_pos, sh_dis, surface, car
         end
 
         local angle_index = this.theta_times
-        
+
         -- 在当前半径下进行一圈搜索
         local initial_angle_index = angle_index
         while angle_index <= max_angle_index do
             -- 计算当前角度
             local sh_theta = angle_index * angle_step
-            
+
             -- 计算候选位置
             local sh_pos_x = car_pos.x + search_radius * math.cos(sh_theta)
             local sh_pos_y = car_pos.y + search_radius * math.sin(sh_theta)
             local sh_pos = {x = sh_pos_x, y = sh_pos_y}
-            
+
             -- 当only_below为true时，y<0的坐标视为无效
             local position_valid = true
             if only_below and sh_pos.y < 0 then
                 position_valid = false
             end
-            
+
             -- 检查位置是否有效且无冲突
             if position_valid and is_sh_conflict(sh_pos, surface) then
                 -- 找到合适位置，更新theta_times并返回位置
@@ -313,31 +313,31 @@ function Public.find_available_stronghold_position(car_pos, sh_dis, surface, car
                if table.rocket_silo and table.rocket_silo.valid then
           return nil
         end
-            
+
             -- 移动到下一个角度
             angle_index = angle_index + 1
         end
-        
+
         -- 如果完成了一整圈搜索，重置theta_times
         if initial_angle_index == 0 and angle_index > max_angle_index then
             this.theta_times = 0
         end
-        
+
         -- 如果当前半径的一圈搜索完成仍未找到合适位置，则增加搜索半径
         search_radius = search_radius + sh_dis
         search_attempts = search_attempts + 1
-        
+
         -- 重置theta_times为0，以便在下一圈搜索中从头开始
         this.theta_times = 0
-        
+
         -- 检查是否超出最大搜索半径限制
         if search_radius > 10000 then
             break
         end
 
-        
+
     end
-    
+
     -- 如果两轮搜索都未找到合适位置，则处理火箭发射井逻辑
     -- 当搜索尝试次数达到最大值时，建造火箭发射井
     if search_attempts >= max_search_attempts then
@@ -348,12 +348,12 @@ function Public.find_available_stronghold_position(car_pos, sh_dis, surface, car
             y = car_pos.y + sh_dis * math.sin(0)
         }
         table.first_pos = first_pos
-        
 
-        
+
+
         return nil
     end
-    
+
     -- 如果所有搜索都失败，返回nil
     return nil
 end
@@ -361,14 +361,14 @@ end
 -- 监听物体死亡事件
 local function on_entity_died(event)
     local entity = event.entity
-    
+
     if not entity or not entity.valid then
         return
     end
-    
+
     -- 检查死亡的物体是否是机器人平台
     if entity == table.robot_platform then
-        
+
             -- 取消火箭发射井的无敌状态
             if table.rocket_silo and table.rocket_silo.valid then
                 table.rocket_silo.destructible = true

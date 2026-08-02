@@ -71,7 +71,7 @@ function Public.biter_pets_tame_unit(player, unit)
   local this=WPT.get()
   local index=player.index
 
-  if unit.name =='biter-spawner' or unit.name =='spitter-spawner' or unit.type=='turret' then 
+  if unit.name =='biter-spawner' or unit.name =='spitter-spawner' or unit.type=='turret' then
     tame_unit_effects(player, unit)
     return
   end
@@ -80,8 +80,8 @@ function Public.biter_pets_tame_unit(player, unit)
   end
     local biter_pets = this.biter_pets[index]
     local temp_biters_pet={}
-    for _,v in pairs(biter_pets) do 
-      if v and v.valid then 
+    for _,v in pairs(biter_pets) do
+      if v and v.valid then
         temp_biters_pet[#temp_biters_pet+1]=v
       end
     end
@@ -97,7 +97,7 @@ function Public.biter_pets_tame_unit(player, unit)
 
     unit.ai_settings.allow_destroy_when_commands_fail = true
     unit.ai_settings.allow_try_return_to_spawner = false
-  
+
     biter_pets[#biter_pets+1] = unit
     tame_unit_effects(player, unit)
 
@@ -105,9 +105,9 @@ function Public.biter_pets_tame_unit(player, unit)
     local unit_group = player.physical_surface.create_unit_group({position = unit.position, force = 'player'})
     local follow_number = this.biter_follow_number
     local biter_arty=0
-    for _,v in pairs(biter_pets) do 
-      if biter_arty<follow_number then 
-        if v and v.valid and can_move(v, player) then 
+    for _,v in pairs(biter_pets) do
+      if biter_arty<follow_number then
+        if v and v.valid and can_move(v, player) then
           unit_group.add_member(v)
           biter_arty=biter_arty+1
         end
@@ -186,9 +186,9 @@ local function on_player_changed_position(event)
   local unit_group = player.physical_surface.create_unit_group({position = player.physical_position, force = 'player'})
   local follow_number = this.biter_follow_number
   local biter_arty=0
-  for _,v in pairs(biter_pets) do 
-    if biter_arty<follow_number then 
-      if v and v.valid and can_move(v, player) then 
+  for _,v in pairs(biter_pets) do
+    if biter_arty<follow_number then
+      if v and v.valid and can_move(v, player) then
         unit_group.add_member(v)
         biter_arty=biter_arty+1
       end

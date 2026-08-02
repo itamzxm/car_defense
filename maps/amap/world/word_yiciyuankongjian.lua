@@ -27,12 +27,12 @@ local function rand_building(surface,maxs,position)
   if get_tile.valid and get_tile.name == 'out-of-map' then
   return
   end
-  
+
   local wave_number = game.forces.player.get_ammo_damage_modifier("laser")
   if wave_number > 1300 then
     return
   end
-  
+
   local factory = Factories.roll_random_assembler(maxs)
   if not factory then return end
 
@@ -75,7 +75,7 @@ end
 
 local restore_chunk_task = Token.register(function(data)
     local map = diff.get()
-    
+
     if map.world ~= 8 then return end
     local dest_surface = game.surfaces[data.dest_name]
     local area = data.area
@@ -130,9 +130,9 @@ local restore_chunk_task = Token.register(function(data)
 end)
 
 
-local process_single_chunk_swap = Token.register(function(args)  
+local process_single_chunk_swap = Token.register(function(args)
   local map = diff.get()
-    
+
     if map.world == 8 then
   local cx = args.cx
   local cy = args.cy
@@ -145,7 +145,7 @@ local process_single_chunk_swap = Token.register(function(args)
 
 
     local this = WPT.get()
-    if not source_surface or not dest_surface then 
+    if not source_surface or not dest_surface then
       return end
     local chunk_key = cx .. "_" .. cy
     local saved_data = this.chunk_layout_data[chunk_key]
@@ -159,9 +159,9 @@ local process_single_chunk_swap = Token.register(function(args)
         }
         this.chunk_layout_data[chunk_key] = saved_data
     end
-    
+
     local arty_table = enemy_arty.get()
-    
+
     if arty_table.all then
         for _, baolei_entity in pairs(arty_table.all) do
             if baolei_entity and baolei_entity.valid then
@@ -173,14 +173,14 @@ local process_single_chunk_swap = Token.register(function(args)
             end
         end
     end
-    
+
     local entities_to_destroy = dest_surface.find_entities_filtered{area = area}
     for _, entity in ipairs(entities_to_destroy) do
         if entity.valid and entity.type ~= "character" and entity.type ~= "unit" then
             entity.destroy()
         end
     end
-        
+
         source_surface.clone_area({
         source_area = area,
         destination_area = area,
@@ -207,19 +207,19 @@ end)
 local function change_world()
     local this = WPT.get()
     local map = diff.get()
-    
+
     this.change_world_timer = this.change_world_timer + 1
-    
+
     if this.change_world_timer < 90 then
         return
     end
-    
+
     this.change_world_timer = 0
-    
+
     if map.world == 8 then
         this.change_world_index = this.change_world_index + 1
         local surface_name_table = {'vulcanus', 'fulgora', 'gleba', 'aquilo'}
-        
+
         if this.change_world_index > #surface_name_table then
             this.change_world_index = 1
         end
@@ -232,7 +232,7 @@ game.print({'amap.world_phase_shift_warning'}, {r=1, g=0.5, b=0})
           local center_position = {x = 0, y = 0}
           source_surface.request_to_generate_chunks(center_position, radius)
           source_surface.force_generate_chunk_requests()
-   
+
 
     local delay_counter = 0
     local center_safe_radius = 3
@@ -243,8 +243,8 @@ game.print({'amap.world_phase_shift_warning'}, {r=1, g=0.5, b=0})
            if dist > center_safe_radius then
                 delay_counter = delay_counter + 1
                 local task_args = {
-                    cx = x, 
-                    cy = y, 
+                    cx = x,
+                    cy = y,
                     source_name = surface_name,
                     dest_name = 'nauvis'
                 }
@@ -252,8 +252,8 @@ game.print({'amap.world_phase_shift_warning'}, {r=1, g=0.5, b=0})
             end
         end
     end
-    
-    
+
+
     end
 end
 

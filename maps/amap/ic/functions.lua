@@ -54,7 +54,7 @@ local function render_owner_text(renders, player, entity, new_owner)
     if not entity or not player then
         return
     end
-    
+
     local color = {
         r = player.color.r * 0.6 + 0.25,
         g = player.color.g * 0.6 + 0.25,
@@ -314,14 +314,14 @@ local function remove_logistics(car)
                         active = section.active,
                         filters = {}
                     }
-                    
+
                     -- 直接遍历 filters 属性，它只包含已经设置了物品的槽位
                     local filters = section.filters
                     for i, filter in ipairs(filters) do
                         -- filter 的结构已经是 {value = SignalID, min = ..., max = ...}
                         table.insert(section_data.filters, filter)
                     end
-                    
+
                     table.insert(saved_logistics[k], section_data)
                 end
             end
@@ -330,7 +330,7 @@ local function remove_logistics(car)
             chest.destroy()
         end
     end
-    
+
     car.saved_chest_items = saved_items
     car.saved_chest_logistics = saved_logistics
 end
@@ -368,7 +368,7 @@ local function upgrade_surface(player, entity)
         if car.saved_chest_items or car.saved_chest_logistics then
             for k, chest in pairs(car.transfer_entities) do
                 if chest and chest.valid then
-                    
+
                     -- --- 1. 恢复物流设置 (先恢复设置，防止物品被物流系统立刻运走) ---
                     if car.saved_chest_logistics and car.saved_chest_logistics[k] then
                         local lp = chest.get_logistic_point(defines.logistic_member_index.logistic_container)
@@ -377,7 +377,7 @@ local function upgrade_surface(player, entity)
                             for i = #lp.sections, 1, -1 do
                                 lp.remove_section(i)
                             end
-                            
+
                             -- 重新添加保存的栏目
                             for _, s_data in ipairs(car.saved_chest_logistics[k]) do
                                 local new_section = lp.add_section(s_data.group)
@@ -400,13 +400,13 @@ local function upgrade_surface(player, entity)
                     end
                 end
             end
-            
+
             -- 清除临时保存的数据
             car.saved_chest_items = nil
             car.saved_chest_logistics = nil
         end
 
-        
+
         saved_surfaces[player.index] = nil
         return true
     end
@@ -499,7 +499,7 @@ local function kick_player_from_surface(player, target)
     if not validate_entity(car.entity) then
         return
     end
-    
+
     if validate_entity(player) then
         if validate_entity(target) then
             local locate = get_owner_car_surface(cars, player, target)
@@ -582,7 +582,7 @@ local function input_filtered(car_inv, chest, chest_inv, free_slots)
         local stack = car_inv[i]
         if stack.valid_for_read then
             local goal = request_goals[stack.name]
-            
+
             if goal then
                 -- 计算箱子里已经有多少了
                 local current_in_chest = chest_inv.get_item_count(stack.name)
@@ -591,10 +591,10 @@ local function input_filtered(car_inv, chest, chest_inv, free_slots)
                 if need_amount > 0 then
                     -- 确定实际要转移的数量：取"车里有的"和"箱子需要的"最小值
                     local transfer_count = math.min(stack.count, need_amount)
-                    
+
                     -- 插入到箱子（使用表结构而不是直接传stack对象，这样更安全）
                     local inserted_count = chest_inv.insert({name = stack.name, count = transfer_count})
-                    
+
                     -- 从车中扣除实际成功转移的数量
                     if inserted_count > 0 then
                         stack.count = stack.count - inserted_count
@@ -604,7 +604,7 @@ local function input_filtered(car_inv, chest, chest_inv, free_slots)
         end
     end
 end
- 
+
 
 local function input_cargo(car, chest)
     if not chest.request_from_buffers then
@@ -629,7 +629,7 @@ local function input_cargo(car, chest)
             free_slots = free_slots + 1
         end
     end
-    
+
 
     local has_request_slot = false
     local logistics = chest.get_logistic_point(defines.logistic_member_index.logistic_container)
@@ -792,12 +792,12 @@ function Public.save_car(event)
         return
     end
     local this= WPT.get()
-    if this.silo and this.silo.valid then 
+    if this.silo and this.silo.valid then
         car.entity.minable_flag = true
 else
     car.entity.minable_flag = false
     end
-   
+
     local position = entity.position
     local health = entity.health
 
@@ -1014,7 +1014,7 @@ function Public.create_car_room(car)
     )
 
     local this= WPT.get()
-    if this .world_number== 7 or this .world_number== 6 then 
+    if this .world_number== 7 or this .world_number== 6 then
         local e3 = surface.create_entity(
             {
                 name = 'linked-chest',
@@ -1077,11 +1077,11 @@ function Public.create_car(event)
     local this=WPT.get()
     local yiciyuan=false
     if this.world_number == 8 or this.world_number == 7 then
-    if  ce.surface.name==this.yiciyuan_surface.name then 
+    if  ce.surface.name==this.yiciyuan_surface.name then
         yiciyuan =true
     end
 end
- 
+
     -- 检查是否在火车内部空间，允许在火车内使用汽车内部空间系统
     -- 使用 this.shop.surface 判断图层：商店实体所在的 surface 即为玩家当前所在的合法图层
     local shop_surface = this.shop and this.shop.valid and this.shop.surface
@@ -1096,11 +1096,11 @@ end
                               ce.surface.name == 'fulgora-1' or
                               ce.surface.name == 'vulcanus-1' or
                               (shop_surface and ce.surface == shop_surface)
-    
-    
+
+
     if not is_allowed_planet and yiciyuan==false then
         return player.print({'amap.ic_multi_surface_not_supported'}, Color.warning)
-   
+
     end
 
     if
@@ -1209,7 +1209,7 @@ function Public.use_door_with_entity(player, door)
     if not validate_entity(car.entity) then
         return
     end
-    
+
     local owner = game.players[car.owner]
     local list = get_trusted_system(owner)
     if owner and owner.valid and owner.index ~= player.index and player.connected then
@@ -1258,10 +1258,10 @@ function Public.use_door_with_entity(player, door)
         end
         local p = surface.find_non_colliding_position('character', position, 128, 0.5)
         if p then
-           
+
             player.teleport(p, surface)
         else
-           
+
             player.teleport(position, surface)
         end
         player_data.surface = surface.index
@@ -1275,7 +1275,7 @@ function Public.use_door_with_entity(player, door)
                 }
             )
             local this= WPT.get()
-            if this.silo and this.silo.valid then 
+            if this.silo and this.silo.valid then
                 car.entity.minable_flag = true
         else
             car.entity.minable_flag = false
@@ -1289,15 +1289,15 @@ function Public.use_door_with_entity(player, door)
             player.teleport(surface_position, surface)
             player_data.state = 2
             player.driving = true
-         
+
         else
-            
+
             player.teleport(surface_position, surface)
         end
         player_data.surface = surface.index
     end
 
-    
+
 end
 
 function Public.item_transfer()

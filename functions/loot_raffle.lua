@@ -357,7 +357,7 @@ local tech_tier_list = {
     'solar-panel-equipment',
     'toolbelt-equipment',
     'speed-module',
-    
+
     'productivity-module',
     'efficiency-module',
     'cliff-explosives',

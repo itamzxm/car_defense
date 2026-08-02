@@ -34,7 +34,7 @@ end
 
 local function create_button(player)
     local flow = TopBar.get_button_flow(player)
-    local button = 
+    local button =
         flow['minimap_button'] or
         TopBar.add_button(player, {
             type = 'sprite-button',
@@ -149,7 +149,7 @@ local function draw_minimap(player, surface, position)
     end
     local element = frame['minimap_frame']
     if not element then
-        element = 
+        element =
             player.gui.left.minimap_toggle_frame.add(
             {
                 type = 'camera',

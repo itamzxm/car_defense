@@ -159,7 +159,7 @@ function Public.cool(surface, position, chest, magic)
 end
 
 function Public.cool_with_quality(surface, position, chest, magic)
-    if not script.active_mods['quality'] then 
+    if not script.active_mods['quality'] then
         return Public.cool(surface, position, chest, magic+100)
     end
     local budget = magic * 48 + abs(position.y) * 1.75
@@ -187,7 +187,7 @@ function Public.cool_with_quality(surface, position, chest, magic)
 
     local item_stacks = LootRaffle.roll(result, slots, blacklist)
     local container = surface.create_entity({name = chest, position = position, force = 'neutral'})
-    
+
     -- 品质升级概率系统
     local quality_upgrades = {
         uncommon = 0.10,  -- 10% 概率升级为普通品质
@@ -195,10 +195,10 @@ function Public.cool_with_quality(surface, position, chest, magic)
         epic = 0.03,      -- 3% 概率升级为史诗品质
         legendary = 0.01  -- 1% 概率升级为传说品质
     }
-    
+
     for _, item_stack in pairs(item_stacks) do
         local upgraded = false
-        
+
         -- 按顺序检查品质升级概率（从低到高）
         local roll = math.random()
         if roll <= quality_upgrades.legendary then
@@ -218,7 +218,7 @@ function Public.cool_with_quality(surface, position, chest, magic)
             container.insert({name = item_stack.name, count = item_stack.count, quality = 'uncommon'})
             upgraded = true
         end
-        
+
         -- 如果没有升级，插入普通物品
         if not upgraded then
             container.insert(item_stack)

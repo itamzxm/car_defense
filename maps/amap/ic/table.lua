@@ -52,7 +52,7 @@ function Public.reset()
     }
     local abc =1
     local a=WPT.get()
-    if a.world_number==6 then 
+    if a.world_number==6 then
 abc=2
     end
     this.car_areas = {

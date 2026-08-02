@@ -139,7 +139,7 @@ local name = List[id].recipe_override or List[id].name
         text = '',
     })
   end
-  
+
   production.assemblers[#production.assemblers + 1] = {
     entity = entity,
     id = id,
@@ -166,7 +166,7 @@ function Public.check_activity()
       end
       goto continue
     end
-    if  this.jjc ==2  then 
+    if  this.jjc ==2  then
       factory.active = true
       goto continue
     end
@@ -191,9 +191,9 @@ function Public.jump_procedure()
   local production = Chrono_table.get_production_table()
 
   for _, factory in pairs(production.assemblers) do
-      
+
     if not production.experience[factory.id]  then production.experience[factory.id] = 0 end
-    
+
     production.experience[factory.id] = production.experience[factory.id] + factory.produced
     factory.produced=0
     levelup_train_factory(factory.id)

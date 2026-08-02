@@ -52,7 +52,7 @@ end
 local function updata_gui(player)
     local WPT = WPT.get()
     local button = TopBar.get_button_flow(player)[main_button_name]
-    
+
     if not button or not button.valid then return end
 
     -- 检查玩家是否已经投票 (现在 vote_count 存储的是投票的地图ID，如果没投则为 nil)
@@ -78,7 +78,7 @@ end
 -- 打开投票界面的函数
 local function gui_open(player)
     local WPT = WPT.get()
-    
+
     -- 防止重复创建
     if player.gui.screen[main_frame_name] then
         player.gui.screen[main_frame_name].destroy()
@@ -109,7 +109,7 @@ local function gui_open(player)
         local map_key = tostring(i)
         -- 获取当前票数，如果没有则为0
         local count = WPT.huantu_choise[map_key] or 0
-        
+
         -- 需求4: 投票的时候显示每个地图的票数
         -- caption 格式示例: "世界1 (3)"
         local button_caption = {'', {'amap.world_name_' .. i}, ' (' .. count .. ')'}
@@ -124,13 +124,13 @@ local function gui_open(player)
         button.style.minimal_height = 30
         button.style.font = 'default-bold'
         button.style.padding = 3
-        
+
         -- 如果玩家当前选的是这个，高亮显示一下（可选优化）
         if WPT.vote_count[player.name] == map_key then
             button.style.font_color = {0, 255, 0} -- 绿色代表已选
         end
     end
-    
+
     -- 添加一个关闭按钮
     local close_btn = frame.add {
         type = 'button',
@@ -145,13 +145,13 @@ local function on_gui_click(event)
     local player = game.players[event.player_index]
     if not player or not player.valid then return end
     if not event.element or not event.element.valid then return end
-    
+
     if not event.element.parent or not event.element.parent.valid then return end
     if event.element.parent.name ~= main_frame_name then return end
 
     local WPT = WPT.get()
     local choise = event.element.name -- 获取点击的地图ID (字符串)
-    
+
     -- 简单的校验，确保点击的是地图按钮而不是其他东西
     if not tonumber(choise) then return end
 
@@ -207,7 +207,7 @@ local function on_gui_click(event)
             gui_open(p)
         end
     end
-    
+
     player.print({'amap.vote_success', {'amap.world_name_' .. choise}})
 end
 

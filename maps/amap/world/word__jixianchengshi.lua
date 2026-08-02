@@ -16,24 +16,24 @@ local function get_recycler_crafting_time(item_name, depth)
     if not this.recycler_time_cache then
         this.recycler_time_cache = {}
     end
-    
-    
+
+
     depth = depth or 0
     if depth > 10 then return 1 end
-    
+
     if this.recycler_time_cache[item_name] then
         return this.recycler_time_cache[item_name]
     end
 
     local recipe = prototypes.recipe[item_name]
-    
+
     if not recipe then
         this.recycler_time_cache[item_name] = 0
         return 0
     end
 
     local total_time = recipe.energy
-    
+
     local product_amount = 1
     for _, product in pairs(recipe.products) do
         if product.name == item_name then
@@ -41,7 +41,7 @@ local function get_recycler_crafting_time(item_name, depth)
             break
         end
     end
-    
+
     for _, ingredient in pairs(recipe.ingredients) do
         if ingredient.type == "item" then
             local sub_time = get_recycler_crafting_time(ingredient.name, depth + 1)
@@ -56,13 +56,13 @@ end
 local function update_laser_turrets()
     local this = WPT.get()
     local energy_network = this.energy_network
-    
+
     if not energy_network then return end
-    
+
     if not this.registered_laser_turrets then
         this.registered_laser_turrets = {}
     end
-    
+
     for unit_number, turret in pairs(this.registered_laser_turrets) do
         if turret and turret.valid then
             if energy_network.active then
@@ -77,9 +77,9 @@ end
 local function collect_energy_recyclers()
     local this = WPT.get()
     local energy_network = this.energy_network
-    
+
     if not energy_network then return end
-    
+
     local recycler_data = this.energy_recycler
     if not recycler_data then return end
     local quality_multipliers = {
@@ -115,18 +115,18 @@ end
 local function update_recycler_display()
     local this = WPT.get()
     local energy_network = this.energy_network
-    
+
     if not energy_network then return end
-    
+
     local recycler_data = this.energy_recycler
     if not recycler_data then return end
-    
+
     local recycler = recycler_data.entity
     if not recycler or not recycler.valid then return end
-    
+
     local energy_percent = math.floor((energy_network.energy / energy_network.max_energy) * 100)
     local energy_text = string.format("能量网: %d/%d (%d%%)", energy_network.energy, energy_network.max_energy, energy_percent)
-    
+
     recycler_data.render_id = rendering.draw_text{
         text = energy_text,
         surface = recycler.surface,
@@ -147,7 +147,7 @@ end
 local function get_active_fortresses()
     local arty_data = enemy_arty.get()
     local fortresses = {}
-    
+
     if arty_data.arty then
         for baolei_id, data in pairs(arty_data.arty) do
             if data.roboport and data.roboport.valid then
@@ -160,7 +160,7 @@ local function get_active_fortresses()
             end
         end
     end
-    
+
     return fortresses
 end
 
@@ -168,7 +168,7 @@ local function destroy_fortress_and_fire(fortress_data)
     local arty_data = enemy_arty.get()
     if not fortress_data or not fortress_data.id then return end
     local baolei_id = fortress_data.id
-    
+
 
         -- 1. 使用专用的清理表杀死所有关联实体（包括墙、指令枢纽、箱子等）
     if arty_data.neet_to_kill and arty_data.neet_to_kill[baolei_id] then
@@ -176,12 +176,12 @@ local function destroy_fortress_and_fire(fortress_data)
             if entity and entity.valid then
                 -- 先取消不可摧毁状态（防止某些建筑设置了不可摧毁）
                 entity.destructible = true
-                entity.die() 
+                entity.die()
             end
         end
         arty_data.neet_to_kill[baolei_id] = nil
     end
-    
+
     -- 2. 单独摧毁机器人平台（roboport 不在 neet_to_kill 表中）
     if arty_data.arty and arty_data.arty[baolei_id] and arty_data.arty[baolei_id].roboport then
         local roboport = arty_data.arty[baolei_id].roboport
@@ -190,7 +190,7 @@ local function destroy_fortress_and_fire(fortress_data)
             roboport.die()
         end
     end
-    
+
     -- 3. 搜索区域内所有敌方实体并摧毁，防止残留
     local surface = fortress_data.surface
     local position = fortress_data.position
@@ -204,14 +204,14 @@ local function destroy_fortress_and_fire(fortress_data)
         area = area,
         force = "enemy"
     })
-    
+
     local this = WPT.get()
     local first_turret = nil
     if this.registered_laser_turrets then
         local unit_number, turret = next(this.registered_laser_turrets)
         first_turret = turret
     end
-    
+
     for _, enemy in ipairs(enemies) do
         if enemy and enemy.valid and enemy.health and enemy.health > 0 then
             enemy.destructible = true
@@ -232,7 +232,7 @@ local function destroy_fortress_and_fire(fortress_data)
 
     -- 5. 清理主数据表
     arty_data.arty[baolei_id] = nil
-    
+
     -- 6. 额外查找并消灭堡垒附近的钢箱子
     local steel_chests = surface.find_entities_filtered({
         position = position,
@@ -245,7 +245,7 @@ local function destroy_fortress_and_fire(fortress_data)
             chest.die()
         end
     end
-    
+
     -- 7. 查找并清理虫子的 entity-ghost 单位
     local entity_ghosts = surface.find_entities_filtered({
         position = position,
@@ -258,7 +258,7 @@ local function destroy_fortress_and_fire(fortress_data)
             ghost.destroy()
         end
     end
-    
+
     -- 9. 清理 roboport_wave 映射表
     if arty_data.roboport_wave then
         for unit_number, wave in pairs(arty_data.roboport_wave) do
@@ -267,17 +267,17 @@ local function destroy_fortress_and_fire(fortress_data)
             end
         end
     end
-    
+
     -- 10. 清理 baolei_creation_times 创建时间表
     if arty_data.baolei_creation_times then
         arty_data.baolei_creation_times[baolei_id] = nil
     end
-    
+
     -- 11. 清理 construction_queue.active_constructions 活跃建造任务
     if arty_data.construction_queue and arty_data.construction_queue.active_constructions then
         arty_data.construction_queue.active_constructions[baolei_id] = nil
     end
-    
+
     game.print({"amap.baolei_die"})
 end
 
@@ -303,7 +303,7 @@ local function update_artillery_charging()
     local artillery_charge_max = get_artillery_charge_max()
     local artillery_charge_rate = get_artillery_charge_rate()
 
-    
+
     if not this.artillery_charging then
         this.artillery_charging = {
             active = false,
@@ -312,9 +312,9 @@ local function update_artillery_charging()
             message_shown = false
         }
     end
-    
+
     local artillery = this.artillery_charging
-    
+
     if fortress_count > 0 and not artillery.active then
         artillery.active = true
         artillery.energy = 0
@@ -325,10 +325,10 @@ local function update_artillery_charging()
         artillery.energy = 0
         artillery.message_shown = false
     end
-    
+
     if artillery.active then
         local charge_amount = math.min(artillery_charge_rate, artillery_charge_max - artillery.energy)
-        
+
         if energy_network and energy_network.energy and energy_network.energy >= charge_amount then
             energy_network.energy = energy_network.energy - charge_amount
             artillery.energy = math.floor(artillery.energy + charge_amount)
@@ -337,14 +337,14 @@ local function update_artillery_charging()
             energy_network.energy = 0
             artillery.energy = math.floor(artillery.energy + available)
         end
-        
+
         local recycler_data = this.energy_recycler
         if recycler_data and recycler_data.entity and recycler_data.entity.valid then
             local percent = math.floor((artillery.energy / artillery_charge_max) * 100)
             artillery.render_id = rendering.draw_text{
                 text = {"amap.artillery_charge_progress", math.floor(artillery.energy), artillery_charge_max, percent},
                 surface = recycler_data.entity.surface,
-                target = 
+                target =
                 {entity=recycler_data.entity,
                 offset = {0, -1}},
                 color = {1, 0.5, 0},
@@ -353,17 +353,17 @@ local function update_artillery_charging()
                 time_to_live = 61
             }
         end
-        
+
         if artillery.energy >= artillery_charge_max and not artillery.message_shown then
             artillery.message_shown = true
             game.print({"amap.artillery_charge_complete"})
-            
+
             local fortresses = get_active_fortresses()
             if #fortresses > 0 then
                 local random_fortress = fortresses[math.random(1, #fortresses)]
                 destroy_fortress_and_fire(random_fortress)
             end
-            
+
             artillery.energy = 0
             artillery.message_shown = false
         end
@@ -375,25 +375,25 @@ local function get_resistance(entity, damage_type)
     if not this.resistance_cache then
         this.resistance_cache = {}
     end
-    
+
     local entity_name = entity.name
-    
+
     if this.resistance_cache[entity_name] then
         return this.resistance_cache[entity_name]
     end
-    
+
     local resistances = entity.prototype.resistances
-    if not resistances then 
+    if not resistances then
         this.resistance_cache[entity_name] = 0
-        return 0 
+        return 0
     end
 
     local resistance = resistances[damage_type]
-    if not resistance then 
+    if not resistance then
         this.resistance_cache[entity_name] = 0
-        return 0 
+        return 0
     end
-    
+
     local value = resistance.percent or 0
     this.resistance_cache[entity_name] = value
     return value
@@ -402,38 +402,38 @@ end
 local function scan_and_kill_enemies_in_area()
     local map = diff.get()
     if map.world ~= 11 then return end
-    
+
     local this = WPT.get()
     local energy_network = this.energy_network
-    
+
     if not energy_network or not energy_network.active then return end
-    
+
     local surface = game.surfaces["nauvis"]
     if not surface or not surface.valid then return end
-    
+
     local area = {
         left_top = {x = -91, y = -51},
         right_bottom = {x = 91, y = -25}
     }
-    
+
     local enemies = surface.find_entities_filtered({
         area = area,
         force = "enemy"
     })
     local laser_damage_bonus = game.forces.player.get_ammo_damage_modifier("laser")  or 0
     --local laser_speed_bonus = game.forces.player.get_gun_speed_modifier("laser") or 0
-    
+
     local damage_multiplier = 1 + laser_damage_bonus--+laser_speed_bonus
     if #enemies == 0 then return end
-    
+
     local first_unit_number, first_turret = next(this.registered_laser_turrets)
     if not first_turret or not first_turret.valid then return end
-    
+
     for _, enemy in ipairs(enemies) do
         if enemy and enemy.valid and enemy.health and enemy.health > 10 and enemy.type ~= "spider-leg" then
             local resistance = get_resistance(enemy, "laser")
             local energy_needed = enemy.health / (1 - resistance) / damage_multiplier
-            
+
             if energy_network.energy >= energy_needed then
                 energy_network.energy = energy_network.energy - energy_needed
                 enemy.die(game.forces.player, first_turret)
@@ -445,13 +445,13 @@ end
 local function on_tick(event)
     local map = diff.get()
     if map.world ~= 11 then return end
-    
+
     local tick = event.tick
     local this = WPT.get()
     local energy_network = this.energy_network
-    
+
     if not energy_network then return end
-    
+
     if tick % ENERGY_UPDATE_INTERVAL == 0 then
         if energy_network.energy <= 0 then
             energy_network.energy = 0
@@ -459,14 +459,14 @@ local function on_tick(event)
         else
             energy_network.active = true
         end
-        
+
         update_laser_turrets()
     end
-    
+
     if tick % 30 == 0 then
         scan_and_kill_enemies_in_area()
     end
-    
+
     if tick % 60 == 0 then
         collect_energy_recyclers()
         update_recycler_display()
@@ -480,20 +480,20 @@ end
 local function on_entity_damaged(event)
     local map = diff.get()
     if map.world ~= 11 then return end
-    
+
     local entity = event.entity
     if not entity or not entity.valid then return end
-    
+
     local this = WPT.get()
     local energy_network = this.energy_network
-    
+
     if not energy_network or not energy_network.active then return end
     local unit_number = entity.unit_number
 
     if this.registered_laser_turrets[unit_number] then
         local damage_amount = event.final_damage_amount or 0
         energy_network.energy = math.max(0, energy_network.energy - damage_amount)
-        entity.health = entity.max_health 
+        entity.health = entity.max_health
     end
 end
 
@@ -527,34 +527,34 @@ end
 function jixianchengshi.register_laser_turret(turret)
     if not turret or not turret.valid then return false end
     if turret.name ~= "laser-turret" then return false end
-    
+
     local this = WPT.get()
     if not this.registered_laser_turrets then
         this.registered_laser_turrets = {}
     end
-    
+
     local unit_number = turret.unit_number
     if not unit_number then return false end
-    
+
     this.registered_laser_turrets[unit_number] = turret
     return true
 end
 
 function jixianchengshi.unregister_laser_turret(turret)
     if not turret or not turret.valid then return false end
-    
+
     local this = WPT.get()
     if not this.registered_laser_turrets then return false end
-    
+
     local unit_number = turret.unit_number
     if not unit_number then return false end
-    
+
     this.registered_laser_turrets[unit_number] = nil
     return true
 end
 
 Event.add(defines.events.on_entity_damaged, on_entity_damaged, {
-    {filter = "type", type = 'character'}, 
+    {filter = "type", type = 'character'},
     {filter = "type", type = 'electric-turret'}
     })
 Event.on_nth_tick(60, on_tick)

@@ -91,17 +91,17 @@ end
 
 
     local function create_damage_floating_text(target_entity, damage_amount, damage_type, player)
-    
+
     -- 根据伤害类型选择颜色
     local color = {r = 1, g = 0.5, b = 0} -- 橙色
 
-    
+
     -- 在目标位置上方显示伤害数值
     local text_position = {
         x = target_entity.position.x,
         y = target_entity.position.y - 1.5
     }
-    
+
     -- 创建漂浮文本
     player.create_local_flying_text({
         text = tostring(math.floor(damage_amount)),
@@ -115,14 +115,14 @@ end
 local function deal_damage_with_floating_text(target_entity, player, damage_amount, damage_type)
     if type(damage_amount) ~= 'number' or damage_amount <= 0 then
         return false
-    end     
+    end
     local this=WPT.get()
     local damage_multiplier = this.damage_multiplier or 1
     local final_damage = damage_amount * damage_multiplier
     damage_type = damage_type or 'explosion'
     create_damage_floating_text(target_entity, final_damage, damage_type, player)
     target_entity.damage(final_damage, 'player', damage_type, player.character)
- 
+
     return true
 end
 
@@ -438,7 +438,7 @@ local tianfu_categories = {
         'fcz',        -- 复仇者
         'zsfs',       -- 忠实粉丝
                -- 皇帝
-     
+
         'dutu',       -- 赌徒
         'chengshuangchengdui', -- 成双成对
         'weilai',     -- 未来战士
@@ -1538,7 +1538,7 @@ local function yinxuejian_shield(event)
 
     -- 获取伤害值
     local damage = event.final_damage_amount
-    if not this.yinxuejian_shield[player.index] then 
+    if not this.yinxuejian_shield[player.index] then
         this.yinxuejian_shield[player.index] = 0
     end
     -- 如果玩家受到了伤害且护盾量>0，直接给玩家加血。
@@ -2121,55 +2121,55 @@ end
 
 
 -- 附魔虫子的攻击逻辑
-local function fumo_biter_attack_logic(event)    
+local function fumo_biter_attack_logic(event)
     local this = TPT.get()
     local attacker = event.cause
-    
+
     -- 检查攻击者是否有效
     if not attacker or not attacker.valid then
         return
     end
-    
+
     -- 检查攻击者是否是附魔虫子
     local owner_player_index = this.fumo_biter_to_player[attacker.unit_number]
     if not owner_player_index then
         return
     end
-    
+
     local owner_player = game.players[owner_player_index]
-    
+
     if not owner_player then
         return
     end
-    
+
     -- 获取玩家当前法力值
     local rpg_t = rpgtable.get('rpg_t')
     local current_mana = rpg_t[owner_player.index].mana or 0
-    
+
     if current_mana <= 0 then
         return
     end
-    
+
     -- 计算要消耗的法力值（10%当前法力）
     local mana_consumption = math.floor(current_mana * 0.1)
-    
+
     if mana_consumption <= 0 then
         return
     end
-    
+
     -- 消耗法力值
     rpg_t[owner_player.index].mana = current_mana - mana_consumption
-    
+
     -- 计算伤害（消耗法力 * 5）
     local area_damage = mana_consumption * 4
-    
+
     -- 造成范围伤害
     local surface = event.entity.surface
     local position = event.entity.position
     local radius = 3  -- 小范围伤害
-    
+
     local goal = {'unit', 'turret', 'unit-spawner','spider-leg','combat-robot','spider-unit'}
-    
+
     for _, target in pairs(surface.find_entities_filtered({
         area = { { position.x - radius, position.y - radius }, { position.x + radius, position.y + radius } },
         force = game.forces.enemy,
@@ -2180,14 +2180,14 @@ local function fumo_biter_attack_logic(event)
             if distance <= radius then
                 local damage_multiplier = 1 - distance / radius
                 local final_damage = area_damage * damage_multiplier
-               
+
                 if final_damage > 0 then
                     target.damage(final_damage, 'player', 'explosion', owner_player.character)
                 end
             end
         end
     end
-    
+
     -- 显示法力消耗的飞行文本
     if owner_player.valid then
         owner_player.create_local_flying_text({
@@ -2340,8 +2340,8 @@ local function on_entity_damaged(event)
     local entity_force = entity.force
     local player_force = game.forces.player -- 预置引用提高效率
 
-    
-    
+
+
     -- 2. 处理阵营保护逻辑 (神赐之手)
     -- 仅当受伤者是玩家阵营时才遍历激活状态，减少 90% 的无效循环
     if entity_force == player_force then
@@ -2481,7 +2481,7 @@ Event.add(defines.events.on_player_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'container'},
     {filter = "type", type = 'logistic-container'},
     {filter = "type", type = 'car'},
-    
+
     {filter = "type", type = 'artillery-wagon'},
     {filter = "type", type = 'artillery-turret'},
     {filter = "type", type = 'land-mine'},
@@ -2496,7 +2496,7 @@ Event.add(defines.events.on_research_finished, on_research_finished)
 Event.add(defines.events.on_player_gun_inventory_changed, on_player_gun_inventory_changed)
 Event.add(defines.events.on_player_died, on_player_died)
 Event.add(defines.events.on_entity_damaged, on_entity_damaged, {
-    {filter = "type", type = 'character'}, 
+    {filter = "type", type = 'character'},
     {filter = "type", type = 'electric-turret'}
     })
 Event.add(defines.events.on_entity_died, on_entity_died)

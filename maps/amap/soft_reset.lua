@@ -55,7 +55,7 @@ local function teleport_players(surface)
         player.teleport(teleport_position, surface)
     end
 end
- 
+
 local function equip_players(player_starting_items, data)
     local offline_players = {}
 
@@ -116,7 +116,7 @@ local function remove_all_chart_tags(surface)
         -- 查找该势力在这个地表上的所有标记
         -- find_chart_tags 第二个参数不传则默认搜索整个地表
         local tags = force.find_chart_tags(surface)
-        
+
         for _, tag in pairs(tags) do
             if tag.valid then
                 tag.destroy()

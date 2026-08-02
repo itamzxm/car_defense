@@ -290,7 +290,7 @@ function Public.debug_module()
 end
 
 function Public.reset_wave_defense()
-    
+
 
     this.boss_wave = false
     this.boss_wave_warning = false
@@ -371,7 +371,7 @@ function Public.reset_wave_defense()
 
     this.main_unit_table = {}
     this.main_uunit_table_time = 0
-    
+
     this.boss_unit_table = {}
     this.boss_unit_table_time = 0
 
@@ -408,7 +408,7 @@ end
 
 function Public.get(key)
     if key then
-        
+
         return this[key]
     else
         return this

@@ -262,7 +262,7 @@ local function open_inventory(source, target)
         end
         return result
     end
-    
+
     local main = convert_contents(target.get_main_inventory().get_contents())
     local armor = convert_contents(target.get_inventory(defines.inventory.character_armor).get_contents())
     local guns = convert_contents(target.get_inventory(defines.inventory.character_guns).get_contents())

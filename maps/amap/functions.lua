@@ -67,7 +67,7 @@ local function get_car_index()
     local rpg_t = RPG.get('rpg_t')
     local this = WPT.get()
     local active_surface_index = this.active_surface_index
-    
+
     for k, player in pairs(game.connected_players) do
 
         if this.tank[player.index] and this.tank[player.index].valid then
@@ -121,7 +121,7 @@ local function get_car_index()
                 spider_cars[sipder_id].weight = all_weight
             end
         end
-        
+
         ::continue::
     end
 
@@ -219,7 +219,7 @@ function Public.on_player_joined_game(event)
         -- 限制循环次数，避免500波后this.science过大导致的性能问题
         local max_science_loops = 1000
         local loop_count = math.min(this.science, max_science_loops)
-        
+
         for i = 1, loop_count do
             local point = math.random(1, 5)
             local coin = math.random(1, 100)
@@ -244,19 +244,19 @@ function Public.on_player_joined_game(event)
         this.nest_wegiht[player.index] = 0
         rpg_t[player.index].xp = rpg_t[player.index].xp + wave_number * 20
         player_data.first_join = true
-        
+
         local main_table = WPT.get()
         main_table.tianfu_enabled[player.index] = {}
-        
+
         local guns = player.get_inventory(defines.inventory.character_guns)
 
           if guns[2] and guns[2].valid and guns[2].name then
     guns[1].set_stack(guns[2])
     guns[2].clear()
 end
-           
-     
-        
+
+
+
     end
 
     local this = WPT.get()
@@ -356,7 +356,7 @@ local function on_player_mined_entity(event)
             end
             return
         end
-        
+
         -- 世界7和8的激光塔摧毁处理
         if name == 'laser-turret' and (this.world_number == 7 or this.world_number == 8) then
             this.laser = this.laser - 1
@@ -365,7 +365,7 @@ local function on_player_mined_entity(event)
             end
             return
         end
-        
+
         -- 世界7和8的特斯拉电塔摧毁处理
         if name == 'tesla-turret' and (this.world_number == 7 or this.world_number == 8) then
             this.tesla = this.tesla - 1
@@ -374,7 +374,7 @@ local function on_player_mined_entity(event)
             end
             return
         end
-        
+
         -- 世界7和8的轨道炮塔摧毁处理
         if name == 'railgun-turret' and (this.world_number == 7 or this.world_number == 8) then
             this.railgun = this.railgun - 1
@@ -399,7 +399,7 @@ local function clean_flame_table()
                 end
             end
         end
-    end 
+    end
 end
 
 local function clean_laser_table()
@@ -602,7 +602,7 @@ local function register_laser(index, turret)
     this.player_laser[index].turret[a + 1] = turret
     this.laser = this.laser + 1
     --当激光塔和最大激光塔的数量差距小于50时才提示
- 
+
 end
 
 local function build_flame(player, turret)
@@ -677,7 +677,7 @@ local on_player_or_robot_built_entity = function(event)
             entity.destroy()
         end
     end
-    
+
     -- 世界7和8的激光塔限制
     if name == 'laser-turret' and (this.world_number == 7 or this.world_number == 8) then
         if this.have_been_put_tank[index] or this.silo then
@@ -687,7 +687,7 @@ local on_player_or_robot_built_entity = function(event)
             player.print({'amap.no_car'})
         end
     end
-    
+
     -- 世界7和8的特斯拉电塔限制
     if name == 'tesla-turret' and (this.world_number == 7 or this.world_number == 8) then
         if this.have_been_put_tank[index] or this.silo then
@@ -702,7 +702,7 @@ local on_player_or_robot_built_entity = function(event)
             player.print({'amap.no_car'})
         end
     end
-    
+
     -- 世界7和8的轨道炮塔限制
     if name == 'railgun-turret' and (this.world_number == 7 or this.world_number == 8) then
         if this.have_been_put_tank[index] or this.silo then
@@ -841,10 +841,10 @@ function Public.on_research_finished(event)
     end
     disable_recipes()
     Public.reapply_damage_multiplier()
-   
+
     if "utility-science-pack" == research.name  then
         game.forces.player.technologies['landfill'].enabled = true
-    
+
         if this.yiciyuan_surface and this.yiciyuan_surface.valid then
             this.yiciyuan_surface.ignore_surface_conditions = true
         end
@@ -873,7 +873,7 @@ if research.name == "planet-discovery-fulgora" then
         settings.seed = math.random(1, 4294967295)
         planet.surface.map_gen_settings = settings
     end
-end     
+end
 if research.name == "planet-discovery-gleba" then
     local planet = game.planets["gleba"]
     if planet and not planet.surface then
@@ -918,7 +918,7 @@ local function on_console_command(event)
     end
 
 end
- 
+
 local disable_tech = Public.disable_tech
 local on_research_finished = Public.on_research_finished
 local on_pre_player_left_game = Public.on_pre_player_left_game
@@ -935,7 +935,7 @@ Event.add(defines.events.on_player_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'simple-entity'},
     {filter = "type", type = 'linked-chest'},
     {filter = "type", type = 'car'},
-    
+
     {filter = "type", type = 'artillery-wagon'},
     {filter = "type", type = 'artillery-turret'},
     {filter = "type", type = 'land-mine'},
@@ -949,7 +949,7 @@ Event.add(defines.events.on_robot_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'simple-entity'},
     {filter = "type", type = 'linked-chest'},
     {filter = "type", type = 'car'},
-    
+
     {filter = "type", type = 'artillery-wagon'},
     {filter = "type", type = 'artillery-turret'},
     {filter = "type", type = 'land-mine'},
@@ -962,7 +962,7 @@ Event.add(defines.events.on_robot_mined_entity, on_player_mined_entity,{
 
 -- 设置阵营伤害加成的公共函数
 function Public.set_force_damage_modifier(force, value,multiplier)
-    
+
     local this = WPT.get()
        local data = {
        ['artillery-shell'] = 0.4,
@@ -1006,7 +1006,7 @@ function Public.set_force_damage_modifier(force, value,multiplier)
              end
         end
     end
-    
+
     if  multiplier then
          local old_multiplier =this.damage_multiplier or 1
          local new_multiplier = old_multiplier * (1 + value)
@@ -1031,11 +1031,11 @@ end
 function Public.reapply_damage_multiplier()
     local this = WPT.get()
     local multiplier = this.damage_multiplier
-    
+
     if not multiplier or multiplier == 1 then
         return
     end
-    
+
     local data = {
        ['artillery-shell'] = 0.4,
        ['biological'] = 0.08,
@@ -1053,13 +1053,13 @@ function Public.reapply_damage_multiplier()
         ['tesla'] = 0.4,
         ['railgun'] = 0.5,
     }
-    
+
     local force = game.forces.player
     for k, v in pairs(data) do
         local current_damage = force.get_ammo_damage_modifier(k)
         local stored_damage = this.player_damage_modifiers[k] or 0
         local damage_increase = current_damage - stored_damage
-        
+
         if damage_increase > 0 then
             local adjusted_increase = damage_increase * multiplier
             force.set_ammo_damage_modifier(k, stored_damage + adjusted_increase)
@@ -1089,7 +1089,7 @@ function Public.reduce_player_damage_over_time()
 
     -- 增加削弱计数
     this.player_damage_reduction_count = this.player_damage_reduction_count + 1
-    if  this.player_damage_reduction_count>=20 then 
+    if  this.player_damage_reduction_count>=20 then
         local wave_number = WD.get('wave_number')
         local player_count = calc_players()
         local wave_multiplier = 0.7 + math.floor(wave_number / 500) * 0.5

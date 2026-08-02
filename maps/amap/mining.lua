@@ -89,7 +89,7 @@ local function on_player_mined_entity(event)
   if not entity.valid then return end
   if entity.type ~= "simple-entity" and entity.type ~= "tree" then
 
-     return 
+     return
      end
      if entity.surface ~= game.surfaces['nauvis'] then
     return
@@ -98,7 +98,7 @@ local function on_player_mined_entity(event)
   local this = WPT.get()
 
   if	surface== this.yiciyuan_surface then return end
- 
+
   if event.player_index then game.players[event.player_index].insert({name = "coin", count = 1}) end
   local player = game.players[event.player_index]
   local rpg = RPGtable.get('rpg_t')
@@ -200,7 +200,7 @@ Event.add(defines.events.on_player_mined_entity, on_player_mined_entity,{
     {filter = "type", type = 'simple-entity'},
     {filter = "type", type = 'linked-chest'},
     {filter = "type", type = 'car'},
-    
+
     {filter = "type", type = 'artillery-wagon'},
     {filter = "type", type = 'artillery-turret'},
     {filter = "type", type = 'land-mine'},

@@ -165,12 +165,12 @@ market.logistic_2_0 = {
     ['stack-inserter'] = {value = 72, rarity = 6}, -- 堆叠机械臂
     -- 原 1.0 的白色堆叠机械臂现在改名为大容量机械臂 (Bulk Inserter)
     ['bulk-inserter'] = {value = 48, rarity = 5}, -- 大容量机械臂
-    
+
     -- 涡轮传送带 (Turbo Belts - 绿色)
     ['turbo-transport-belt'] = {value = 120, rarity = 9}, -- 涡轮传送带
     ['turbo-underground-belt'] = {value = 480, rarity = 9}, -- 涡轮地下传送带
     ['turbo-splitter'] = {value = 960, rarity = 9}, -- 涡分流速器
-    
+
     -- 轨道交通扩展 (Elevated Rails)
     ['rail-ramp'] = {value = 225, rarity = 5}, -- 铁路坡道
     ['rail-support'] = {value = 1000, rarity = 5}, -- 铁路支架
@@ -186,18 +186,18 @@ market.planetary_buildings = {
     -- 熔岩星 (Vulcanus)
     ['foundry'] = {value = 15000, rarity = 7}, -- 大熔炉
     ['big-mining-drill'] = {value = 5000, rarity = 7}, -- 大矿机
-    
+
     -- 闪电星 (Fulgora)
     ['lightning-rod'] = {value = 450, rarity = 6}, -- 避雷针
     ['electromagnetic-plant'] = {value = 25000, rarity = 7}, -- 电磁工厂
     ['recycler'] = {value = 1500, rarity = 6}, -- 回收机
-    
+
     -- 沼泽星 (Gleba)
     ['heating-tower'] = {value = 900, rarity = 6}, -- 加热塔
     ['agricultural-tower'] = {value = 1200, rarity = 6}, -- 农业塔
     ['nutrients'] = {value = 6, rarity = 5}, -- 营养液
     ['bioflux'] = {value = 250, rarity = 5}, -- 生物流
-    
+
     -- 草星 (Agricultura)
     ['artificial-yumako-soil'] = {value = 400, rarity = 6}, -- 人造土
     ['artificial-jellynut-soil'] = {value = 400, rarity = 6} -- 人造土2级
@@ -274,16 +274,16 @@ local function get_market_item_list(rarity, min_rarity)
     if rarity > 12 then
         rarity = 12
     end
-    
+
     if not min_rarity then
         min_rarity = 1
     end
-    
+
     -- 获取当前世界编号
     local this = WPT.get()
     local world_number = this.world_number or 1
     local disable_atomic_bomb = (world_number == 2 or world_number == 7 or world_number == 8)
-    
+
     local types = get_types()
     local list = {}
     for i = 1, #types do
@@ -294,7 +294,7 @@ local function get_market_item_list(rarity, min_rarity)
                 if disable_atomic_bomb and k == 'atomic-bomb' then
                     goto continue
                 end
-                
+
                 local price = random(floor(item.value * 0.8), floor(item.value * 1.2))
                 if price < 1 then
                     price = 1
@@ -366,12 +366,12 @@ function Public.mountain_market(surface, position, rarity, buy)
 	then
 	rarity = 1
 	end
-	
+
     -- 获取当前世界编号
     local this = WPT.get()
     local world_number = this.world_number or 1
     local disable_atomic_bomb = (world_number == 2 or world_number == 7 or world_number == 8)
-    
+
 --  game.print(rarity)
     local types = get_types()
     table.shuffle_table(types)

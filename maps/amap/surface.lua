@@ -49,7 +49,7 @@ function Public.create_yiciyuan_surface()
     ["enemy-base"] = {frequency = "0", size = "0", richness = "0"},
 }
 
- 
+
 map_gen_settings.autoplace_controls =no_biter
 
 if not this.yiciyuan_count then
@@ -64,8 +64,8 @@ local new_surface = game.create_surface(this.old_name .. '_' .. tostring(this.yi
 
  return new_surface
 end
- 
- 
+
+
 function Public.create_surface()
   local map=diff.get()
   local surface_configs = WorldTable.get('surface_configs')
@@ -111,7 +111,7 @@ function Public.create_surface()
 		map_gen_settings.autoplace_controls[resource] = settings
 	end
 
-    
+
   this.active_surface_index = Reset.soft_reset_map(game.surfaces['nauvis'], map_gen_settings, starting_items).index
 
     return this.active_surface_index

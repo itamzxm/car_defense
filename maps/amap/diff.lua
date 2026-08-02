@@ -43,7 +43,7 @@ local set_diff = function()
   local this = WPT.get()
 
 --make_game_mode()
---  if map.world==6 then 
+--  if map.world==6 then
    -- this.max_flame=14
   --end
   local enemy = game.forces.enemy
@@ -60,7 +60,7 @@ local set_diff = function()
     this.max_flame = flame_from_framework
   end
 
-  
+
   local diff_k=1
   local diff= Difficulty.get()
   if diff.difficulty_vote_index == 1 then
@@ -103,17 +103,17 @@ local set_diff = function()
  -- if wave_number>=2000 and map.rocket_diff then
     --diff_k=diff_k-this.times*0.01 --暂且不做调整
  -- end
-  if diff_k<=0.8 then diff_k =0.8 end 
+  if diff_k<=0.8 then diff_k =0.8 end
 
   if diff_k >= 3 then diff_k= 3  end
 
   local player_count = calc_players()
   local wave_defense_table = WD.get_table()
-if wave_number< 500 then 
+if wave_number< 500 then
 player_count=1
   end
 
- 
+
   local total_world_bonus_coefficient = 0
   for world_id, world_data in pairs(map.world_bonus) do
     if type(world_id) == 'number' and world_data and world_data.coefficient then
@@ -126,23 +126,23 @@ player_count=1
 
 
   wave_defense_table.wave_interval = 2420/diff_k-player_count*20
-  if  wave_defense_table.wave_interval <= 1380 then 
+  if  wave_defense_table.wave_interval <= 1380 then
     wave_defense_table.wave_interval=1380/diff_k
   end
-  if  wave_defense_table.threat <= 0 then--or wave_defense_table.active_biter_count <= 10 
-  if wave_number>= 500 then 
+  if  wave_defense_table.threat <= 0 then--or wave_defense_table.active_biter_count <= 10
+  if wave_number>= 500 then
    wave_defense_table.wave_interval = 1080/diff_k
-  else 
+  else
       wave_defense_table.wave_interval = 1080/diff_k
    end
- 
+
 end
 
-if map.world==6 then 
+if map.world==6 then
   wave_defense_table.wave_interval=1080/diff_k
 end
 
-if wave_defense_table.wave_interval<=1080 then 
+if wave_defense_table.wave_interval<=1080 then
   wave_defense_table.wave_interval=1080/diff_k
 end
 
@@ -153,8 +153,8 @@ end
 -- if wave_number<= 800 then
 --   wave_defense_table.wave_interval = wave_defense_table.wave_interval +600
 -- end
- 
- 
+
+
   local damage_increase = wave_number * 0.001*diff_k
 local wave_multiplier = 0.7 + math.floor(wave_number / 500) * 0.5
   local final_damage = (damage_increase + this.enemy_damage_modifier)*wave_multiplier
@@ -243,7 +243,7 @@ function Public.reset_table()
 
   map.record[14]={}
   map.record[14].name="wows"
-  
+
 
   map.record[15]={}
   map.record[15].name="stdioha"
@@ -259,10 +259,10 @@ map.record[18]={}
 
   map.record[19]={}
   map.record[19].name="tianyuyu"
- 
+
   map.record[20]={}
   map.record[20].name="LymBAOBEI"
-  
+
  map.record[21]={}
   map.record[21].name="daoting"
 
@@ -290,7 +290,7 @@ map.record[18]={}
 
   map.record[29]={}
   map.record[29].name="smqdyxgc"
-  
+
   map.record['mstsc']='赞助玩家'
   map.record['Wheneverlethe']='单通困难'
   map.record['xiaoyaoda']='单通简单'
@@ -320,7 +320,7 @@ map.record[18]={}
   map.record['kissblades']='雷火建'
   map.record['SlouchyQuill507']='电量满满'
   map.record['smqdyxgc']='我gaygay的'
-  
+
 
   map.png={}
   map.png['daoting']=true
@@ -339,7 +339,7 @@ map.record[18]={}
   map.png['jiaoziai']=true
   map.png['kissblades']=true
   map.png['SlouchyQuill507']=true
-   
+
   map.map_record={}
   map.edge_reached={}  -- 各世界「飞船抵达星系边缘」记录（集齐全部世界才发终极奖励）
   map.world_bonus={}
@@ -359,7 +359,7 @@ map.record[18]={}
       max_wave=0
     }
   end
-  
+
   map.world_bonus_types={}
   map.world_bonus_types[1]={
     name='mining_drill_productivity_bonus',
@@ -472,7 +472,7 @@ function Public.apply_world_bonuses()
 
     -- 重置自定义加成（force修饰符已被f.reset()清零，但this中的自定义字段需要手动重置）
     this.experience_bonus = 0
-    
+
     local modifier_map = {
         character_health_bonus = function(value) force.character_health_bonus = force.character_health_bonus + value end,
         character_inventory_slots_bonus = function(value) force.character_inventory_slots_bonus = force.character_inventory_slots_bonus + value end,
@@ -488,13 +488,13 @@ function Public.apply_world_bonuses()
         turret_attack_bonus = function(value) force.set_turret_attack_modifier('gun-turret', force.get_turret_attack_modifier('gun-turret') + value) end,
         laser_turret_damage_modifier = function(value) force.set_turret_attack_modifier('laser-turret', force.get_turret_attack_modifier('laser-turret') + value) end,
     }
-    
+
     local custom_bonus_map = {
         experience_bonus = function(value) this.experience_bonus = (this.experience_bonus or 0) + value end,
         damage_bonus = function(value) Func.set_force_damage_modifier(force, value) end,
         turret_attack_bonus = function(value) force.set_turret_attack_modifier('gun-turret', force.get_turret_attack_modifier('gun-turret') + value) end
     }
-    
+
     for world_id, world_data in pairs(map.world_bonus) do
         if type(world_data) == "table" and world_data.unlocked and world_data.coefficient > 0 then
             -- 数值统一由 get_world_bonus_value 计算（插值模式 / 线性增长模式二选一）
@@ -543,21 +543,21 @@ commands.add_command(
         if not player or not player.valid or not player.character then
             return
         end
-        if not map.cunkuang[player.name] then 
+        if not map.cunkuang[player.name] then
           player.print({'amap.no_coins_deposited'})
          return
        end
 
         local param = cmd.parameter
         if not param then
-          if map.cunkuang[player.name] then 
+          if map.cunkuang[player.name] then
              player.print({'amap.deposit_balance', map.cunkuang[player.name]})
           end
              return
          end
 
          if param == '' then
-           if map.cunkuang[player.name] then 
+           if map.cunkuang[player.name] then
              player.print({'amap.deposit_balance', map.cunkuang[player.name]})
          end
             return
@@ -574,13 +574,13 @@ commands.add_command(
             end
             if  coin <= 1 then
               player.print({'amap.deposit_balance', map.cunkuang[player.name]})
-              return 
+              return
             end
             coin = math.floor(coin)
 
 
             local index=player.index
-            if not map.cunkuang[player.name] then 
+            if not map.cunkuang[player.name] then
                player.print({'amap.no_coins_deposited'})
               return
             end
@@ -588,13 +588,13 @@ commands.add_command(
               player.insert{name='coin',count=coin}
               map.cunkuang[player.name]=map.cunkuang[player.name]-coin
               player.print({'amap.withdraw_success', coin, map.cunkuang[player.name]})
-         
+
             else
  player.print({'amap.insufficient_funds', map.cunkuang[player.name]})
 
             end
            -- player.play_sound {path = 'utility/scenario_message', volume_modifier = 1}
-      
+
     end
 )
 
@@ -607,7 +607,7 @@ function()
     if player ~= nil then
       p = player.print
       local player_name =player.name
-      for key, value in pairs(map.record) do 
+      for key, value in pairs(map.record) do
           if key == player_name then
             local this = WPT.get()
             -- 检查玩家当前天赋次数是否为0
@@ -621,8 +621,8 @@ function()
               this.tianfu_count[player.index]=this.tianfu_count[player.index]-1
               p({'amap.extra_talent_success', this.tianfu_count[player.index]}, {r = 0.5, g = 1, b = 0.5})
             end
-          end 
-      end     
+          end
+      end
     end
   end
 end
@@ -650,40 +650,40 @@ end
 )
 
 
-local function rainbow_text(str) 
-  local len = #str; 
-  local left = len; 
-  local cnt = 0; 
-  local arr={0,0xc0,0xe0,0xf0,0xf8,0xfc}; 
-  local indx = -left; 
-  local newstr = ""; 
+local function rainbow_text(str)
+  local len = #str;
+  local left = len;
+  local cnt = 0;
+  local arr={0,0xc0,0xe0,0xf0,0xf8,0xfc};
+  local indx = -left;
+  local newstr = "";
   local colors_count = 36
 
   local colors={
     'E99696','E9A296','E9AF96','E9BB96','E9C896','E9D496','E9E096','E5E996','D8E996','CCE996','BFE996','B3E996','A6E996','9AE996','96E99E','96E9AB','96E9B7','96E9C3','96E9D0','96E9DC','96E9E9','96DCE9','96D0E9','96C3E9','96B7E9','96ABE9','969EE9','9A96E9','A696E9','B396E9','BF96E9','CC96E9','D896E9','E596E9','E996E0','E996D4','E996C8','E996BB','E996AF','E996A2',
   }
-  while left ~= 0 do 
-      local tmp=string.byte(str,-left); 
-      local i=#arr; 
-      while i > 0 do 
-          if tmp>=arr[i] then  
-              left=left-i; 
-              break; 
-          end 
-          i=i-1;             
-      end 
+  while left ~= 0 do
+      local tmp=string.byte(str,-left);
+      local i=#arr;
+      while i > 0 do
+          if tmp>=arr[i] then
+              left=left-i;
+              break;
+          end
+          i=i-1;
+      end
       if i == 0 then
           left = left - 1
       end
-      local substr = string.sub(str,indx,-left - 1); 
+      local substr = string.sub(str,indx,-left - 1);
       local color_index = (cnt % colors_count) + 1
       local color=colors[color_index]
-      newstr = newstr .. '[color=#' .. color ..']' .. substr.. '[/color]'; 
-      indx = -left; 
-      cnt=cnt+1; 
-  end 
+      newstr = newstr .. '[color=#' .. color ..']' .. substr.. '[/color]';
+      indx = -left;
+      cnt=cnt+1;
+  end
 newstr = '[font=heading-1]' .. newstr .. '[/font]'
-  return newstr; 
+  return newstr;
 end
 
 local on_init = function()
@@ -744,7 +744,7 @@ local function changer_color()
             scale_with_zoom = false
           }
 
-          
+
          if map.png[player.name] and player.name ~= 'jiyang2017' then
           rendering.draw_sprite {
             sprite = 'file/png/' .. player.name.. '.png',
@@ -835,8 +835,8 @@ local function changer_color()
             scale_with_zoom = false
           }
         end
-      
-        
+
+
         end
         if not map.text[player.name].valid then
           map.text[player.name].destroy()
@@ -866,8 +866,8 @@ local function on_player_joined_game(event)
     end
   end
   changer_color()
- 
-  
+
+
 end
 
 local function on_player_changed_position(event)
@@ -887,7 +887,7 @@ local function on_player_changed_position(event)
    -- if not map.text[player.name] then return false end
         --  local random = math.random(1, 5)
         --  if random == 1 then
-            
+
       --  end
 end
 

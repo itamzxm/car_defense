@@ -98,7 +98,7 @@ local function on_entity_died(event)
   end
 
   if math.random(1, 3) ~=1 then
-return 
+return
   end
   local cause = event.cause
 
@@ -150,7 +150,7 @@ return
 
     if entities_that_earn_coins[cause.name] then
       local this=WPT.get()
-       if not this.gun_turret then 
+       if not this.gun_turret then
           this.gun_turret = {}
        end
        local index = this.gun_turret[cause.unit_number]
@@ -166,7 +166,7 @@ return
   if cause then
     if  cause.last_user and not reward_has_been_given then
       local player = cause.last_user
-      
+
       if player.character and player.character.valid then
         insert_coin_to_player(player, coin_count)
       end

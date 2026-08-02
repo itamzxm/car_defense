@@ -382,7 +382,7 @@ local function draw_main_frame(player, location)
         add_gui_description(left_bottom_table, ({'rpg_gui.mana_name'}), w1, mana_tip)
         local mana_regen_tip = ({'rpg_gui.mana_regen_current'})
         local mana_max_regen_tip = ({'rpg_gui.mana_max'})
-        
+
         -- 添加法力值和最大法力值显示
         local mana_gui = add_gui_stat(left_bottom_table, mana, w2, mana_regen_tip)
         local mana_max_gui = add_gui_stat(left_bottom_table, mana_max, w2, mana_max_regen_tip)
@@ -405,7 +405,7 @@ local function draw_main_frame(player, location)
     add_gui_description(right_bottom_table, ({'rpg_gui.slot_name'}), w1)
     local slot_bonus_value = '+ ' .. round(player.force.character_inventory_slots_bonus + player.character_inventory_slots_bonus)
     add_gui_stat(right_bottom_table, slot_bonus_value, w2)
-    
+
     -- 机器人伤害加成显示（基于力量属性）
     add_gui_description(right_bottom_table, ' ', w0)
     add_gui_description(right_bottom_table, ({"rpg_gui.damge_robot"}), w1)
@@ -569,21 +569,21 @@ function Public.update_player_stats(player)
 
     if v >=25 then v = 25 end
     P.update_single_modifier(player, 'character_item_drop_distance_bonus', 'rpg', math.min(60, round(v * 0.05, 3)))
-  
+
     P.update_single_modifier(player, 'character_loot_pickup_distance_bonus', 'rpg', math.min(20, round(v * 0.12, 3)))
     P.update_single_modifier(player, 'character_item_pickup_distance_bonus', 'rpg', math.min(20, round(v * 0.12, 3)))
     P.update_single_modifier(player, 'character_resource_reach_distance_bonus', 'rpg', math.min(20, round(v * 0.05, 3)))
-   
+
     -- 计算基础最大法力值（限制在1500以内）
     local base_mana_max = math.min(round((magic) * 2, 3), 1500)
-    
+
     -- 获取封印卷轴提供的额外法力值
     local this = TPT.get()
     local extra_mana_from_fengyinjuanzhou = this.fengyinjuanzhou_extra_mana[player.index] or 0
-    
+
     -- 计算总最大法力值（基础法力值 + 额外法力值，可以超过1500）
     local total_mana_max = base_mana_max + extra_mana_from_fengyinjuanzhou
-    
+
     rpg_t.mana_max = total_mana_max
 
     local dexterity = rpg_t.dexterity - 10

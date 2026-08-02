@@ -95,12 +95,12 @@ function Public.get_next_task()
     if construction_queue.current_index <= #construction_queue.tasks then
         local task = construction_queue.tasks[construction_queue.current_index]
         construction_queue.current_index = construction_queue.current_index + 1
-        
+
         -- 更新对应建设任务的当前索引
         if task.baolei_id and construction_queue.active_constructions[task.baolei_id] then
             construction_queue.active_constructions[task.baolei_id].current_index = construction_queue.current_index
         end
-        
+
         return task
     end
     return nil
@@ -139,10 +139,10 @@ function Public.start_baolei_construction(position, wave_number, surface, robot_
         construction_queue.current_index = 1
         construction_queue.active_constructions = {}
     end
-    
+
     local construction_id = baolei_id
     local start_index = #construction_queue.tasks + 1
-    
+
     construction_queue.active_constructions[construction_id] = {
         position = position,
         wave_number = wave_number,
@@ -160,37 +160,37 @@ function Public.start_baolei_construction(position, wave_number, surface, robot_
         task_end_index = start_index - 1,  -- 还没有添加任务
         current_index = start_index  -- 初始化当前索引
     }
-    
+
     -- 清理附近旧奖励箱
     Public.cleanup_nearby_reward_chests(position, surface)
-    
+
     -- 创建清理任务
     if cleanup_terrain then
         Public.create_cleanup_tasks(position, surface, baolei_id)
     end
-    
+
     -- 创建地形设置任务
     if cleanup_terrain then
         Public.create_terrain_tasks(position, surface, baolei_id)
     end
-    
+
     -- 创建核心建筑任务
     Public.create_core_building_tasks(position, surface, robot_number, fix_number, something, baolei_id)
-    
+
     -- 创建炮台任务
     Public.create_turret_tasks(position, surface, wave_number, baolei_id)
-    
+
     -- 创建内层墙壁任务
     Public.create_inner_wall_tasks(position, surface, baolei_id)
-    
+
     -- 创建外层墙壁任务（如果需要）
     if out_wall then
         Public.create_outer_wall_tasks(position, surface, baolei_id)
     end
-    
+
     -- 更新任务结束索引
     construction_queue.active_constructions[construction_id].task_end_index = #construction_queue.tasks
-    
+
     return construction_id
 end
 
@@ -303,7 +303,7 @@ end
 local player_build = {'rocket-silo', 'steam-turbine', 'assembling-machine-1', 'assembling-machine-2',
                       'assembling-machine-3', 'oil-refinery', 'chemical-plant', 'car', 'spidertron', 'tank',
                       'character', 'gun-turret', 'electric-mining-drill', 'laser-turret', 'steam-engine', 'roboport', 'big-mining-drill'    ,'foundry','rail-support'
-                        
+
   ,'recycler'
   ,'electromagnetic-plant'
   ,'heating-tower'}
@@ -439,13 +439,13 @@ function Public.check_and_add_to_attack_table(entity)
   -- 当前调用路径均来自同一 surface 的 find_entities_filtered，暂无实际触发，
   -- 但新增调用点时必须确保 entity 与重炮在同一 surface。
   if #arty_count.all == 0 then return end
-  
+
   local entity_pos = entity.position
   for _, artillery in pairs(arty_count.all) do
     if artillery and artillery.valid then
       local artillery_pos = artillery.position
-      local distance_squared = 
-        (artillery_pos.x - entity_pos.x)^2 + 
+      local distance_squared =
+        (artillery_pos.x - entity_pos.x)^2 +
         (artillery_pos.y - entity_pos.y)^2
       if distance_squared <= arty_count.radius * arty_count.radius then
         local already_exists = false
@@ -563,12 +563,12 @@ function Public.cleanup_nearby_reward_chests(position, surface)
         left_top = {position.x - search_radius, position.y - search_radius},
         right_bottom = {position.x + search_radius, position.y + search_radius}
     }
-    
+
     local chests_to_remove = surface.find_entities_filtered({
         name = {"steel-chest", "crash-site-chest-1", "crash-site-chest-2"},
         area = area
     })
-    
+
     for _, chest in pairs(chests_to_remove) do
         if chest and chest.valid then
             if not (chest.destructible == false and chest.minable == false) then
@@ -585,7 +585,7 @@ function Public.create_cleanup_tasks(position, surface, baolei_id)
         left_top = {position.x - k, position.y - k},
         right_bottom = {position.x + k, position.y + k}
     }
-    
+
     -- 分批查找实体以避免一次性加载过多数据
     local entity_types = {"unit", "tree", "simple-entity", "cliff", "land-mine", "cargo-wagon", "fluid-wagon", "chest"}
     for _, entity_type in pairs(entity_types) do
@@ -593,7 +593,7 @@ function Public.create_cleanup_tasks(position, surface, baolei_id)
             type = entity_type,
             area = area
         })
-        
+
         -- 将清理工作分批处理
         local batch_size = 20  -- 每批处理20个实体
         for i = 1, #entities_to_remove, batch_size do
@@ -601,7 +601,7 @@ function Public.create_cleanup_tasks(position, surface, baolei_id)
             for j = i, math.min(i + batch_size - 1, #entities_to_remove) do
                 batch[#batch + 1] = entities_to_remove[j]
             end
-            
+
             Public.add_batch_task({
                 type = "cleanup_entities",
                 baolei_id = baolei_id,
@@ -628,7 +628,7 @@ end
 function Public.create_terrain_tasks(position, surface, baolei_id)
     local dis = 44
     local positions_to_set = {}
-    
+
     -- 收集所有需要设置的地形位置
     for a = 1, dis do
         for b = 1, dis do
@@ -638,7 +638,7 @@ function Public.create_terrain_tasks(position, surface, baolei_id)
             }
         end
     end
-    
+
     -- 分批设置地形
     local batch_size = 50  -- 每批设置50个地块
     for i = 1, #positions_to_set, batch_size do
@@ -646,7 +646,7 @@ function Public.create_terrain_tasks(position, surface, baolei_id)
         for j = i, math.min(i + batch_size - 1, #positions_to_set) do
             batch[#batch + 1] = positions_to_set[j]
         end
-        
+
         Public.add_batch_task({
             type = "set_terrain",
             baolei_id = baolei_id,
@@ -669,7 +669,7 @@ function Public.create_core_building_tasks(position, surface, robot_number, fix_
                 position = position,
                 force = "enemy"
             })
-            
+
             if roboport and roboport.valid then
                 if construction_queue.active_constructions and construction_queue.active_constructions[baolei_id] then
                     construction_queue.active_constructions[baolei_id].roboport = roboport
@@ -690,7 +690,7 @@ function Public.create_core_building_tasks(position, surface, robot_number, fix_
         end,
         params = {}
     })
-    
+
     Public.add_batch_task({
         type = "create_chest_and_inserter",
         baolei_id = baolei_id,
@@ -702,19 +702,19 @@ function Public.create_core_building_tasks(position, surface, robot_number, fix_
             local position = construction.position
             local surface = construction.surface
             local something = construction.something
-            
+
             local chest = surface.create_entity({
                 name = "storage-chest",
                 position = { x = position.x, y = position.y - 3 },
                 force = "enemy"
             })
-            
+
             local inserter = surface.create_entity({
                 name = "bulk-inserter",
                 position = { x = position.x, y = position.y - 2 },
                 force = "enemy"
             })
-            
+
             if chest and chest.valid then
                 chest.destructible = false
                 construction.all_thing[#construction.all_thing + 1] = chest
@@ -732,7 +732,7 @@ function Public.create_core_building_tasks(position, surface, robot_number, fix_
                     end
                 end
             end
-            
+
             if inserter and inserter.valid then
                 inserter.destructible = false
                 construction.all_thing[#construction.all_thing + 1] = inserter
@@ -747,35 +747,35 @@ end
 -- 创建内层墙壁任务（分批处理）
 function Public.create_inner_wall_tasks(position, surface, baolei_id)
     local wall_batches = {}
-    
+
     -- 收集所有内层墙壁位置
     local wall_positions = {}
-    
+
     -- 上侧墙壁 (14个)
     for i = 1, 14 do
         wall_positions[#wall_positions + 1] = { position.x - 19 + i, position.y - 18 }
     end
-    
+
     -- 右上侧墙壁 (18个)
     for i = 1, 18 do
         wall_positions[#wall_positions + 1] = { position.x + i, position.y - 18 }
     end
-    
+
     -- 下侧墙壁 (36个)
     for i = 1, 36 do
         wall_positions[#wall_positions + 1] = { position.x - 18 + i, position.y + 18 }
     end
-    
+
     -- 左侧墙壁 (36个)
     for i = 1, 36 do
         wall_positions[#wall_positions + 1] = { position.x - 18, position.y - 18 + i }
     end
-    
+
     -- 右侧墙壁 (36个)
     for i = 1, 36 do
         wall_positions[#wall_positions + 1] = { position.x + 18, position.y - 18 + i }
     end
-    
+
     -- 分批创建墙壁
     local batch_size = 10  -- 每批创建10个墙壁
     for i = 1, #wall_positions, batch_size do
@@ -783,7 +783,7 @@ function Public.create_inner_wall_tasks(position, surface, baolei_id)
         for j = i, math.min(i + batch_size - 1, #wall_positions) do
             batch[#batch + 1] = wall_positions[j]
         end
-        
+
         Public.add_batch_task({
             type = "create_inner_walls",
             baolei_id = baolei_id,
@@ -793,7 +793,7 @@ function Public.create_inner_wall_tasks(position, surface, baolei_id)
                 end
                 local construction = construction_queue.active_constructions[baolei_id]
                 local surface = construction.surface
-                
+
                 for _, wall_pos in pairs(wall_batch) do
                     if surface.can_place_entity({
                         name = "stone-wall",
@@ -828,14 +828,14 @@ function Public.create_turret_tasks(position, surface, wave_number, baolei_id)
     local fix_function = wave_number - 500
     if fix_function < 0 then fix_function = 0 end
     if fix_function > 1000 then fix_function = 1000 end
-    
+
     local fix_worth = 0
     if all_worth <= 20 then all_worth = 20 end
     if all_worth >= 1200 then
         fix_worth = all_worth - 1200
         all_worth = 1000
     end
-    
+
     local can_build_turret = {}
     for i, building in pairs(enemy_turret) do
         if wave_number >= building.wave_number then
@@ -974,7 +974,7 @@ function Public.create_turret_tasks(position, surface, wave_number, baolei_id)
         type_values[turret_name] = type_values[turret_name] + worth
         all_worth = all_worth - worth
     end
-    
+
     -- 处理修复包价值点
     while fix_worth > 0 do
         local index = math.random(1, #something)
@@ -987,32 +987,32 @@ end
 -- 创建外层墙壁任务（分批处理）
 function Public.create_outer_wall_tasks(position, surface, baolei_id)
     local wall_positions = {}
-    
+
     -- 上侧外层墙壁 (18个)
     for i = 1, 18 do
         wall_positions[#wall_positions + 1] = { position.x - 24 + i, position.y - 23 }
     end
-    
+
     -- 右上侧外层墙壁 (23个)
     for i = 1, 23 do
         wall_positions[#wall_positions + 1] = { position.x + i, position.y - 23 }
     end
-    
+
     -- 下侧外层墙壁 (46个)
     for i = 1, 46 do
         wall_positions[#wall_positions + 1] = { position.x - 23 + i, position.y + 23 }
     end
-    
+
     -- 左侧外层墙壁 (46个)
     for i = 1, 46 do
         wall_positions[#wall_positions + 1] = { position.x - 23, position.y - 23 + i }
     end
-    
+
     -- 右侧外层墙壁 (46个)
     for i = 1, 46 do
         wall_positions[#wall_positions + 1] = { position.x + 23, position.y - 23 + i }
     end
-    
+
     -- 分批创建外层墙壁
     local batch_size = 8  -- 每批创建8个外层墙壁（因为外层墙壁更多）
     for i = 1, #wall_positions, batch_size do
@@ -1020,7 +1020,7 @@ function Public.create_outer_wall_tasks(position, surface, baolei_id)
         for j = i, math.min(i + batch_size - 1, #wall_positions) do
             batch[#batch + 1] = wall_positions[j]
         end
-        
+
         Public.add_batch_task({
             type = "create_outer_walls",
             baolei_id = baolei_id,
@@ -1030,7 +1030,7 @@ function Public.create_outer_wall_tasks(position, surface, baolei_id)
                 end
                 local construction = construction_queue.active_constructions[baolei_id]
                 local surface = construction.surface
-                
+
                 for _, wall_pos in pairs(wall_batch) do
                     if surface.can_place_entity({
                         name = "stone-wall",
@@ -1044,8 +1044,8 @@ function Public.create_outer_wall_tasks(position, surface, baolei_id)
                         })
                         if e and e.valid then
                             construction.all_thing[#construction.all_thing + 1] = e
-                           
-                            
+
+
                             -- 只有需要击败的单位才注册到arty_count.unit表
                             if e.name ~= "stone-wall" then
                                 arty_count.unit[e.unit_number] = baolei_id
@@ -1075,10 +1075,10 @@ local function check_roboport_destructible()
     if not arty_count.arty then
         return
     end
-    
+
     local turret_types = {
         "gun-turret",
-        "laser-turret", 
+        "laser-turret",
         "flamethrower-turret",
         "artillery-turret",
         "small-worm-turret",
@@ -1086,12 +1086,12 @@ local function check_roboport_destructible()
         "big-worm-turret",
         "behemoth-worm-turret"
     }
-    
+
     for baolei_id, baolei_data in pairs(arty_count.arty) do
         if baolei_data and baolei_data.roboport and baolei_data.roboport.valid then
             if not baolei_data.roboport.destructible then
                 local actual_turret_count = 0
-                
+
                 if arty_count.neet_to_kill[baolei_id] then
                     for _, entity in pairs(arty_count.neet_to_kill[baolei_id]) do
                         if entity and entity.valid then
@@ -1104,7 +1104,7 @@ local function check_roboport_destructible()
                         end
                     end
                 end
-                
+
                 if actual_turret_count == 0 then
                     baolei_data.roboport.destructible = true
                     baolei_data.number = 0
@@ -1118,17 +1118,17 @@ end
 function Public.recount_baolei()
     local this = WPT.get()
     local valid_count = 0
-    
+
     -- 遍历所有堡垒，只检查机器人平台是否有效
     if arty_count.arty then
         for baolei_id, baolei_data in pairs(arty_count.arty) do
             local baolei_valid = false
-            
+
             -- 只检查堡垒对应的机器人平台是否有效
             if baolei_data and baolei_data.roboport and baolei_data.roboport.valid then
                 baolei_valid = true
             end
-            
+
             -- 如果机器人平台有效，则计数
             if baolei_valid then
                 valid_count = valid_count + 1
@@ -1147,10 +1147,10 @@ function Public.recount_baolei()
             end
         end
     end
-    
+
     -- 更新堡垒数量
     this.baolei_count = valid_count
-    
+
     return valid_count
 end
 -- 返回所有存活堡垒（机器人平台有效）的位置列表
@@ -1175,13 +1175,13 @@ function Public.finish_baolei_construction(baolei_id)
     local construction = construction_queue.active_constructions[baolei_id]
     if construction and construction.all_thing then
         arty_count.neet_to_kill[baolei_id] = construction.all_thing
-        
+
         -- 增加堡垒计数（静态堡垒不计入 dynamic_count，世界7/13用）
         local this = WPT.get()
         if not construction.skip_count then
             this.baolei_count = this.baolei_count + 1
         end
-        
+
         -- 先清理arty_count.attack_table中无效的物体
         for i = #arty_count.attack_table, 1, -1 do
             local e = arty_count.attack_table[i]
@@ -1220,7 +1220,7 @@ function Public.finish_baolei_construction(baolei_id)
                 end
             end
         end
-        
+
         -- 如果有重炮，则检测目标
         if #arty_count.all > 0 then
             check_artillery_targets()
@@ -1242,7 +1242,7 @@ function Public.finish_baolei_construction(baolei_id)
         -- 生成宝箱
         local many_baozhang = math.floor(construction.wave_number * 0.008)
         if many_baozhang > 10 then many_baozhang = 10 end
-        
+
         local max_luck = construction.wave_number * 0.2 + 100
         local min_luck = construction.wave_number * 0.1 + 50
         if max_luck >= 800 then max_luck = 800 end
@@ -1251,7 +1251,7 @@ function Public.finish_baolei_construction(baolei_id)
         for i = 1, many_baozhang do
             local magic = math.random(min_luck, max_luck)
             local chest_position = construction.surface.find_non_colliding_position("steel-chest", construction.position, 20, 1, true)
-             
+
             -- 只有找到有效位置才创建宝箱
             if chest_position then
                 local container
@@ -1270,27 +1270,27 @@ function Public.finish_baolei_construction(baolei_id)
 
         -- 在世界10和世界11时添加"曹营"文字标签
         if this.world_number == 10  and construction.roboport and construction.roboport.valid then
-            rendering.draw_text({ 
-                text = "曹营", 
-                surface = construction.surface, 
-                target = { 
-                    entity = construction.roboport, 
-                    offset = {0, -2.5} 
-                }, 
-                color = { 
-                    r = 1, 
-                    g = 1, 
-                    b = 0, 
-                    a = 1 
-                }, 
-                scale = 1.5, 
-                font = 'default-large-semibold', 
-                alignment = 'center', 
-                scale_with_zoom = false 
+            rendering.draw_text({
+                text = "曹营",
+                surface = construction.surface,
+                target = {
+                    entity = construction.roboport,
+                    offset = {0, -2.5}
+                },
+                color = {
+                    r = 1,
+                    g = 1,
+                    b = 0,
+                    a = 1
+                },
+                scale = 1.5,
+                font = 'default-large-semibold',
+                alignment = 'center',
+                scale_with_zoom = false
             })
         end
     end
-    
+
     -- 清理已完成的建设任务
     construction_queue.active_constructions[baolei_id] = nil
 end
@@ -1419,7 +1419,7 @@ function Public.baolei(position, wave_number, surface, cleanup_terrain, skip_cou
     end
 
     Public.start_baolei_construction(position, wave_number, surface, robot_number, fix_number, out_wall, something, baolei_id, cleanup_terrain, skip_count)
-    
+
     -- 记录堡垒创建时间
     if not arty_count.baolei_creation_times then
         arty_count.baolei_creation_times = {}
@@ -1429,7 +1429,7 @@ function Public.baolei(position, wave_number, surface, cleanup_terrain, skip_cou
     if wave_number >= 2000  then
         -- 获取随机品质（随波数递增，参考波防系统）
         local quality = select_quality_by_chance(wave_number)
-        
+
         local e = surface.create_entity({
             name = 'artillery-turret',
             position = {
@@ -1443,7 +1443,7 @@ function Public.baolei(position, wave_number, surface, cleanup_terrain, skip_cou
         arty_count.all[#arty_count.all + 1] = e
         arty_count.fire[#arty_count.fire + 1] = 0
         arty_count.count = arty_count.count + 1
-        
+
         -- 将重炮添加到 all_thing 表中，以便秒杀时能正确销毁
         if construction_queue.active_constructions and construction_queue.active_constructions[baolei_id] then
             construction_queue.active_constructions[baolei_id].all_thing[#construction_queue.active_constructions[baolei_id].all_thing + 1] = e
@@ -1561,17 +1561,17 @@ local function get_new_arty()
 
     -- 根据世界类型决定基础生成间隔（silo 世界均已明示 interval = 35）
     local base_interval = arty_settings.interval or 20
-    
+
     -- 根据玩家数量和堡垒数量调整生成间隔
     local player_count = calc_players()
     local generate_interval = base_interval
-    
+
     -- 应用加速奖励（如果上一个堡垒在3分钟内被摧毁）
     if arty_count.next_baolei_speed_bonus > 0 then
         generate_interval = generate_interval - arty_count.next_baolei_speed_bonus
         arty_count.next_baolei_speed_bonus = 0  -- 重置奖励
     end
-    
+
     if this.baolei_count <= 0 then
         generate_interval = generate_interval - 5
     else
@@ -1583,15 +1583,15 @@ local function get_new_arty()
             generate_interval = generate_interval + 5 - speed_up
         end
     end
-    
+
     if generate_interval < 5 then
         generate_interval = 5
     end
-    
+
     if arty_count.arty_check_count < generate_interval then
         return
     end
-    
+
     arty_count.arty_check_count = 0
 
     local wave_number = WD.get('wave_number')
@@ -1758,7 +1758,7 @@ local artillery_target_callback = Token.register(function(data)
     local d = dx * dx + dy * dy
     if d <= arty_count.radius*arty_count.radius then
         local use_rocket = false
-        
+
         if entity.name == 'spidertron' then
             use_rocket = true
         elseif entity.type == 'character' then
@@ -1773,7 +1773,7 @@ local artillery_target_callback = Token.register(function(data)
                 end
             end
         end
-        
+
         if use_rocket then
             entity.surface.create_entity({
                 name = 'rocket',
@@ -1826,7 +1826,7 @@ local function do_artillery_turrets_targets()
     if arty_count.count <= 0 then
         return
     end
-    
+
     -- 清理can_attack_table中的无效实体
     for i = #arty_count.can_attack_table, 1, -1 do
         local e = arty_count.can_attack_table[i]
@@ -1834,7 +1834,7 @@ local function do_artillery_turrets_targets()
             table.remove(arty_count.can_attack_table, i)
         end
     end
-    
+
     if not arty_count.can_attack_table then
         arty_count.can_attack_table = {}
     end
@@ -1874,7 +1874,7 @@ local function do_artillery_turrets_targets()
 
     -- Create a combined list of targets: online players + can_attack_table entities
     local entities = {}
-    
+
     -- Add all online players
     local arty_surface = arty_count.all[index].surface
     for _, player in pairs(game.connected_players) do
@@ -1893,13 +1893,13 @@ local function do_artillery_turrets_targets()
             ::continue::
         end
     end
-    
+
     -- Add entities from can_attack_table that are valid and within radius
     for _, target_entity in pairs(arty_count.can_attack_table) do
         if target_entity and target_entity.valid then
             local target_pos = target_entity.position
-            local distance_squared = 
-                (position.x - target_pos.x)^2 + 
+            local distance_squared =
+                (position.x - target_pos.x)^2 +
                 (position.y - target_pos.y)^2
             if distance_squared <= arty_count.radius * arty_count.radius then
                 entities[#entities + 1] = target_entity
@@ -1918,7 +1918,7 @@ local function do_artillery_turrets_targets()
     else
         count = arty_count.count
     end
-    
+
 
     -- 开火
     for i = 1, count do
@@ -2042,27 +2042,27 @@ local function on_entity_died(event)
 
     if entity.name== 'nuclear-reactor' then
 
-   
+
 
     local position = entity.position
-    
+
     -- Factorio 一个区块是 32x32 格
     -- 计算中心点所在的区块坐标
     local chunk_x = math.floor(position.x / 32)
     local chunk_y = math.floor(position.y / 32)
-    
+
     -- 为了防止反应堆正好压在区块边缘，建议覆盖反应堆可能接触到的周围区块
     -- 反应堆大小是 5x5。这里为了保险，我们处理中心区块以及相邻的区块
     -- 如果你想“狠一点”，可以扩大半径，比如 radius = 1 (3x3个区块)
     local radius = 1
-    
+
     game.print({'amap.reactor_meltdown_warning'})
 
     -- 遍历需要重置的区块
     for x = chunk_x - radius, chunk_x + radius do
         for y = chunk_y - radius, chunk_y + radius do
             local current_chunk_pos = {x = x, y = y}
-            
+
             -- 1. 删除区块：这将移除该区域内所有玩家建筑、地形修改、掉落物
             surface.delete_chunk(current_chunk_pos)
         end
@@ -2071,7 +2071,7 @@ local function on_entity_died(event)
     -- 2. 请求重新生成：游戏会根据原始地图种子重新生成地形
     -- 这会将地形恢复为“出厂设置”（例如：原本是草地的地方变回草地，人工岩浆消失）
     surface.request_to_generate_chunks(position, radius)
-    
+
     -- 强制立即执行生成请求（可选，防止出现黑色虚空等待加载）
     surface.force_generate_chunk_requests()
 
@@ -2091,7 +2091,7 @@ local function on_entity_died(event)
     }
     Task.set_timeout_in_ticks(600, remove_steel_chests_callback, remove_data)
 
-    
+
     end
 
     local force = event.entity.force
@@ -2154,29 +2154,29 @@ local function on_entity_died(event)
             break
         end
     end
-    
+
     -- 检查堡垒是否在4分钟内被销毁
     if baolei_id and arty_count.baolei_creation_times and arty_count.baolei_creation_times[baolei_id] then
         local creation_tick = arty_count.baolei_creation_times[baolei_id]
         local current_tick = game.tick
         local ticks_alive = current_tick - creation_tick
         local three_minutes_ticks = 60 * 60 * 4  -- 3分钟 = 180秒 = 10800 ticks
-        
+
         if ticks_alive < three_minutes_ticks then
             -- 堡垒在4分钟内被销毁，下一个堡垒建设时间加快5分钟
             arty_count.next_baolei_speed_bonus = 5
         end
-        
+
         -- 清理创建时间记录
         arty_count.baolei_creation_times[baolei_id] = nil
     end
-    
+
     if baolei_id then
         arty_count.arty[baolei_id] = nil
     end
-    
- 
-    
+
+
+
     -- 批量清理arty_count.unit表中属于该堡垒的所有单位索引，避免内存泄漏
     if baolei_id then
         for unit_number, associated_baolei_id in pairs(arty_count.unit) do
@@ -2189,7 +2189,7 @@ local function on_entity_died(event)
     -- 静态堡垒（skip_count=true）不参与动态计数，避免干扰核弹发射井状态
     if not (baolei_id and arty_count.arty[baolei_id] and arty_count.arty[baolei_id].skip_count) then
         this.baolei_count = this.baolei_count - 1
-    
+
         if this.world_number == 9 or this.world_number == 11 or this.world_number == 12 then
             if this.baolei_silo and not this.baolei_silo.valid then
                 this.baolei_silo = nil
@@ -2235,7 +2235,7 @@ local function on_entity_died(event)
 end
 
 local function on_robot_built_entity(event)
- 
+
     local e = event.entity
     if not e or not e.valid then
         return
@@ -2258,14 +2258,14 @@ local function on_robot_built_entity(event)
                 for _, artillery in pairs(arty_count.all) do
                     if artillery and artillery.valid then
                         local artillery_pos = artillery.position
-                        local distance_squared = 
-                            (artillery_pos.x - entity_pos.x)^2 + 
+                        local distance_squared =
+                            (artillery_pos.x - entity_pos.x)^2 +
                             (artillery_pos.y - entity_pos.y)^2
                         if distance_squared <= arty_count.radius * arty_count.radius then
                             -- 检查是否已经在can_attack_table中
-                
+
                                 arty_count.can_attack_table[#arty_count.can_attack_table + 1] = e
-                            
+
                             break
                         end
                     end
@@ -2273,7 +2273,7 @@ local function on_robot_built_entity(event)
             end
         end
         end
-       
+
     end
 
     if e.force ~= game.forces.enemy then
@@ -2363,11 +2363,11 @@ local function process_construction_queue()
     if not Public.has_pending_tasks() then
         return
     end
-    
+
     -- 每tick执行最多5个任务，避免性能问题
     local max_tasks_per_tick = 5
     local executed_count = 0
-    
+
     while Public.has_pending_tasks() and executed_count < max_tasks_per_tick do
         local task = Public.get_next_task()
         if task then
@@ -2393,7 +2393,7 @@ local function check_finish_construction()
             if construction.current_index > construction.task_end_index then
                 -- 所有任务都已完成，进行收尾工作
                 Public.finish_baolei_construction(baolei_id)
-                
+
             end
         end
     end

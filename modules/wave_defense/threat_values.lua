@@ -7,7 +7,7 @@ local t = {
     ['small-stomper-pentapod'] = 350,
     ['medium-stomper-pentapod'] = 640,
     ['big-stomper-pentapod'] = 1280,
-    
+
 
     ['small-strafer-pentapod'] = 160,
     ['medium-strafer-pentapod'] = 240,
@@ -17,10 +17,10 @@ local t = {
     ['medium-wriggler-pentapod'] = 8,
     ['big-wriggler-pentapod'] = 32,
 
-    
+
     ['big-biter'] = 16,
     ['big-spitter'] = 16,
-   
+
     ['medium-biter'] = 4,
     ['medium-spitter'] = 4,
 
