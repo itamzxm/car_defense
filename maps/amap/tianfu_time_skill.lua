@@ -6181,27 +6181,6 @@ local function duoduoyishan(player, q_idx)
         return
     end
     local rpg_t = rpgtable.get('rpg_t')
-    local strength = rpg_t[player.index].strength or 0
-    local vitality = rpg_t[player.index].vitality or 0
-    if strength <= 500 and vitality <= 500 then
-        return false
-    end
-    local surface = player.physical_surface
-    local pos = player.physical_position
-    -- 限制2：身边36格内有我方家时不触发——避免虫子直接刷在家里
-    -- 此处"家"指玩家阵营需保护的游戏目标实体，而非任意建筑：
-    --   rocket-silo   = 火箭发射井（多数地图的胜利目标）
-    --   spider-vehicle = 带玩家名字的蜘蛛载具（部分地图的核心载具）
-    --   locomotive    = 火车头（火车大逃杀等地图的保护目标）
-    local home_count = surface.count_entities_filtered({
-        position = pos,
-        radius = 36,
-        force = 'player',
-        type = {'rocket-silo', 'spider-vehicle', 'locomotive'}
-    })
-    if home_count > 0 then
-        return false
-    end
     local level = rpg_t[player.index].level or 1
     if level <= 0 then
         level = 1
@@ -6212,6 +6191,8 @@ local function duoduoyishan(player, q_idx)
     local spawned = math.min(intended, DUODUO_SPAWN_CAP)
     -- 金币基于「实际生成数」结算（金币跟随实际虫子走），每只基础 5 金币、品质线性缩放（5 × COEFF_REG）
     local gold = math.floor(spawned * 5 * COEFF_REG[q_idx])
+    local surface = player.physical_surface
+    local pos = player.physical_position
     for i = 1, spawned do
         local name = DUODUO_ENEMY_POOL[math.random(1, #DUODUO_ENEMY_POOL)]
         -- 在玩家身边 5~8 米内随机点生成随机敌方虫子（force='enemy'，复用现有原型）
