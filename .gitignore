@@ -25,3 +25,7 @@
 # 静态检查 / 编辑器格式配置
 !.luacheckrc
 !.editorconfig
+
+# AI Agent 开发规范 skill 文件
+!.agents/
+!.agents/**
