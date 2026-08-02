@@ -388,6 +388,7 @@ python rcon_driver.py "/c _TEST.run_all()" 127.0.0.1 27015 123
 | [gui-development-guide](.agents/skills/gui-development-guide/SKILL.md) | GUI 开发（GuiDispatcher 派发、TopBar 顶栏、GuiRebuild 热更、Alert 弹窗通知、元素名常量、颜色样式） |
 | [locale-i18n-guide](.agents/skills/locale-i18n-guide/SKILL.md) | 本地化（键名格式、中英同步、参数占位、Rich text） |
 | [offline-testing-guide](.agents/skills/offline-testing-guide/SKILL.md) | 离线测试（无头加载、RCON、能力边界） |
+| [merge-and-review-experience](.agents/skills/merge-and-review-experience/SKILL.md) | 合并审查与踩坑经验（上游合并审查、天赋修复、locale规范、nil安全、pcall误用） |
 
 ---
 
