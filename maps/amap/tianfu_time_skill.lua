@@ -7441,7 +7441,7 @@ local function fumo(player, q_idx)
                 
                 -- 添加视觉效果
                 tame_unit_effects(player, enchanted_bug)
-                Task.set_timeout_in_ticks(60 * 60*2, {enchanted_bug}, forces)
+                Task.set_timeout_in_ticks(60 * 60 * 2, kill_forces, {enchanted_bug})
                 return true
             end
         end
@@ -7499,7 +7499,7 @@ local function xunshoushi(player, q_idx)
                     BiterClass.add_warrior_biter(target_bug)
                     new_print(player, {'tianfu.xunshoushi_warrior'})
                 end
-                Task.set_timeout_in_ticks(60 * 60*2, {target_bug}, forces)
+                Task.set_timeout_in_ticks(60 * 60 * 2, kill_forces, {target_bug})
             end
         end
     end
