@@ -694,26 +694,34 @@ local function game_over()
         }
     end
     if wave_number > map.world_bonus[map.world].max_wave then
-        map.world_bonus[map.world].max_wave = wave_number
-        if wave_number >= map.world_bonus.start_wave then
-            local old_unlocked = map.world_bonus[map.world].unlocked
-            local old_coefficient = map.world_bonus[map.world].coefficient
-            
-            map.world_bonus[map.world].unlocked = true
-            local extra_waves = wave_number - map.world_bonus.start_wave
-            local coefficient_increase = math.floor(extra_waves / map.world_bonus.coefficient_interval)
-            map.world_bonus[map.world].coefficient = math.min(
+        local record = map.world_bonus[map.world]
+        local old_unlocked = record.unlocked
+        local old_value = diff.get_world_bonus_value(map.world, record)
+        record.max_wave = wave_number
+        -- World 框架：世界可经 World.register 覆写解锁波数/增档间隔（如世界15=2000/100），未声明用全局默认
+        local bonus_start_wave = World.get_field(map.world, 'world_bonus_start_wave') or map.world_bonus.start_wave
+        local bonus_interval = World.get_field(map.world, 'world_bonus_interval') or map.world_bonus.coefficient_interval
+        if wave_number >= bonus_start_wave then
+            record.unlocked = true
+            local extra_waves = wave_number - bonus_start_wave
+            local coefficient_increase = math.floor(extra_waves / bonus_interval)
+            record.coefficient = math.min(
                 map.world_bonus.base_coefficient + coefficient_increase,
                 map.world_bonus.max_coefficient
             )
-            
-            if not old_unlocked and map.world_bonus[map.world].unlocked then
+
+            local new_value, bonus_type = diff.get_world_bonus_value(map.world, record)
+            if not old_unlocked then
                 for _, player in pairs(game.connected_players) do
                     player.print({'amap.world_bonus_unlocked', map.world}, {r = 255, g = 255, b = 0})
                 end
-            elseif map.world_bonus[map.world].coefficient > old_coefficient then
+            elseif new_value and old_value and new_value > old_value then
+                -- 线性增长模式播报实际加成值（coefficient 封顶后加成仍在涨）；插值模式沿用系数播报
+                local msg = (bonus_type and bonus_type.growth_value)
+                    and {'amap.world_bonus_increased_value', map.world, new_value}
+                    or {'amap.world_bonus_increased', map.world, record.coefficient}
                 for _, player in pairs(game.connected_players) do
-                    player.print({'amap.world_bonus_increased', map.world, map.world_bonus[map.world].coefficient}, {r = 0, g = 255, b = 0})
+                    player.print(msg, {r = 0, g = 255, b = 0})
                 end
             end
         end

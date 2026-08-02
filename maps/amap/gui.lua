@@ -10,6 +10,7 @@ local WD = require 'modules.wave_defense.table'
 local tianfu = require 'maps.amap.tianfu'
 local rpgtable = require 'modules.rpg.table'
 local TianfuQuality = require 'maps.amap.tianfu_quality'  -- 天赋品质系统 helper（方案 D）
+local World = require 'maps.amap.world.framework'  -- 世界框架（world_bonus_type 声明式查表）
 
 -- 模块公开接口
 local Public = {}
@@ -887,17 +888,23 @@ local function draw_world_bonus_tab(player, frame)
             world_frame.children[1].style.minimal_width = 70
             world_frame.children[1].style.maximal_width = 70
             
-            -- 加成类型
+            -- 加成类型（World 框架优先，旧表 fallback；间隔波数支持按世界覆写）
             local bonus_name_key = 'amap.world_bonus_type_' .. world_id .. '_name'
             local bonus_type_data = bonus_types_merged[world_id]
             local tooltip_text
             
             if bonus_type_data then
                 local base_value = bonus_type_data.base_value or 0
-                local max_value = bonus_type_data.max_value or 0
-                local growth_value = (max_value - base_value) / (map_data.world_bonus.max_coefficient - map_data.world_bonus.base_coefficient)
-                growth_value = string.format('%.2f', growth_value)
-                tooltip_text = {'amap.world_bonus_tooltip', base_value, growth_value}
+                local growth_value
+                if bonus_type_data.growth_value then
+                    -- 线性增长模式：每档增量由世界直接声明（无 max_value 即不设上限）
+                    growth_value = string.format('%.2f', bonus_type_data.growth_value)
+                else
+                    local max_value = bonus_type_data.max_value or 0
+                    growth_value = string.format('%.2f', (max_value - base_value) / (map_data.world_bonus.max_coefficient - map_data.world_bonus.base_coefficient))
+                end
+                local bonus_interval = World.get_field(world_id, 'world_bonus_interval') or map_data.world_bonus.coefficient_interval or 500
+                tooltip_text = {'amap.world_bonus_tooltip', base_value, growth_value, bonus_interval}
             end
             
             world_frame.add({
@@ -914,8 +921,8 @@ local function draw_world_bonus_tab(player, frame)
             local status_color
             if world_data.unlocked then
                 local bonus_desc_key = 'amap.world_bonus_type_' .. world_id .. '_desc'
-                local bonus_value = bonus_type_data.base_value + (bonus_type_data.max_value - bonus_type_data.base_value) * ((world_data.coefficient - map_data.world_bonus.base_coefficient) / (map_data.world_bonus.max_coefficient - map_data.world_bonus.base_coefficient))
-                bonus_value = math.floor(bonus_value * 100 + 0.5) / 100
+                -- 数值与实际施加逻辑同源（插值模式 / 线性增长模式由 diff 统一判定）
+                local bonus_value = diff.get_world_bonus_value(world_id, world_data) or 0
                 status_text = {bonus_desc_key, bonus_value }
                 status_color = CONST.COLORS.GREEN
             else
