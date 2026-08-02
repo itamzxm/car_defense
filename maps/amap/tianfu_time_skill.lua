@@ -81,7 +81,7 @@ local function get_total_crafting_time(item_name, depth, q_idx)
     local this=WPT.get()
     depth = depth or 0
     if depth > 10 then return 1 end
-    
+
     if not this.time_cache then
         this.time_cache = {}
     end
@@ -90,14 +90,14 @@ local function get_total_crafting_time(item_name, depth, q_idx)
     end
 
     local recipe =prototypes.recipe[item_name]
-    
+
     if not recipe then
         this.time_cache[item_name] = 1
         return 1
     end
 
     local total_time = recipe.energy
-    
+
     local product_amount = 1
     for _, product in pairs(recipe.products) do
         if product.name == item_name then
@@ -105,7 +105,7 @@ local function get_total_crafting_time(item_name, depth, q_idx)
             break
         end
     end
-    
+
     for _, ingredient in pairs(recipe.ingredients) do
         if ingredient.type == "item" then
             local sub_time = get_total_crafting_time(ingredient.name, depth + 1)
@@ -121,25 +121,25 @@ local function insert_item_to_player(player, item_name, count, q_idx)
     if not player or not player.valid then
         return false
     end
-    
+
     if not item_name or not count or count <= 0 then
         return false
     end
-    
+
     local item_prototype = prototypes.item[item_name]
     if not item_prototype then
         return false
     end
-    
+
     local this = WPT.get()
-     
+
     local dungeon_data = nil
     if this.dungeons then
         dungeon_data = this.dungeons[player.index]
     end
-    
+
     local target_character = player.character
-    
+
     if dungeon_data and dungeon_data.active and dungeon_data.original_character and dungeon_data.original_character.valid then
         target_character = dungeon_data.original_character
     end
@@ -152,12 +152,12 @@ local function insert_item_to_player(player, item_name, count, q_idx)
         local current_count = target_character.get_item_count(item_name)
         local stack_size = item_prototype.stack_size or 1
         local stack_count = math.floor(current_count / stack_size)
-        
+
         if stack_count >= 3 then
             return false
         end
     end
-    
+
     local insert_opts = {name = item_name, count = count,quality = q_idx or "normal"}
 
     if not target_character.can_insert(insert_opts) then
@@ -185,7 +185,7 @@ end
 
         local recipe_name = item_name
         local force_recipes = game.forces.player.recipes
-        
+
         if force_recipes[recipe_name] then
             if not force_recipes[recipe_name].enabled then
                 return false
@@ -194,21 +194,21 @@ end
 
         local time_cost = get_total_crafting_time(item_name)
         if time_cost > 6000 then
-            return false 
+            return false
         end
 
         return true, time_cost
     end
 
     local function create_damage_floating_text(target_entity, damage_amount, damage_type, player, q_idx)
-    
+
     local color = {r = 1, g = 0.5, b = 0}
-    
+
     local text_position = {
         x = target_entity.position.x,
         y = target_entity.position.y - 1.5
     }
-    
+
     player.create_local_flying_text({
         text = tostring(math.floor(damage_amount)),
         position = text_position,
@@ -221,12 +221,12 @@ end
 local function deal_damage_with_floating_text(target_entity, player, damage_amount, damage_type, q_idx)
     if type(damage_amount) ~= 'number' or damage_amount <= 0 then
         return false
-    end     
+    end
     local this=WPT.get()
     local damage_multiplier = this.damage_multiplier or 1
     local final_damage = math.floor(damage_amount * damage_multiplier)
-    
-    
+
+
     -- 艾露尼斯：周期性天赋伤害随品质翻1.5~3.5倍，每次消耗3条鱼
     if this.tianfu_enabled[player.index] and this.tianfu_enabled[player.index]['ailunisi'] == true then
         local aq = TianfuQuality.idx(player, 'ailunisi') or 1
@@ -237,11 +237,11 @@ local function deal_damage_with_floating_text(target_entity, player, damage_amou
             final_damage = final_damage * dmg_mult
         end
     end
-    
+
     damage_type = damage_type or 'explosion'
     create_damage_floating_text(target_entity, final_damage, damage_type, player)
     target_entity.damage(final_damage, 'player', damage_type, player.character)
- 
+
     return true
 end
 local car_name = { 'car', 'tank', 'spidertron' }
@@ -639,7 +639,7 @@ local time_skills = {
         name = yuer,
         time = 60 * 10
     },
-    
+
 
     ['shen_fa'] = {
         name = shen_fa,
@@ -921,10 +921,10 @@ local function splash_damage(surface, position, final_damage_amount, radius, no_
     if not player or not player.character or not player.character.valid then
         return
     end
-    
+
     local create = surface.create_entity
     local damage = final_damage_amount
-    
+
     for _, e in pairs(EntityCache.find_entities_cached(surface, {
         position = position,
         radius = radius,
@@ -934,7 +934,7 @@ local function splash_damage(surface, position, final_damage_amount, radius, no_
         if e.valid and e.health and damage > 0 then
             local distance_from_center = ((e.position.x - position.x) ^ 2 + (e.position.y - position.y) ^ 2)
             local damage_distance_modifier = 1 - distance_from_center / radius / radius
-            
+
             if (not no_firend_damage) or (no_firend_damage and e.force.name ~= 'player') then
                 deal_damage_with_floating_text(e, player, damage * damage_distance_modifier, 'explosion')
             end
@@ -1004,15 +1004,15 @@ local function jiansheche(player, q_idx)
     if check_tick(player, 'jiansheche') then
         local base_buildings = 12
         local rpg_t = rpgtable.get('rpg_t')
-        local attribute_val = rpg_t[player.index].dexterity or 0 
+        local attribute_val = rpg_t[player.index].dexterity or 0
         local extra_buildings = math.floor(attribute_val / (200 / COEFF_REG[q_idx or 1])) * 6
         local max_buildings = base_buildings + extra_buildings
 
         local count = 0
-        local surface = player.physical_surface 
+        local surface = player.physical_surface
 
         local car = get_player_car_entity(player)
-        
+
         if not car or not car.valid then
             return
         end
@@ -1043,28 +1043,28 @@ local function jiansheche(player, q_idx)
 
             if ghost.valid then
                 local ghost_name = ghost.ghost_name
-                
+
                 if not ban_build_name[ghost_name] then
                     local player_have = player.get_item_count(ghost_name)
                     local car_have = car_inv.get_item_count(ghost_name)
-                    
+
                     local total_have = player_have + car_have
-                    
+
                     if total_have > 0 then
                         if validate_ghost(ghost, ghost_name) then
                             local success, revived_entity = ghost.revive({raise_revive = true})
-                            
+
                             if success then
                                 local need = 1
                                 if player_have > 0 then
                                     local removed = player.remove_item({name = ghost_name, count = 1})
                                     need = need - removed
                                 end
-                                
+
                                 if need > 0 and car_have > 0 then
                                     car_inv.remove({name = ghost_name, count = need})
                                 end
-                                
+
                                 count = count + 1
                             end
                         end
@@ -1331,20 +1331,20 @@ local function danmu_gongji(player, q_idx)
         if not player or not player.valid or not player.character then
             return false
         end
-        
+
         local surface = player.physical_surface
-        
+
         local enemies = EntityCache.find_entities_cached(surface, {
             position = player.physical_position,
             radius = 30,
             force = game.forces.enemy,
             type = goal
         })
-        
+
         if #enemies > 18 then
             local character = player.character
             local ammo_inventory = character.get_inventory(defines.inventory.character_main)
-            
+
             local supported_ammo = {
                 'firearm-magazine',
                 'piercing-rounds-magazine',
@@ -1362,7 +1362,7 @@ local function danmu_gongji(player, q_idx)
                 'grenade',
              --   'cluster-grenade'
             }
-            
+
             local available_ammo = {}
             for _, ammo_name in pairs(supported_ammo) do
                 local count = ammo_inventory.get_item_count(ammo_name)
@@ -1370,10 +1370,10 @@ local function danmu_gongji(player, q_idx)
                     table.insert(available_ammo, {name = ammo_name, count = count})
                 end
             end
-            
+
             if #available_ammo > 0 then
                 local throw_count = math.floor(8 * COEFF_LOW[q_idx or 1])
-                
+
                 local projectile_data = {
                     ['firearm-magazine'] = {name = 'shotgun-pellet', speed = 1},
                     ['piercing-rounds-magazine'] = {name = 'piercing-shotgun-pellet', speed = 1},
@@ -1392,23 +1392,23 @@ local function danmu_gongji(player, q_idx)
                     ['cluster-grenade'] = {name = 'cluster-grenade', speed = 1},
                     ['atomic-bomb'] = {name = 'atomic-rocket', speed = 1}
                 }
-                
+
                 for i = 1, throw_count do
                     if #available_ammo == 0 then
                         break
                     end
-                    
+
                     local random_index = math.random(1, #available_ammo)
                     local selected_ammo = available_ammo[random_index]
-                    
+
                     if selected_ammo.count > 0 then
                         character.remove_item({name = selected_ammo.name, count = 1})
                         selected_ammo.count = selected_ammo.count - 1
-                        
+
                         if selected_ammo.count == 0 then
                             table.remove(available_ammo, random_index)
                         end
-                        
+
                         local target = enemies[math.random(1, #enemies)]
                         if target and target.valid then
                             local ammo_info = projectile_data[selected_ammo.name]
@@ -1427,7 +1427,7 @@ local function danmu_gongji(player, q_idx)
                 end
             end
         end
-        
+
         return true
     end
 end
@@ -1491,7 +1491,7 @@ local function zhidanbing(player, q_idx)
         end
 
         local selected_capsule = available_capsules[math.random(1, #available_capsules)]
-        
+
         local target = enemies[math.random(1, #enemies)]
 
         player.physical_surface.create_entity({
@@ -1518,7 +1518,7 @@ end
 
 local function yanfayanjiuzhongxin(player, q_idx)
     local this = TPT.get()
-    
+
     local index = player.index
     if not check_tick(player, 'yanfayanjiuzhongxin') then
         return false
@@ -1536,7 +1536,7 @@ local function yanfayanjiuzhongxin(player, q_idx)
         ['battery-equipment'] = { value = 160, level = 2 },
         ['power-armor'] = { value = 5000, level = 3 },
         ['exoskeleton-equipment'] = { value = 1000, level = 3 },
-     
+
         ['energy-shield-mk2-equipment'] = { value = 4000, level = 4 },
         ['battery-mk2-equipment'] = { value = 5000, level = 4 },
         ['personal-laser-defense-equipment'] = { value = 4000, level = 4 },
@@ -1555,12 +1555,12 @@ local function yanfayanjiuzhongxin(player, q_idx)
     local dexterity = math.min(3000, rpg_t[index].dexterity or 0)
 
     this.yanfa_count[index] = dexterity + this.yanfa_count[index]
-    
+
     local player_equipment_level = math.max(1, math.floor(dexterity / 100))
 
     local equipped_armor_name = nil
     local equipped_armor_level = 0
-    
+
     local armor_inv = player.get_inventory(defines.inventory.character_armor)
     if armor_inv and armor_inv[1] and armor_inv[1].valid_for_read then
         equipped_armor_name = armor_inv[1].name
@@ -1594,9 +1594,9 @@ local function yanfayanjiuzhongxin(player, q_idx)
         end
 
         if not should_remove then
-        
+
             if player.character.get_item_count(item.name) >= 1 then
-                
+
                 should_remove = true
             end
         end
@@ -1625,7 +1625,7 @@ local function yanfayanjiuzhongxin(player, q_idx)
 
         if this.yanfa_count[index] >= item_info.value then
             local inserted = insert_item_to_player(player, selected_item, 1, QUALITY_NAMES[q_idx or 1])
-            
+
             if inserted then
                 this.yanfa_count[index] = this.yanfa_count[index] - item_info.value
                 new_print(player, { 'tianfu.yanfayanjiuzhongxin_over', { 'item-name.' .. selected_item } })
@@ -1735,20 +1735,20 @@ local function leitingwanjun(player, q_idx)
     local this = TPT.get()
     local index = player.index
     local rpg_t = rpgtable.get('rpg_t')
-    
+
     if not this.leitingwanjun_charges[index] then
         this.leitingwanjun_charges[index] = 1
         this.leitingwanjun_magic_bonus[index] = 0
     end
-    
+
     local times = upgrade_spell(player, "leizhenyu", { 'spells.leizhenyu' }, false)
-    
+
     local player_magic = rpg_t[index].magicka or 0
     local magic_bonus = math.floor(player_magic / 300)
     local max_charges = 12
-    
+
     this.leitingwanjun_magic_bonus[index] = this.leitingwanjun_magic_bonus[index] + 1
-    if this.leitingwanjun_magic_bonus[index] >= 5 then 
+    if this.leitingwanjun_magic_bonus[index] >= 5 then
         this.leitingwanjun_magic_bonus[index] = 0
         if this.leitingwanjun_charges[index] < max_charges then
             this.leitingwanjun_charges[index] = this.leitingwanjun_charges[index] + 1+magic_bonus
@@ -1758,9 +1758,9 @@ local function leitingwanjun(player, q_idx)
             this.leitingwanjun_charges[index] = max_charges
         end
     end
-    
+
     local damage = math.floor((20+math.floor(player_magic*0.4)+times) * COEFF_REG[q_idx or 1])
-    
+
     if this.leitingwanjun_charges[index] <= 0 then
         return true
     end
@@ -1821,22 +1821,22 @@ local tesla_battery_bounce_token2 = Token.register(function(data)
     local bounce_count = data.bounce_count
     local max_bounces = data.max_bounces
     local attacked_enemies = data.attacked_enemies
-    
+
     if not player or not player.valid  then
         return
     end
-    
+
     if bounce_count >= max_bounces then
         return
     end
-    
+
         local nearby_enemies = EntityCache.find_entities_cached(player.physical_surface, {
         position = source,
         type = goal,
         force = "enemy",
         radius = 16,
     })
-        
+
         local filtered_enemies = {}
         for _, enemy in pairs(nearby_enemies) do
             if enemy.valid and enemy.health > 0 then
@@ -1852,10 +1852,10 @@ local tesla_battery_bounce_token2 = Token.register(function(data)
                 end
             end
         end
-        
+
         local num_targets = math.random(1, 3)
         local selected_enemies = {}
-        
+
         for i = 1, num_targets do
             if #filtered_enemies == 0 then
                 break
@@ -1864,7 +1864,7 @@ local tesla_battery_bounce_token2 = Token.register(function(data)
             table.insert(selected_enemies, filtered_enemies[random_index])
             table.remove(filtered_enemies, random_index)
         end
-        
+
         for _, enemy in pairs(selected_enemies) do
             if enemy.valid and enemy.health > 0 then
                 player.physical_surface.create_entity({
@@ -1877,7 +1877,7 @@ local tesla_battery_bounce_token2 = Token.register(function(data)
                     duration=15
                 })
 
-                
+
                 player.physical_surface.create_entity({
                     name = 'chain-tesla-turret-beam-bounce',
                     position = source,
@@ -1889,7 +1889,7 @@ local tesla_battery_bounce_token2 = Token.register(function(data)
                 })
             end
         end
-  
+
 end)
 
 local tesla_battery_bounce_token = Token.register(function(data)
@@ -1898,22 +1898,22 @@ local tesla_battery_bounce_token = Token.register(function(data)
     local bounce_count = data.bounce_count
     local max_bounces = data.max_bounces
     local attacked_enemies = data.attacked_enemies
-    
+
     if not player or not player.valid  then
         return
     end
-    
+
     if bounce_count >= max_bounces then
         return
     end
-    
+
         local nearby_enemies = EntityCache.find_entities_cached(player.physical_surface, {
         position = source,
         type =goal,
         force = "enemy",
         radius = 16
     })
-        
+
         local filtered_enemies = {}
         for _, enemy in pairs(nearby_enemies) do
             if enemy.valid and enemy.health > 0 then
@@ -1929,10 +1929,10 @@ local tesla_battery_bounce_token = Token.register(function(data)
                 end
             end
         end
-        
+
         local num_targets = math.random(2, 4)
         local selected_enemies = {}
-        
+
         for i = 1, num_targets do
             if #filtered_enemies == 0 then
                 break
@@ -1941,7 +1941,7 @@ local tesla_battery_bounce_token = Token.register(function(data)
             table.insert(selected_enemies, filtered_enemies[random_index])
             table.remove(filtered_enemies, random_index)
         end
-        
+
         for _, enemy in pairs(selected_enemies) do
             if enemy.valid and enemy.health > 0 then
                 table.insert(attacked_enemies, enemy)
@@ -1963,7 +1963,7 @@ local tesla_battery_bounce_token = Token.register(function(data)
                     speed = 1.0,
                     duration=30
                 })
-                
+
                 Task.set_timeout_in_ticks(15, tesla_battery_bounce_token2, {
                 player = player,
                 player_index = data.player_index,
@@ -1974,7 +1974,7 @@ local tesla_battery_bounce_token = Token.register(function(data)
             })
             end
         end
-  
+
 end)
 
 local function tesla_battery(player, q_idx)
@@ -1984,15 +1984,15 @@ local function tesla_battery(player, q_idx)
     local this = TPT.get()
     local index = player.index
     local rpg_t = rpgtable.get('rpg_t')
-    
+
     if not this.tesla_battery_charges[index] then
         this.tesla_battery_charges[index] = 1
         this.tesla_battery_charge_counter[index] = 0
     end
-    
+
     local player_agility = rpg_t[index].dexterity or 0
     local max_charges = 12
-    
+
     this.tesla_battery_charge_counter[index] = this.tesla_battery_charge_counter[index] + 1
     if this.tesla_battery_charge_counter[index] >= 6 then
         this.tesla_battery_charge_counter[index] = 0
@@ -2037,10 +2037,10 @@ local function tesla_battery(player, q_idx)
         if target_entity and target_entity.valid then
             this.tesla_battery_charges[index] = this.tesla_battery_charges[index] - 1
             new_print(player, { 'tianfu.tesla_battery_over', this.tesla_battery_charges[index] })
-            
+
             local attacked_enemies = {}
             table.insert(attacked_enemies, target_entity)
-            
+
             player.physical_surface.create_entity({
                 name = 'chain-tesla-turret-beam-start',
                 position = player.physical_position,
@@ -2060,7 +2060,7 @@ local function tesla_battery(player, q_idx)
                 speed = 1.0,
                 duration=45
             })
-            
+
             Task.set_timeout_in_ticks(15, tesla_battery_bounce_token, {
                 player = player,
                 player_index = index,
@@ -2428,13 +2428,13 @@ local function djrc(player, q_idx)
 end
 
 local function pulu(player, q_idx)
-    
-    
+
+
     if check_tick(player, 'pulu') then
         if player.force.name ~= "player" then return end
         local surface = player.physical_surface
         local position = player.physical_position
-        
+
         -- 设定范围
         local width = math.floor(20 * COEFF_REG[q_idx])
         local radius = width * 0.5
@@ -2442,38 +2442,38 @@ local function pulu(player, q_idx)
 
         local function is_bad_tile(tile, q_idx)
             if not tile.valid then return true end
-            
+
             local name = tile.name
-            
-            if string.find(name, "water") or 
-               string.find(name, "lava") or 
-               string.find(name, "oil") or 
+
+            if string.find(name, "water") or
+               string.find(name, "lava") or
+               string.find(name, "oil") or
                string.find(name, "out-of-map") then
                 return true
             end
-            
+
             local mask = tile.prototype.collision_mask
-            
+
             if mask then
                 -- 如果地砖阻挡了“水层”（它是水）
                 if mask["water-tile"] then return true end
-                
+
                 -- 【新增】：如果地砖阻挡了“玩家层”（玩家走不上去，多半是深水或岩浆）
                 if mask["player-layer"] then return true end
-                
+
                 -- 【新增】：如果地砖阻挡了“物品层”（通常意味着这里不能放东西）
                 if mask["item-layer"] then return true end
-                
+
                 -- Space Age 特有的层检测（如果存在）
                 if mask["object-layer"] then return true end
             end
 
             -- 3. 如果已经是石路了，就不用铺了（省性能）
             if name == "stone-path" then return true end
-            
+
             -- 4. 混凝土/精炼混凝土也不要覆盖（防止破坏玩家家里更好的路）
-            if name == "concrete" or name == "hazard-concrete-left" or name == "refined-concrete" then 
-                return true 
+            if name == "concrete" or name == "hazard-concrete-left" or name == "refined-concrete" then
+                return true
             end
 
             return false
@@ -2481,13 +2481,13 @@ local function pulu(player, q_idx)
 
         for a = 1, width do
             for b = 1, width do
-                local p = { 
-                    x = position.x - radius + a, 
-                    y = position.y - radius + b 
+                local p = {
+                    x = position.x - radius + a,
+                    y = position.y - radius + b
                 }
-                
+
                 local tile = surface.get_tile(p)
-                
+
                 if not is_bad_tile(tile) then
                     table.insert(tiles_to_set, {
                         name = "stone-path",
@@ -2502,7 +2502,7 @@ local function pulu(player, q_idx)
             surface.set_tiles(tiles_to_set, true)
             new_print(player, { 'tianfu.pulu_over' })
         end
-        
+
         return true
     end
 end
@@ -2565,8 +2565,8 @@ local function mfxd(player, q_idx)
 end
 
 local function ylsgd(player, q_idx)
- 
-    
+
+
     if check_tick(player, 'ylsgd') then
         -- 基础建筑数量：6个
 
@@ -2578,7 +2578,7 @@ local function ylsgd(player, q_idx)
         -- 获取玩家的敏捷值
         local rpg_t = rpgtable.get('rpg_t')
         -- 注意：原代码用了 dexterity，这里假设你是对的（如果用 agility 请自行修改）
-        local attribute_val = rpg_t[player.index].dexterity or 0 
+        local attribute_val = rpg_t[player.index].dexterity or 0
 
         -- 计算额外的建筑数量：每200点，额外多建造3个
         local extra_buildings = math.floor(attribute_val / 200) * 3
@@ -2617,20 +2617,20 @@ local function ylsgd(player, q_idx)
             -- 检查幽灵是否有效
             if ghost.valid then
                 local ghost_name = ghost.ghost_name
-                
+
                 -- 检查是否在黑名单中
                 if not ban_build_name[ghost_name] then
                     -- 检查玩家背包是否有对应的物品
                     -- 注意：有些实体名字和物品名字不完全一致（如弯铁路），但绝大多数情况是一致的
                     -- 这里沿用你的逻辑，直接用 ghost_name 查库存
                     local player_have = player.get_item_count(ghost_name)
-                    
+
                     if player_have > 0 then
                         -- 【关键修改】：使用 revive() 复活实体
                         -- revive 参数：{raise_revive = true} 会触发 script_raised_revive 事件，对其他Mod兼容性更好
                          if  validate_ghost(ghost, ghost_name) then
                         local success, _ = ghost.revive({raise_revive = true})
-                        
+
                         -- 如果复活成功（没有被障碍物挡住）
                         if success then
                             -- 扣除玩家物品
@@ -2713,17 +2713,17 @@ local function fuzhushou(player, q_idx)
             if used_value >= total_value then
                 break
             end
-            
+
             if ghost.valid then
                 local g_name = ghost.ghost_name
-                
+
                 -- 检查是否在价值表中
                 if item_values[g_name] then
                     local item_value = item_values[g_name]
 
                     -- 检查剩余价值是否足够
                     if (used_value + item_value) <= total_value then
-                        
+
                         -- 【核心修改】：尝试复活实体
                         -- 不需要 create_entity，revive 会自动处理所有类型（地下、管道、筛选器等）
                         -- raise_revive = true 保证其他Mod能检测到这个建造事件
@@ -2808,7 +2808,7 @@ local function rsrl(player, q_idx)
                 count = smelt_count
             }
             player.insert({name = 'copper-plate', count = smelt_count})
-          
+
             count = count - smelt_count
             smelted_items['copper-plate'] = smelt_count
         end
@@ -2821,7 +2821,7 @@ local function rsrl(player, q_idx)
                 count = smelt_count
             }
             player.insert({name = 'stone-brick', count = smelt_count})
-           
+
             count = count - smelt_count
             smelted_items['stone-brick'] = smelt_count
         end
@@ -2986,7 +2986,7 @@ local function jndd(player, q_idx)
             radius = 16,
             force = game.forces.player
         })
-       
+
 
 
         c = math.floor(c / 5)
@@ -3190,10 +3190,10 @@ local function wlfs(player, q_idx)
             return false
         end
         for _, entity in pairs(entities) do
-           
+
                 entity.destroy()
                 i = i + 1
-      
+
         end
 
         i = i * 5
@@ -3213,14 +3213,14 @@ local function wlfs(player, q_idx)
         })
         local attempts = 0
         local max_attempts = 1000  -- 防止死循环的最大尝试次数
-        
+
         -- 检查t表是否为空
         local t_empty = true
         for name, worth in pairs(t) do
             t_empty = false
             break
         end
-        
+
         if not t_empty then
             while i > 0 and attempts < max_attempts do
                 local i_reduced = false
@@ -3281,52 +3281,52 @@ local function juemuren(player, q_idx)
         if player.physical_surface ~= game.surfaces[main_table.active_surface_index] then
             return false
         end
-        
+
         local position = player.physical_position
         local entities = player.physical_surface.find_entities_filtered({
             position = position,
             radius = 33,
             type = 'corpse'
         })
-        
+
         local valid_corpses = {}
         for _, entity in pairs(entities) do
-      
+
                 table.insert(valid_corpses, entity)
-          
+
         end
-        
+
         if #valid_corpses == 0 then
             return false
         end
-        
+
         local selected_corpse = valid_corpses[math.random(1, #valid_corpses)]
         local corpse_position = selected_corpse.position
         selected_corpse.destroy()
-        
+
         local rpg_t = rpgtable.get('rpg_t')
         local magicka = rpg_t[player.index].magicka or 0
         local damage_on_death = magicka * 0.2 * COEFF_LOW[q_idx]
-        
+
         local biter_names = {'small-biter', 'small-spitter', 'medium-biter', 'medium-spitter', 'big-biter', 'big-spitter', 'behemoth-biter', 'behemoth-spitter'}
         local selected_biter_name = biter_names[math.random(1, #biter_names)]
-        
+
         local revived_unit = player.physical_surface.create_entity {
             name = selected_biter_name,
             position = corpse_position,
             force = game.forces.player
         }
-        
+
         if revived_unit and revived_unit.valid then
             revived_unit.destructible = false
             tame_unit_effects(player, revived_unit)
-            
+
             Task.set_timeout_in_ticks(60 * 5, juemuren_death_callback, {
                 unit = revived_unit,
                 player = player,
                 damage = damage_on_death
             })
-            
+
             new_print(player, { 'tianfu.juemuren_over' })
             return true
         end
@@ -3642,14 +3642,14 @@ local function keyan(player, q_idx)
             local position = player.physical_position
             local attempts = 0
             local max_attempts = 1000  -- 防止死循环的最大尝试次数
-            
+
             -- 检查pingzi表是否为空
             local pingzi_empty = true
             for name, worth in pairs(pingzi) do
                 pingzi_empty = false
                 break
             end
-            
+
             if not pingzi_empty then
                 while mana_max > 3 and attempts < max_attempts do
                     local mana_reduced = false
@@ -3675,7 +3675,7 @@ end
 
 
 
- 
+
 local function hmds(player, q_idx)
     if check_tick(player, 'hmds') then
         local value = upgrade_spell(player, "ch", { 'spells.ch' }, true)
@@ -3695,14 +3695,14 @@ local function hmds(player, q_idx)
             })
             local attempts = 0
             local max_attempts = 1000  -- 防止死循环的最大尝试次数
-            
+
             -- 检查t表是否为空
             local t_empty = true
             for name, worth in pairs(t) do
                 t_empty = false
                 break
             end
-            
+
             if not t_empty then
                 while mana_max > 0 and attempts < max_attempts do
                     local mana_reduced = false
@@ -3762,7 +3762,7 @@ local function sglz(player, q_idx)
         if not player.character or not player.character.valid then
             return false
         end
-        if max>=30000 then 
+        if max>=30000 then
             max=30000
         end
 
@@ -3900,7 +3900,7 @@ local function small_buss(player, q_idx)
     if check_tick(player, 'small_buss') then
         -- 获取玩家敏捷属性并计算保底收益加成：每100敏捷+10金币
         local rpg_t = rpgtable.get('rpg_t')
-        local agility_bonus = math.floor(rpg_t[player.index].dexterity / 100) 
+        local agility_bonus = math.floor(rpg_t[player.index].dexterity / 100)
         local base_min = -30 + math.floor(agility_bonus * 10 * COEFF_REG[q_idx])
         local coin = base_min + math.floor(math.random(1, 120))
         if coin >= 1500 then
@@ -3984,7 +3984,7 @@ local function dutu(player, q_idx)
     end
     return true
 end
- 
+
 local function wxs(player, q_idx)
     if check_tick(player, 'wxs') then
         local player_build_types = { 'wall', 'ammo-turret', 'fluid-turret', 'electric-turret', 'electric-pole', 'gate' }
@@ -4087,11 +4087,11 @@ local function haiguanfang(player, q_idx)
     if check_tick(player, 'haiguanfang') then
         local main_table = WPT.get()
         local player_index = player.index
-        
+
         local car_entity = main_table.tank[player_index]
         local car_surface = nil
         local car_area = nil
-        
+
         if car_entity and car_entity.valid then
             local unit_number = car_entity.unit_number
             if unit_number then
@@ -4109,14 +4109,14 @@ local function haiguanfang(player, q_idx)
                 end
             end
         end
-        
+
         if not car_surface then
             return true
         end
-        
+
         local island_info = main_table.tianfu_islands[player_index]
         local need_create = false
-        
+
         if not island_info then
             need_create = true
         else
@@ -4129,7 +4129,7 @@ local function haiguanfang(player, q_idx)
                 need_create = true
             end
         end
-        
+
         if need_create then
             local market_position = {x = 0, y = -4}
             local market_entity = car_surface.create_entity({
@@ -4138,24 +4138,24 @@ local function haiguanfang(player, q_idx)
                 force = 'player',
                 create_build_effect_smoke = false
             })
-            
+
             if market_entity then
                 market_entity.destructible = false
                 market_entity.minable_flag = false
-                
+
                 local this = WPT.get()
-                
+
                 if not this.islands then
                     this.islands = {}
                 end
-                
+
                 local island_id = #this.islands + 1
-                
+
                 local tag_id = game.forces.player.add_chart_tag(car_surface, {
                     position = market_position,
                     text = '资源岛'
                 })
-                
+
                 local island_data = {
                     id = island_id,
                     level = 0,
@@ -4171,9 +4171,9 @@ local function haiguanfang(player, q_idx)
                     tag_id = tag_id,
                     investments = {}
                 }
-                
+
                 this.islands[island_id] = island_data
-                
+
                 local buy_island_item = {
                     price = {{name = "coin", count = 10000}},
                     offer = {
@@ -4181,23 +4181,23 @@ local function haiguanfang(player, q_idx)
                         effect_description = {'amap.buy_island', {'amap.resource_island'}, 6, '10000'}
                     }
                 }
-                
+
                 market_entity.add_market_item(buy_island_item)
-                
+
                 main_table.tianfu_islands[player_index] = {
                     island_id = island_id,
                     surface_index = car_surface.index
                 }
-                
+
                 new_print(player, {'tianfu.haiguanfang_island_created'})
             end
         end
-        
+
         local water_tiles = car_surface.find_tiles_filtered({
             name = 'water',
             area = car_area
         })
-        
+
         if #water_tiles > 0 then
             local fish_count = ({1, 2, 3, 4, 5})[q_idx or 1]
             for _ = 1, fish_count do
@@ -4219,14 +4219,14 @@ local function emengyingrao(player, q_idx)
     if not check_tick(player, 'emengyingrao') then
         return false
     end
-    
+
     if not player.character or not player.character.valid then
         return false
     end
-    
+
     local rpg_t = rpgtable.get('rpg_t')
     local player_level = rpg_t[player.index].level
-    
+
     local is_highest_level = true
     for _, p in pairs(game.connected_players) do
         if p.index ~= player.index then
@@ -4237,32 +4237,32 @@ local function emengyingrao(player, q_idx)
             end
         end
     end
-    
+
     if not is_highest_level then
         return false
     end
-    
+
     local max_health = player.character.max_health
     local current_health = player.character.health
     local is_injured = current_health < max_health
-    
+
     if not is_injured then
         return false
     end
-    
+
     if math.random(1, 100) > 50 then
         return false
     end
-    
+
     local main_table = WPT.get()
     local current_locked = main_table.emengyingrao_locked_player
-    
-    
+
+
     main_table.emengyingrao_locked_player = player.character
     main_table.emengyingrao_lock_end_tick = game.tick + math.floor(60 * 60 * COEFF_REG[q_idx])
-    
+
     new_print(player, {'tianfu.emengyingrao_over'})
-    
+
     return true
 end
 
@@ -4374,7 +4374,7 @@ local function kejigongsi(player, q_idx)
         local researched_count=main_table.science
         -- 计算金币奖励：科技数量 * 3.5
         local gold_reward = math.floor(researched_count * 3.5 * COEFF_REG[q_idx])
-        
+
         if gold_reward > 0 then
             insert_item_to_player(player, 'coin', gold_reward)
             new_print(player, { 'tianfu.kejigongsi_over', researched_count, gold_reward })
@@ -4438,23 +4438,23 @@ local function fali(player, q_idx)
         local rpg_t = rpgtable.get('rpg_t')
         local player_position = player.physical_position
         local count = 0
-        
+
         for l, target_player in pairs(game.connected_players) do
             if count >= 5 then break end
             -- 计算距离，只对50米内的玩家生效
             --只有玩家图层一致才生效
             if target_player.surface == player.surface then
                 local distance = math.sqrt(
-                    (target_player.physical_position.x - player_position.x)^2 + 
+                    (target_player.physical_position.x - player_position.x)^2 +
                     (target_player.physical_position.y - player_position.y)^2
                 )
-                
+
                 if distance <= 50 and rpg_t[target_player.index].mana ~= rpg_t[target_player.index].mana_max then
                 rpg_t[target_player.index].mana = math.floor(rpg_t[target_player.index].mana * 1.05 * COEFF_LOW[q_idx])
                 count = count + 1
             end
         end
-        
+
         end
         -- new_print({'tianfu.fali_over',player.name})
     end
@@ -4465,17 +4465,17 @@ local function juqichengjian(player, q_idx)
     if check_tick(player, 'juqichengjian') then
         local rpg_t = rpgtable.get('rpg_t')
         local player_index = player.index
-        
+
         local current_mana = rpg_t[player_index].mana or 0
         local mana_cost = math.floor(current_mana * 0.1)
-        
+
         if mana_cost > 1 then
-           
-            
+
+
             local level = rpg_t[player_index].level
             local magic = rpg_t[player_index].magicka or 0
             local damage = (mana_cost + level + math.floor(magic * 0.1)) * COEFF_REG[q_idx]
-            
+
             local surface = player.physical_surface
             local enemies = surface.find_entities_filtered({
                 position = player.physical_position,
@@ -4483,7 +4483,7 @@ local function juqichengjian(player, q_idx)
                 force = game.forces.enemy,
                 type = goal
             })
-            
+
             if #enemies > 0 then
                 rpg_t[player_index].mana = current_mana - mana_cost
                 table.sort(enemies, function(a, b)
@@ -4493,7 +4493,7 @@ local function juqichengjian(player, q_idx)
                     ((b.position.x - player.physical_position.x) ^ 2 + (b.position.y - player.physical_position.y) ^ 2) or math.huge
                     return dist_a < dist_b
                 end)
-                
+
                 local max_targets = math.min(#enemies, 5)
                 for i = 1, max_targets do
                     local target = enemies[i]
@@ -4505,7 +4505,7 @@ local function juqichengjian(player, q_idx)
                             source = player.character,
                             duration = 10
                         })
-                        
+
                         deal_damage_with_floating_text(target, player, damage, 'laser')
                     end
                 end
@@ -4543,21 +4543,21 @@ local function ftlt(player, q_idx)
     if check_tick(player, 'ftlt') then
         local all = 100
         local t = math.random(30, 45)
-        
+
         -- 检查玩家已有物品数量
         local current_iron = player.get_item_count("iron-plate")
         local current_copper = player.get_item_count("copper-plate")
-        
+
         -- 只有当铁板数量不超过200时才给予铁板奖励
         if current_iron <= 200 then
             insert_item_to_player(player, 'iron-plate', math.floor((all - t) * COEFF_REG[q_idx]))
         end
-        
+
         -- 只有当铜板数量不超过200时才给予铜板奖励
         if current_copper <= 200 then
             insert_item_to_player(player, 'copper-plate', math.floor(t * COEFF_REG[q_idx]))
         end
-        
+
         new_print(player, { 'tianfu.ftlt_over', all - t, t })
     end
     return true
@@ -4592,26 +4592,26 @@ local function fangshou(player, q_idx)
         -- 计算最终数量
         local magazine_count = 20 * multiplier
         local turret_count = 2 * multiplier
-        
+
         -- 检查玩家当前的机枪炮塔和子弹数量
         local current_turret_count = player.get_item_count('gun-turret')
         local current_magazine_count = player.get_item_count('firearm-magazine')
-        
+
         local given_turret = 0
         local given_magazine = 0
-        
+
         -- 只有在机枪炮塔少于50个时才给予机枪炮塔
         if current_turret_count < 50 then
             insert_item_to_player(player, 'gun-turret', turret_count, QUALITY_NAMES[q_idx])
             given_turret = turret_count
         end
-        
+
         -- 只有在子弹少于600发时才给予子弹
         if current_magazine_count < 600 then
             insert_item_to_player(player, 'firearm-magazine', magazine_count, QUALITY_NAMES[q_idx])
             given_magazine = magazine_count
         end
-        
+
         -- 只有在实际给予了物品时才显示消息
         if given_turret > 0 or given_magazine > 0 then
             -- 如果有倍数加成，显示带有倍数信息的消息
@@ -4641,12 +4641,12 @@ local function dianluban(player, q_idx)
         -- 检查玩家已有物品数量
         local current_iron = player.get_item_count("iron-plate")
         local current_copper = player.get_item_count("copper-cable")
-        
+
         -- 只有当铁板数量不超过200时才给予铁板奖励
         if current_iron <= 400 then
             insert_item_to_player(player, 'iron-plate', math.floor(iron_count * COEFF_REG[q_idx]))
         end
-        
+
         -- 只有当铜线数量不超过200时才给予铜线奖励
         if current_copper <= 400 then
             insert_item_to_player(player, 'copper-cable', math.floor(copper_count * COEFF_REG[q_idx]))
@@ -4860,7 +4860,7 @@ local function yuer(player, q_idx)
 
                 entity.destroy()
                 i = i + 1
-          
+
         end
 
         -- 计算鱼的数量，使用变量代替固定值
@@ -4879,9 +4879,9 @@ local function yuer(player, q_idx)
 end
 
 local function shen_fa(player, q_idx)
-  
+
     if check_tick(player, 'shen_fa') then
-      
+
         -- 基于玩家魔力计算伤害
         local rpg_t = rpgtable.get('rpg_t')
         local magic_power = rpg_t[player.index].magicka or 0
@@ -4940,7 +4940,7 @@ local function shen_fa(player, q_idx)
                     remaining_damage = remaining_damage * 0.8
                     deal_damage_with_floating_text(enemy, player, remaining_damage, 'electric')
                     total_dealt_damage = total_dealt_damage + remaining_damage
-                    
+
                     if remaining_damage <= total_damage * 0.4 then
                         remaining_damage = total_damage * 0.4
                     end
@@ -4959,8 +4959,8 @@ end
                     local surface = data.surface
                     local player = data.player
                     local magic_power = data.magic_power
-           
-                    
+
+
                         -- 在目标周围造成范围伤害
                         local area_enemies = EntityCache.find_entities_cached(surface, {
                             position = target_pos,
@@ -4968,16 +4968,16 @@ end
                             force = game.forces.enemy,
                             type = goal
                         })
-                        
+
                         -- 计算范围伤害（基于魔力值）
                         local area_damage = (50 + math.floor(magic_power / 2)) * COEFF_REG[data.q_idx]
-                        
+
                         for _, enemy in pairs(area_enemies) do
                             if enemy.valid then
                                 deal_damage_with_floating_text(enemy, player, area_damage, 'fire')
                             end
                         end
-                   
+
                 end)
 local function diyu_rongyan(player, q_idx)
     if check_tick(player, 'diyu_rongyan') then
@@ -4991,15 +4991,15 @@ local function diyu_rongyan(player, q_idx)
             force = game.forces.enemy,
             type = goal
         })
-        
+
         if #enemies > 0 then
             -- 随机选择一个敌人
             local target = enemies[math.random(1, #enemies)]
-            
+
             local target_pos = target.position
             local rpg_t = rpgtable.get('rpg_t')
             local magic_power = rpg_t[player.index].magicka or 0
-            
+
             -- 创建熔岩效果（使用火焰云效果）
             local lava_effect = surface.create_entity({
                 name = 'small-demolisher-fissure',
@@ -5008,7 +5008,7 @@ local function diyu_rongyan(player, q_idx)
                  source = player.character,
                  player = player
             })
-            
+
             -- 立刻对目标周围2米内所有虫子造成微量伤害（基于魔力值）
             local immediate_enemies = EntityCache.find_entities_cached(surface, {
                 position = target_pos,
@@ -5016,18 +5016,18 @@ local function diyu_rongyan(player, q_idx)
                 force = game.forces.enemy,
                 type = goal
             })
-            
+
             local immediate_damage = (10 + math.floor(magic_power / 10) + times * 5) * COEFF_REG[q_idx]
             local immediate_killed_count = 0
-            
+
             for _, enemy in pairs(immediate_enemies) do
                 -- 对每个敌人造成伤害
                 deal_damage_with_floating_text(enemy, player, immediate_damage, 'fire')
             end
-            
+
             -- 注册2秒后的延迟任务
-       
-            
+
+
             -- 2秒后执行（120 ticks）
             Task.set_timeout_in_ticks(100, lava_eruption_task, {
                 target = target,
@@ -5039,7 +5039,7 @@ local function diyu_rongyan(player, q_idx)
             })
             new_print(player, { 'tianfu.diyu_rongyan_over' })
         end
-        
+
         return true
     end
 end
@@ -5066,7 +5066,7 @@ local function lanhuangjiaonang(player, q_idx)
 
     -- 给予玩家1个胶囊
     insert_item_to_player(player, capsule_type, 1, QUALITY_NAMES[q_idx])
- 
+
     new_print(player, { 'tianfu.lanhuangjiaonang_over', 1 })
     return true
 end
@@ -5074,26 +5074,26 @@ end
 local function zishenzhuanjia(player, q_idx)
     if not check_tick(player, 'zishenzhuanjia') then return false end
     if math.random(1, 100) > math.floor(10 * COEFF_REG[q_idx]) then return false end
-    
+
     local surface = player.physical_surface
     local position = player.physical_position
     local search_radius = 24
-    
+
     local production_buildings = surface.find_entities_filtered({
         position = position,
         radius = search_radius,
         force = game.forces.player,
         type = {'assembling-machine', 'furnace', 'chemical-plant', 'oil-refinery', 'mining-drill'}
     })
-    
+
     if #production_buildings == 0 then return false end
-    
+
     local target_building = production_buildings[math.random(1, #production_buildings)]
     if not target_building or not target_building.valid then return false end
-    
+
     -- 检查建筑是否可以挖掘，如果不能则跳过
     if not target_building.minable_flag then return false end
-    
+
     -- 获取当前品质
     local current_quality = target_building.quality.name
     local quality_order = {"normal", "uncommon", "rare", "epic", "legendary"}
@@ -5101,9 +5101,9 @@ local function zishenzhuanjia(player, q_idx)
     for i, q in ipairs(quality_order) do
         if q == current_quality then current_quality_index = i break end
     end
-    
+
     if current_quality_index >= #quality_order then return false end
-    
+
     -- 随机目标品质
     local quality_upgrades = {
         {name = "legendary", chance = 5},
@@ -5111,7 +5111,7 @@ local function zishenzhuanjia(player, q_idx)
         {name = "rare", chance = 25},
         {name = "uncommon", chance = 40}
     }
-    
+
     local upgraded_quality = nil
     local random_roll = math.random(1, 100)
     local current_threshold = 0
@@ -5122,9 +5122,9 @@ local function zishenzhuanjia(player, q_idx)
             break
         end
     end
-    
+
     if not upgraded_quality then return false end
-    
+
     -- 确保是提升而非降级
     local upgraded_quality_index = 0
     for i, q in ipairs(quality_order) do
@@ -5137,7 +5137,7 @@ local function zishenzhuanjia(player, q_idx)
     local b_pos = target_building.position
     local b_dir = target_building.direction
     local b_force = target_building.force
-    
+
     -- 只保存配方名称（字符串），不保存对象
     local recipe_name = nil
     if target_building.type == "assembling-machine" then
@@ -5151,7 +5151,7 @@ local function zishenzhuanjia(player, q_idx)
             recipe_name = r.name
         end
     end
-    
+
     -- 通用库存保存逻辑 (涵盖模块、输入、输出)
     local all_inventories = {}
     for i = 1, 10 do -- 遍历可能的库存索引
@@ -5163,7 +5163,7 @@ local function zishenzhuanjia(player, q_idx)
 
     -- 销毁旧建筑
     target_building.destroy()
-    
+
     -- 创建新建筑
     local new_building = surface.create_entity({
         name = b_name,
@@ -5174,19 +5174,19 @@ local function zishenzhuanjia(player, q_idx)
         fast_replace = true, -- 尽量尝试快速替换以保留部分连接
         raise_built = true
     })
-    
+
     if new_building and new_building.valid then
         -- 在还原库存前设置配方
         if recipe_name then
             local success, err = pcall(function()
                 new_building.set_recipe(recipe_name)
             end)
-            
+
             if not success then
-                -- 设置配方失败，通常是因为该建筑不支持此配方
+                log('[zishenzhuanjia] set_recipe failed: ' .. tostring(err) .. ' building=' .. tostring(b_name) .. ' recipe=' .. tostring(recipe_name))
             end
         end
-        
+
         -- 设置完配方后，再还原物品和模块
         for inv_index, contents in pairs(all_inventories) do
             local new_inv = new_building.get_inventory(inv_index)
@@ -5196,11 +5196,11 @@ local function zishenzhuanjia(player, q_idx)
                 end
             end
         end
-        
+
         new_print(player, {'tianfu.zishenzhuanjia_success', b_name, upgraded_quality})
         return true
     end
-    
+
     return false
 end
 
@@ -5216,7 +5216,7 @@ local function daodaoku(player, q_idx)
 
     -- 获取玩家的【武器栏】而不是【主背包】
     local inventory = player.get_inventory(defines.inventory.character_guns)
-    
+
     -- 安全检查：如果玩家处于上帝模式或无实体状态，可能没有背包
     if not inventory then
         return true
@@ -5256,7 +5256,7 @@ local function daodaoku(player, q_idx)
 
         new_print(player, { 'tianfu.daodaoku_over', count })
     end
-    
+
     return true
 end
 
@@ -5370,13 +5370,13 @@ local function zhuoshao(player, q_idx)
 
     local target = enemies[1]
     -- 获取火遁技能等级（使用upgrade_spell函数，会自动升级）
-   
-    
+
+
     -- 基础伤害15点，每级+5点
     local base_damage = 15
     local bonus_damage =huo_dun_level * 4  -- 每20次升级增加5点伤害
     local total_damage = (base_damage + bonus_damage) * COEFF_REG[q_idx]
-    
+
     -- 对目标周围0.5半径内的所有敌方单位造成伤害
     local splash_targets = EntityCache.find_entities_cached(player.physical_surface, {
         position = target.position,
@@ -5384,7 +5384,7 @@ local function zhuoshao(player, q_idx)
         type = goal,
         force = game.forces.enemy
     })
-    
+
     -- 创建火焰效果并造成伤害
     for _, entity in pairs(splash_targets) do
         if entity and entity.valid then
@@ -5394,12 +5394,12 @@ local function zhuoshao(player, q_idx)
                 position = entity.position,
                 force = 'player'
             }
-            
+
             -- 造成伤害 - 使用正确的参数格式让玩家获得奖励
             deal_damage_with_floating_text(entity, player, total_damage, 'fire')
         end
     end
-    
+
     new_print(player, {'tianfu.zhuoshao_over', #splash_targets, total_damage})
     return true
 end
@@ -5411,7 +5411,7 @@ local function tieshenhuwei(player, q_idx)
     end
 
     local ammo_name = upgrade_spell(player, "wudi_turret", { 'spells.wudi_turret' }, false)
-    
+
     if not player.character or not player.character.valid then
         return false
     end
@@ -5434,10 +5434,10 @@ local function tieshenhuwei(player, q_idx)
     local forces = {}
     local surface = player.physical_surface
     local position = player.physical_position
-    
+
     -- 获取弹药类型（参考dgwd函数的逻辑）
-    
-    
+
+
     local turret = surface.create_entity {
         name = "gun-turret",
         quality = QUALITY_NAMES[q_idx],
@@ -5447,7 +5447,7 @@ local function tieshenhuwei(player, q_idx)
         }, 15, 1, true),
         force = game.forces.player
     }
-    
+
     if turret and turret.valid then
         turret.insert {
             name = ammo_name,
@@ -5457,18 +5457,18 @@ local function tieshenhuwei(player, q_idx)
         turret.minable_flag = false
         turret.operable = false
         turret.last_user = player
-        
+
         local main_table = WPT.get()
         main_table.turret_rpg[#main_table.turret_rpg + 1] = turret
         forces[#forces + 1] = turret
-        
+
         -- 11秒后销毁炮塔
         Task.set_timeout_in_ticks(60 * 11, kill_forces, forces)
-        
+
         new_print(player, {'tianfu.tieshenhuwei_over'})
         return true
     end
-    
+
     return false
 end
 
@@ -5492,12 +5492,12 @@ local function shui_hu_fu(player, q_idx)
     if this.shui_hu_fu_charge[player.index] < 3 then
         local charge_gain = ({1, 1, 2, 2, 3})[q_idx or 1]
         this.shui_hu_fu_charge[player.index] = math.min(3, this.shui_hu_fu_charge[player.index] + charge_gain)
-        
+
         -- 显示充能获得提示
         new_print(player, {'tianfu.shui_hu_fu_charge', this.shui_hu_fu_charge[player.index]})
         return true
     end
-    
+
     return false
 end
 
@@ -5512,10 +5512,10 @@ local function shui_dun(player, q_idx)
     if not player.character or not player.character.valid then
         return false
     end
-    
+
     local surface = player.physical_surface
     local player_pos = player.physical_position
-    
+
     -- 2. 寻找敌人 (使用缓存搜索)
     local nearby_enemies = EntityCache.find_entities_cached(surface, {
         position = player_pos,
@@ -5523,47 +5523,47 @@ local function shui_dun(player, q_idx)
         force = 'enemy',
         type = {'unit', 'spider-unit'}
     })
-    
+
     if #nearby_enemies == 0 then
         return false  -- 周围没有敌人，不释放，也就没有视觉效果
     end
-    
+
     -- 3. 随机选择一个敌人作为目标
     local target_enemy = nearby_enemies[math.random(#nearby_enemies)]
-    
+
     if not target_enemy or not target_enemy.valid then
         return false
     end
-    
+
     -- 4. 获取属性 (使用与Code 2相同的安全方式，防止nil报错)
     local rpg_t = rpgtable.get('rpg_t')
     local magicka_bonus = rpg_t[player.index].magicka or 0
-    
+
     -- 5. 参数设定
     local base_damage = (20 + magicka_bonus * 0.5 + times * 2) * COEFF_REG[q_idx]
     local water_radius = 2
     local knockback_distance = 2
     local target_position = target_enemy.position
-    
+
     -- 计算路径
     local distance = math.sqrt(
-        (target_position.x - player_pos.x)^2 + 
+        (target_position.x - player_pos.x)^2 +
         (target_position.y - player_pos.y)^2
     )
     local steps = math.floor(distance * 2) + 1
-    
+
     for i = 1, steps do
         local ratio = i / steps
         local path_x = player_pos.x + (target_position.x - player_pos.x) * ratio
         local path_y = player_pos.y + (target_position.y - player_pos.y) * ratio
-        
+
         -- 在主路径上创建水柱效果
         surface.create_entity({
-            name = 'water-splash', 
+            name = 'water-splash',
             position = {path_x, path_y},
             force = game.forces.player
         })
-        
+
    -- 在水柱路径上寻找敌人（每3格寻找一次，半径为1）
     if i % 3 == 1 then
       local enemies = surface.find_entities_filtered({
@@ -5572,7 +5572,7 @@ local function shui_dun(player, q_idx)
         force = 'enemy',
         type = {'unit', 'spider-unit'}
       })
-      
+
       for _, enemy in pairs(enemies) do
         if enemy.valid and enemy.health then
           -- 造成伤害
@@ -5582,12 +5582,12 @@ local function shui_dun(player, q_idx)
       end
     end
     end
-    
+
     -- 提示
     if new_print then
         new_print(player, {'tianfu.shui_dun_cast'})
     end
-    
+
     return true
 end
 
@@ -5596,15 +5596,15 @@ local function lidazhuanfei(player, q_idx)
     if not check_tick(player, 'lidazhuanfei') then
         return false
     end
-    
-    
+
+
     local surface = player.physical_surface
     local player_pos = player.physical_position
-    
+
     -- 获取玩家属性
     local rpg_t = rpgtable.get('rpg_t')
     local strength = rpg_t[player.index].strength or 0
-    
+
     -- 寻找4米内的敌人
     local nearby_enemies = surface.find_entities_filtered({
         position = player_pos,
@@ -5612,19 +5612,19 @@ local function lidazhuanfei(player, q_idx)
         force = 'enemy',
         type = {'unit', 'spider-unit'}
     })
-    
+
     if #nearby_enemies == 0 then
         return false
     end
-    
+
     -- 筛选最近的敌人
     local closest_enemy = nil
     local min_distance = math.huge
-    
+
     for _, enemy in pairs(nearby_enemies) do
         if enemy.valid and enemy.health then
             local distance = math.sqrt(
-                (enemy.position.x - player_pos.x)^2 + 
+                (enemy.position.x - player_pos.x)^2 +
                 (enemy.position.y - player_pos.y)^2
             )
             if distance < min_distance then
@@ -5633,46 +5633,46 @@ local function lidazhuanfei(player, q_idx)
             end
         end
     end
-    
+
     if not closest_enemy or not closest_enemy.valid then
         return false
     end
-    
+
     -- 计算击飞方向（从玩家指向敌人）
     local knockback_direction = {
         x = closest_enemy.position.x - player_pos.x,
         y = closest_enemy.position.y - player_pos.y
     }
-    
+
     -- 标准化方向向量
     local direction_length = math.sqrt(knockback_direction.x^2 + knockback_direction.y^2)
     if direction_length > 0 then
         knockback_direction.x = knockback_direction.x / direction_length
         knockback_direction.y = knockback_direction.y / direction_length
     end
-    
+
     -- 计算击飞目标位置（20米）
     local knockback_target = {
         x = closest_enemy.position.x + knockback_direction.x * 20,
         y = closest_enemy.position.y + knockback_direction.y * 20
     }
-    
+
     -- 计算路径点（用于沿途伤害和特效）
     local steps = 20
     local base_damage = strength * 0.2 * COEFF_REG[q_idx]
-    
+
     for i = 1, steps do
         local ratio = i / steps
         local path_x = closest_enemy.position.x + (knockback_target.x - closest_enemy.position.x) * ratio
         local path_y = closest_enemy.position.y + (knockback_target.y - closest_enemy.position.y) * ratio
-        
+
         -- 在路径上创建vulcanus-cliff-collapse特效
         surface.create_entity({
             name = 'vulcanus-cliff-collapse',
             position = {path_x, path_y},
             force = game.forces.player
         })
-        
+
         -- 每3步寻找一次敌人
         if i % 3 == 0 then
             local path_enemies = EntityCache.find_entities_cached(surface, {
@@ -5681,7 +5681,7 @@ local function lidazhuanfei(player, q_idx)
                 force = 'enemy',
                 type = {'unit', 'spider-unit'}
             })
-            
+
             for _, enemy in pairs(path_enemies) do
                 if enemy.valid and enemy.health then
                     deal_damage_with_floating_text(enemy, player, base_damage, 'physical')
@@ -5689,7 +5689,7 @@ local function lidazhuanfei(player, q_idx)
             end
         end
     end
-    
+
     -- 击飞最近的敌人
     if closest_enemy and closest_enemy.valid then
         local safe_position = surface.find_non_colliding_position(closest_enemy.name, knockback_target, 10, 0.5)
@@ -5698,10 +5698,10 @@ local function lidazhuanfei(player, q_idx)
         end
         deal_damage_with_floating_text(closest_enemy, player, base_damage, 'physical')
     end
-    
+
     -- 提示
     new_print(player, {'tianfu.lidazhuanfei_cast', math.floor(base_damage)})
-    
+
     return true
 end
 
@@ -5711,7 +5711,7 @@ local function chuanqibaozang(player, q_idx)
     if not check_tick(player, 'chuanqibaozang') then
         return false
     end
-    
+
     if not player.character or not player.character.valid then
         return false
     end
@@ -5719,7 +5719,7 @@ local function chuanqibaozang(player, q_idx)
       if not script.active_mods['quality'] then
         return false
       end
-    
+
     -- 获取玩家的魔法和敏捷属性
     local rpg_t = rpgtable.get('rpg_t')
     local magic = rpg_t[player.index].magicka or 0
@@ -5728,7 +5728,7 @@ local function chuanqibaozang(player, q_idx)
     --限制魔法最大3000、敏捷最大1000
     magic = math.min(magic, 3000)
     dexterity = math.min(dexterity, 1000)
-    
+
     -- 定义武器类物品列表（基于basic_markets.lua的6个表，保留value和rarity属性）
     local weapon_items = {
         -- 【weapons表】枪械类武器
@@ -5739,7 +5739,7 @@ local function chuanqibaozang(player, q_idx)
         {name = 'combat-shotgun', value = 400, rarity = 5},
         {name = 'rocket-launcher', value = 500, rarity = 5},
         {name = 'land-mine', value = 10, rarity = 4},
-        
+
         -- 【ammo表】弹药类
         {name = 'firearm-magazine', value = 3, rarity = 1},
         {name = 'piercing-rounds-magazine', value = 6, rarity = 4},
@@ -5755,7 +5755,7 @@ local function chuanqibaozang(player, q_idx)
         {name = 'explosive-rocket', value = 50, rarity = 7},
         {name = 'atomic-bomb', value = 15000, rarity = 10},
         {name = 'flamethrower-ammo', value = 20, rarity = 6},
-        
+
         -- 【caspules表】投掷类和胶囊类
         {name = 'grenade', value = 16, rarity = 2},
         {name = 'cluster-grenade', value = 55, rarity = 5},
@@ -5764,14 +5764,14 @@ local function chuanqibaozang(player, q_idx)
         {name = 'defender-capsule', value = 10, rarity = 1},
         {name = 'distractor-capsule', value = 30, rarity = 3},
         {name = 'destroyer-capsule', value = 70, rarity = 5},
-        
+
         -- 【armor表】护甲类（战斗相关）
         {name = 'light-armor', value = 25, rarity = 1},
         {name = 'heavy-armor', value = 250, rarity = 4},
         {name = 'modular-armor', value = 750, rarity = 5},
         {name = 'power-armor', value = 5000, rarity = 6},
         {name = 'power-armor-mk2', value = 35000, rarity = 10},
-        
+
         -- 【equipment表】装备模块（战斗相关）
         {name = 'solar-panel-equipment', value = 240, rarity = 3},
         {name = 'fission-reactor-equipment', value = 9000, rarity = 7},
@@ -5786,7 +5786,7 @@ local function chuanqibaozang(player, q_idx)
         {name = 'personal-roboport-equipment', value = 1000, rarity = 3},
         {name = 'personal-roboport-mk2-equipment', value = 5000, rarity = 8},
         {name = 'night-vision-equipment', value = 250, rarity = 1},
-        
+
         -- 【defense表】防御建筑（战斗相关）
         {name = 'stone-wall', value = 4, rarity = 1},
         {name = 'gate', value = 8, rarity = 1},
@@ -5794,23 +5794,23 @@ local function chuanqibaozang(player, q_idx)
         {name = 'laser-turret', value = 1024, rarity = 6},
         {name = 'artillery-turret', value = 15192, rarity = 8},
     }
-    
+
     -- 获取玩家背包中的所有物品
     local main_inventory = player.get_inventory(defines.inventory.character_main)
     if not main_inventory then
-    
+
         return false
     end
-    
+
     local can_do=math.floor(dexterity/100)
-    if can_do <=0 then 
+    if can_do <=0 then
         can_do=1
     end
-    
+
     -- 查找背包中的武器类物品（同名物品只选择一个）
     local weapon_stacks = {}
     local found_weapon_names = {} -- 用于记录已经找到的武器名称
-    
+
     for i = 1, #main_inventory do
         local stack = main_inventory[i]
         if stack.valid_for_read then
@@ -5831,13 +5831,13 @@ local function chuanqibaozang(player, q_idx)
             end
         end
     end
-    
+
     -- 如果没有找到武器类物品，返回false
     if #weapon_stacks == 0 then
-   
+
         return false
     end
-    
+
     -- 随机选择一个武器物品
     local selected = weapon_stacks[math.random(1, #weapon_stacks)]
     local item_name = selected.stack.name
@@ -5847,45 +5847,45 @@ local function chuanqibaozang(player, q_idx)
     if selected.stack.quality and selected.stack.quality.name then
         current_quality = selected.stack.quality.name
     end
-    
+
     -- 计算品质提升概率（与魔法属性挂钩）
     -- 基础概率：魔法属性每300点增加1%成功率
     local base_chance = math.min(magic / 600/100, 0.1)  -- 最高50%成功率
-   
-    local quality_upgrades = { 
-        { name = "legendary", chance = 0.005 }, -- 1% 
-        { name = "epic",      chance = 0.015 }, -- 3% 
-        { name = "rare",      chance = 0.025 }, -- 5% 
-        { name = "uncommon",  chance = 0.05 }  -- 10% 
-    } 
-    -- 注意：这里使用数组(table)来保证遍历顺序，因为普通的kv table遍历顺序是不确定的 
-    
-    -- 假设的基础概率加成（防止报错，这里设为0） 
-    local base_chance = base_chance or 0 
-    
-    local upgraded_quality = nil -- 默认为 nil (即 Normal) 
-    local random_roll = math.random() 
-    local current_threshold = 0 -- 当前累加的阈值 
-    
-    -- 遍历配置表进行判断 
-    for _, item in ipairs(quality_upgrades) do 
-        -- 计算当前这一项的实际概率 
-        local actual_chance = item.chance + base_chance 
-        if item.chance ==0.005 then 
+
+    local quality_upgrades = {
+        { name = "legendary", chance = 0.005 }, -- 1%
+        { name = "epic",      chance = 0.015 }, -- 3%
+        { name = "rare",      chance = 0.025 }, -- 5%
+        { name = "uncommon",  chance = 0.05 }  -- 10%
+    }
+    -- 注意：这里使用数组(table)来保证遍历顺序，因为普通的kv table遍历顺序是不确定的
+
+    -- 假设的基础概率加成（防止报错，这里设为0）
+    local base_chance = base_chance or 0
+
+    local upgraded_quality = nil -- 默认为 nil (即 Normal)
+    local random_roll = math.random()
+    local current_threshold = 0 -- 当前累加的阈值
+
+    -- 遍历配置表进行判断
+    for _, item in ipairs(quality_upgrades) do
+        -- 计算当前这一项的实际概率
+        local actual_chance = item.chance + base_chance
+        if item.chance ==0.005 then
 actual_chance=actual_chance-base_chance/4
         end
-              if item.chance ==0.015 then 
+              if item.chance ==0.015 then
 actual_chance=actual_chance-base_chance/2
         end
-        -- 累加阈值 
-        current_threshold = current_threshold + actual_chance 
-        
-        -- 判断随机数是否落在当前范围内 
-        if random_roll <= current_threshold then 
-            upgraded_quality = item.name 
-            break -- 一旦命中，立即停止循环 
-        end 
-    end 
+        -- 累加阈值
+        current_threshold = current_threshold + actual_chance
+
+        -- 判断随机数是否落在当前范围内
+        if random_roll <= current_threshold then
+            upgraded_quality = item.name
+            break -- 一旦命中，立即停止循环
+        end
+    end
 
     --品质价值倍数：普通品质+100，稀有品质+200，史诗品质+300，传说品质+400
     local quality_multipliers = {
@@ -5897,7 +5897,7 @@ actual_chance=actual_chance-base_chance/2
     }
 
 
-    
+
 
     -- 新规则：天赋品质决定最低产出品质
     -- q_idx 为天赋自身品质等级（1=normal ~ 5=legendary），与 quality_multipliers 的值一一对应
@@ -5913,7 +5913,7 @@ actual_chance=actual_chance-base_chance/2
     if quality_multipliers[upgraded_quality] <= quality_multipliers[current_quality] then
         return false
     end
-    
+
     -- 显示当前物品品质信息（调试用）
     -- if current_quality ~= "normal" then
     --     game.print("当前物品品质: " .. current_quality .. ", 目标品质: " .. upgraded_quality)
@@ -5921,18 +5921,18 @@ actual_chance=actual_chance-base_chance/2
     --逻辑：1.计算提升总价值 =玩家魔力*敏捷
     local total_upgrade_value = magic * dexterity
 
-    
+
     --2.计算转化的物品数=计算提升总价值/物品价值/品质价值倍数/当前物品品质倍数
     local target_quality_multiplier = quality_multipliers[upgraded_quality]
     local current_quality_multiplier = quality_multipliers[current_quality]
     local convert_count = math.floor(total_upgrade_value / item_info.value / target_quality_multiplier * current_quality_multiplier)
-    
+
     if convert_count == 0 then
         convert_count=1
     end
     -- 确保转化的物品数不超过背包中的实际数量
     convert_count = math.min(convert_count, item_count)
-    
+
     -- 如果转化的物品数小于1，返回失败
     if convert_count < 1 then
         return false
@@ -5945,11 +5945,11 @@ actual_chance=actual_chance-base_chance/2
         -- 如果移除失败，尝试移除实际能移除的数量
         convert_count = removed
     end
-    
+
     if convert_count > 0 then
         -- 插入高品质物品
         local inserted = main_inventory.insert({name = item_name, count = convert_count, quality = upgraded_quality})
-        
+
         if inserted > 0 then
             new_print(player, {'tianfu.chuanqibaozang_success', convert_count, upgraded_quality, item_name})
             return true
@@ -5968,26 +5968,26 @@ local function xuyiyiquan(player, q_idx)
     if not check_tick(player, 'xuyiyiquan') then
         return false
     end
-    
+
     local rpg_t = rpgtable.get('rpg_t')
     local player_index = player.index
-    
+
     local strength = rpg_t[player_index].strength or 0
     if strength <= 0 then return false end
-    
+
     local player_position = player.physical_position
     local surface = player.physical_surface
     local search_radius = 15
-    
+
     local candidates = EntityCache.find_entities_cached(surface, {
         position = player_position,
         radius = search_radius,
         force = 'enemy',
         type = {'unit', 'spider-unit'}
     })
-    
+
     if #candidates == 0 then return false end
-    
+
     local player_direction = player.character.direction
     local dir_vectors = {
         [defines.direction.north]     = {x = 0, y = -1},
@@ -5999,23 +5999,23 @@ local function xuyiyiquan(player, q_idx)
         [defines.direction.west]      = {x = -1, y = 0},
         [defines.direction.northwest] = {x = -0.707, y = -0.707}
     }
-    
+
     local facing_vector = dir_vectors[player_direction] or {x = 0, y = -1}
     local angle_threshold = math.cos(math.rad(80))
-    
+
     local enemies = {}
-    
+
     for _, target in pairs(candidates) do
         if target.valid then
             local dx = target.position.x - player_position.x
             local dy = target.position.y - player_position.y
             local distance = math.sqrt(dx^2 + dy^2)
-            
+
             if distance > 0 then
                 local nx = dx / distance
                 local ny = dy / distance
                 local dot_product = facing_vector.x * nx + facing_vector.y * ny
-                
+
                 if dot_product >= angle_threshold then
                     table.insert(enemies, target)
                 end
@@ -6024,15 +6024,15 @@ local function xuyiyiquan(player, q_idx)
             end
         end
     end
-    
+
     if #enemies == 0 then return false end
-    
+
     local damage = strength * 0.4 * COEFF_REG[q_idx]
-    
+
     for _, enemy in pairs(enemies) do
         if enemy.valid and enemy.health > 0 then
-            
-            
+
+
             -- 创建攻击特效
             surface.create_entity({
                 name = 'vulcanus-cliff-collapse',
@@ -6042,9 +6042,9 @@ local function xuyiyiquan(player, q_idx)
             deal_damage_with_floating_text(enemy, player, damage, 'physical')
         end
     end
-    
+
     new_print(player, { 'tianfu.xuyiyiquan_over', #enemies, math.floor(damage) })
-    
+
     return true
 end
 
@@ -6539,23 +6539,23 @@ Public.xuyiyiquan = xuyiyiquan
 -- 工业城市天赋：每分钟吸收周围污染转化为金币
 local function gycs(player, q_idx)
     if check_tick(player, 'gycs') then
-    
+
             local rpg_t = rpgtable.get('rpg_t')
-        
+
             -- 获取玩家坦克位置和表面
             local position = player.physical_position
             local surface = player.physical_surface
-            
+
             -- 获取玩家敏捷属性
             local dexterity = rpg_t[player.index].dexterity
-            
+
             -- 基础污染吸收范围（半径20格）
             local pollution_radius = 20
-            
+
             -- 计算区域内的总污染量
             local total_pollution = 0
             local pollution_chunks = {}
-            
+
             -- 扫描污染区域内的区块
             for x = -pollution_radius, pollution_radius, 16 do
                 for y = -pollution_radius, pollution_radius, 16 do
@@ -6573,22 +6573,22 @@ local function gycs(player, q_idx)
                     end
                 end
             end
-            
+
             if total_pollution <= 0 then
                 return true
             end
-            
+
             -- 每1点敏捷多吸收10点污染
-            local bonus_absorption = dexterity 
+            local bonus_absorption = dexterity
             local max_absorption = math.min(total_pollution, 1000 + bonus_absorption)
-            
+
             -- 清除吸收的污染
             local absorbed_pollution = 0
             for _, chunk in ipairs(pollution_chunks) do
                 if absorbed_pollution >= max_absorption then
                     break
                 end
-                
+
                 local chunk_absorption = math.min(chunk.pollution, max_absorption - absorbed_pollution)
                 surface.pollute({
                     x = chunk.position.x * 32 + 16,
@@ -6596,20 +6596,20 @@ local function gycs(player, q_idx)
                 }, -chunk_absorption)
                 absorbed_pollution = absorbed_pollution + chunk_absorption
             end
-            
+
             -- 每12点污染转化为1金币
-            
-           
+
+
                 local coin_count = math.floor(dexterity*0.4*COEFF_REG[q_idx or 1])
                 if coin_count >= 1500 then
                     coin_count = 1500
                 end
                 insert_item_to_player(player, 'coin', coin_count)
-                
+
                 -- 显示效果信息
                 new_print(player, { 'tianfu.gycs_over',  coin_count })
-            
-        
+
+
     end
     return true
 end
@@ -6620,13 +6620,13 @@ Public.gycs = gycs
 local function is_highest_attribute(player, attribute_name, q_idx)
     local rpg_t = rpgtable.get('rpg_t')
     local current_value = rpg_t[player.index][attribute_name]
-    
+
     -- 获取所有4个属性值
     local vitality = rpg_t[player.index].vitality
-    local magicka = rpg_t[player.index].magicka  
+    local magicka = rpg_t[player.index].magicka
     local strength = rpg_t[player.index].strength
     local dexterity = rpg_t[player.index].dexterity
-    
+
     -- 检查当前属性是否 >= 其他所有属性
     if attribute_name == 'vitality' then
         return current_value >= magicka and current_value >= strength and current_value >= dexterity
@@ -6637,7 +6637,7 @@ local function is_highest_attribute(player, attribute_name, q_idx)
     elseif attribute_name == 'dexterity' then
         return current_value >= vitality and current_value >= magicka and current_value >= strength
     end
-    
+
     return false
 end
 
@@ -6645,38 +6645,38 @@ end
 local function dcrg(player, q_idx)
     if check_tick(player, 'dcrg') then
         local rpg_t = rpgtable.get('rpg_t')
-        
+
         -- 检查敏捷是否大于1200且为4个属性中最高
         local dexterity = rpg_t[player.index].dexterity or 0
         if dexterity < 1200 or not is_highest_attribute(player, 'dexterity') then
             return true
         end
-        
+
         -- 检查玩家是否有角色和装甲
         if not player.character or not player.character.valid then
             return true
         end
-        
+
         local armor_inventory = player.get_inventory(defines.inventory.character_armor)
         if not armor_inventory or not armor_inventory.valid then
             return true
         end
-        
+
         local armor = armor_inventory[1]
         if not armor or not armor.valid_for_read then
             return true
         end
-        
+
         local grid = armor.grid
         if not grid or not grid.valid then
             return true
         end
-        
+
         -- 查找装甲中的电池设备
         local battery_equipment = {}
         local total_battery_energy = 0
         local total_battery_max_energy = 0
-        
+
         for _, equipment in pairs(grid.equipment) do
             if equipment.valid and equipment.type == "battery-equipment" then
                 table.insert(battery_equipment, equipment)
@@ -6684,16 +6684,16 @@ local function dcrg(player, q_idx)
                 total_battery_max_energy = total_battery_max_energy + equipment.max_energy
             end
         end
-        
+
         -- 如果没有电池设备，返回
         if #battery_equipment == 0 or total_battery_max_energy == 0 then
             return true
         end
-        
+
         -- 查找附近的敌对虫子（最多24只）
         local surface = player.physical_surface
         local position = player.physical_position
-        
+
         local enemies = EntityCache.find_entities_cached(surface, {
             position = position,
             radius = 20,  -- 20格范围
@@ -6701,49 +6701,49 @@ local function dcrg(player, q_idx)
             type = goal,
             limit = 24
         })
-        
+
         if #enemies == 0 then
             return true
         end
-        
+
         -- 最大计提电量：50千焦 * 24 = 1200千焦
         local max_extractable_energy = 50000 * 24  -- 1200千焦
-        
+
         -- 检查电池电量是否达到最大计提要求
         if total_battery_energy < max_extractable_energy then
             return true  -- 电量不足，不触发伤害
         end
-        
+
         -- 计算电量到伤害的转换率：50千焦电力 = 20点激光伤害
         local energy_to_damage_ratio = 2500 / 1  -- 每1点伤害需要2500电量
-        
+
         -- 按最大计提电量计算总伤害额
         local total_damage_possible = math.floor(max_extractable_energy / energy_to_damage_ratio * COEFF_REG[q_idx or 1])
-        
+
         -- 从电池中提取最大计提电量
         local remaining_extract = max_extractable_energy
         for _, battery in ipairs(battery_equipment) do
             if remaining_extract <= 0 then
                 break
             end
-            
+
             local available_energy = battery.energy
             local extract_from_this = math.min(available_energy, remaining_extract)
             battery.energy = battery.energy - extract_from_this
             remaining_extract = remaining_extract - extract_from_this
         end
-        
+
         -- 计算平均分配给每个敌人的伤害（基于最大计提电量）
         local enemy_count = #enemies
         local damage_per_enemy = math.floor(total_damage_possible / enemy_count)
-        
+
         -- 检查是否有激光伤害加成
         local laser_damage_bonus = game.forces.player.get_ammo_damage_modifier("laser")+1
         local attack_speed_bonus = game.forces.player.get_gun_speed_modifier('laser') + 1
 
         -- 计算最终伤害
         local final_damage_per_enemy = damage_per_enemy * laser_damage_bonus * attack_speed_bonus
-        
+
         -- 对每个敌人造成平均分配的激光伤害
         for _, enemy in ipairs(enemies) do
             if enemy.valid then
@@ -6755,15 +6755,15 @@ local function dcrg(player, q_idx)
                     source = position,
                     duration = 10
                 })
-                
+
                 -- 造成平均分配的激光伤害
                 deal_damage_with_floating_text(enemy, player, final_damage_per_enemy, 'laser')
             end
         end
-        
+
         -- 显示效果信息
         new_print(player, { 'tianfu.dcrg_over', enemy_count, final_damage_per_enemy })
-        
+
         return true
     end
 end
@@ -6781,7 +6781,7 @@ local function gongchengche(player, q_idx)
         if not car or not car.valid then
             return true
         end
-        
+
         -- 物品序列
         local item_sequence = {
             'boiler', 'steam-engine', 'electric-mining-drill', 'steel-furnace',
@@ -6789,29 +6789,29 @@ local function gongchengche(player, q_idx)
             'oil-refinery', 'chemical-plant', 'storage-chest', 'roboport',
             'construction-robot', 'logistic-robot', 'requester-chest', 'passive-provider-chest'
         }
-        
-        
+
+
         if not this.gongchengche_index[player.index] then
             this.gongchengche_index[player.index] = 1
         end
-        
+
         -- 记录每个物品已给予的数量
         if not this.gongchengche_count[player.index] then
             this.gongchengche_count[player.index] = {}
         end
-        
+
         local current_index = this.gongchengche_index[player.index]
         local current_item = item_sequence[current_index]
-        
+
         -- 获取当前物品已给予的数量
         local given_count = this.gongchengche_count[player.index][current_item] or 0
-        
+
         -- 检查当前物品是否已给予6个
         if given_count < 5 then
-            -- 给予当前物品 
+            -- 给予当前物品
             car.insert({name = current_item, count = 1, quality = QUALITY_NAMES[q_idx or 1]})
            new_print(player, { 'tianfu.gongchengche_over', current_item })
-            
+
             -- 更新已给予的数量
             this.gongchengche_count[player.index][current_item] = given_count + 1
         else
@@ -6822,7 +6822,7 @@ local function gongchengche(player, q_idx)
                 next_index = 1  -- 重置序列
             end
             this.gongchengche_index[player.index] = next_index
-            
+
             -- 给予新的当前物品
             local new_item = item_sequence[next_index]
             car.insert({name = new_item, count = 1, quality = QUALITY_NAMES[q_idx or 1]})
@@ -6848,37 +6848,37 @@ local function yelianche(player, q_idx)
         if not rpg_t or not rpg_t[player.index] then
             return true
         end
-        
+
         local agility = rpg_t[player.index].dexterity or 0
         local amount = math.floor(agility * 0.5 * COEFF_REG[q_idx or 1])  -- 敏捷的50%
         amount = math.min(amount, 500)  -- 最大500
-        
+
         if amount <= 0 then
             return true
         end
-        
+
         -- 查找附近的矿物
         local position = car.position
         local surface = car.surface
-        
+
         -- 定义矿物与对应冶炼成品的映射
         local resource_to_product = {
             ['iron-ore'] = 'iron-plate',
             ['copper-ore'] = 'copper-plate',
             ['stone'] = 'stone-brick'
         }
-        
+
         -- 查找附近的矿物（范围设为20格）
         local nearby_resources = surface.find_entities_filtered({
             position = position,
             radius = 5,
             type = 'resource'
         })
-        
+
         if #nearby_resources == 0 then
             return true
         end
-        
+
         -- 收集所有可用的产品
         local available_products = {}
         for _, entity in pairs(nearby_resources) do
@@ -6886,24 +6886,24 @@ local function yelianche(player, q_idx)
                 table.insert(available_products, resource_to_product[entity.name])
                 -- 3. 可选：如果你希望它是真正的“挖掘”，需要扣除地上的矿资源
                 -- if entity.amount > 0 then entity.amount = entity.amount - 1 end
-               
+
             end
         end
-        
+
         -- 如果没有可用的产品
         if #available_products == 0 then
             return true
         end
-        
+
         -- 从可用产品中随机选择一个
         local product_name = available_products[math.random(#available_products)]
-        
+
         -- 检查车背包内是否已有超过3.6k的对应冶炼成品
         local current_count = car.get_item_count(product_name)
         if current_count >= 2000 then
             return true
         end
-        
+
         -- 给予冶炼成品
         car.insert({name = product_name, count = amount})
         new_print(player, { 'tianfu.yelianche_over', amount, product_name })
@@ -6916,19 +6916,19 @@ Public.yelianche = yelianche
 -- 未来战士天赋：每90秒获得1个特斯拉子弹，如果没有装备特斯拉枪则改为获得特斯拉枪
 local function weilai(player, q_idx)
     -- 检查冷却时间
-   
+
     if not check_tick(player, 'weilai') then
         return false
     end
 
     -- 物品的标准名称（请确保你玩的是2.0 Space Age，或者是添加了该物品的MOD）
     -- 绝大多数情况下是带连字符的
-    local gun_name = 'teslagun'   
+    local gun_name = 'teslagun'
     local ammo_name = 'tesla-ammo'
 
     -- 获取玩家的【武器栏】而不是【主背包】
     local inventory = player.get_inventory(defines.inventory.character_guns)
-    
+
     -- 安全检查：如果玩家处于上帝模式或无实体状态，可能没有背包
     if not inventory then
         return true
@@ -6944,7 +6944,7 @@ local function weilai(player, q_idx)
             break -- 找到了就停止循环
         end
     end
-    
+
     -- 根据是否装备特斯拉枪给予不同物品
     if has_tesla_gun then
         -- 已装备特斯拉枪，给予1个特斯拉子弹
@@ -6954,13 +6954,13 @@ local function weilai(player, q_idx)
         -- 未装备特斯拉枪，给予特斯拉枪
         -- 尝试插入枪支
         local inserted = insert_item_to_player(player, gun_name, 1, QUALITY_NAMES[q_idx or 1])
-        
+
         -- 调试信息：如果依然没给到，可能是名字还是不对，或者背包满了
-     
+
             new_print(player, { 'tianfu.weilai_gun' })
-     
+
     end
-    
+
     return true
 end
 
@@ -6974,39 +6974,39 @@ local function jidiche(player, q_idx)
     end
     local this = WPT.get()
     local car = get_player_car_entity(player)
-  
+
     -- 初始化玩家的劳动力积累池 (建议放在 global 表里，这里用临时变量演示逻辑)
     -- 实际代码中，请用 global.build_buffer[player.index] 来存储，否则每次函数结束就清零了
     -- 这里假设你已经有了 global 表结构
 
     this.build_buffer[player.index] = this.build_buffer[player.index] or 0
-    
+
     -- 1. 获取属性
     local rpg_t = rpgtable.get('rpg_t')
     local agility = rpg_t[player.index].dexterity or 0
-    
+
     -- 2. 计算本回合增加的劳动力（时间单位：秒）
     -- 假设：每100点敏捷，每秒提供 1秒 的制作能力。
     -- 假设函数每 60 tick (1秒) 运行一次，或者你需要根据 check_tick 的间隔来算
     -- 这里的公式： (敏捷 * 系数)
     local time_income = (agility * 0.1) * 4 * COEFF_REG[q_idx or 1]
-    
+
     -- 累加到池子
     this.build_buffer[player.index] = this.build_buffer[player.index] + time_income
-    
+
     -- 设置最大积累上限，防止挂机一晚上瞬间秒建全图
     local max_buffer = 50000 -- 最多积累600秒的工作量
     if this.build_buffer[player.index] > max_buffer then
         this.build_buffer[player.index] = max_buffer
     end
   if not car or not car.valid then
-    
+
         return
     end
     local buffer = this.build_buffer[player.index]
 
     local surface = car.surface
-    
+
     -- 3. 寻找附近的幽灵
     local ghost_count = surface.count_entities_filtered({
         position = car.position,
@@ -7035,7 +7035,7 @@ local function jidiche(player, q_idx)
             -- 获取该幽灵对应的物品原型
             local items = ghost.ghost_prototype.items_to_place_this
             local item_name = nil
-            
+
             if items and items[1] then
                 item_name = items[1].name
             else
@@ -7047,25 +7047,25 @@ local function jidiche(player, q_idx)
             local is_valid = validate_ghost(ghost, item_name)
             -- 计算这个建筑的总制作时间
             if  is_valid then
-             
-            
+
+
             local cost_time = get_total_crafting_time(item_name)
 
             -- 如果计算结果为0（异常），给一个最小低保值 1秒
             if cost_time <= 0 then cost_time = 1 end
-   
+
             -- 检查预算是否足够
             if buffer >= cost_time then
                 -- 尝试复活
                 local success, _ = ghost.revive({raise_revive = true})
-                
+
                 if success then
                     -- 扣除预算
                     buffer = buffer - cost_time
                     built_count = built_count + 1
                     -- 建造成功提示
                     new_print(player, { 'tianfu.jidiche_build', item_name })
-                    
+
                 end
                 end
             end
@@ -7086,28 +7086,28 @@ local function jifengbu(player, q_idx)
         end
         local rpg_t = rpgtable.get('rpg_t')
         local index = player.index
-        
+
         -- 获取玩家法力值
         local magicka = rpg_t[index].mana or 0
-       
+
         -- 计算移速加成：基础10% + 每100点法力值10%，最大50%
         local speed_bonus = 0.1 * COEFF_LOW[q_idx or 1]  -- 基础10%
         local mana_bonus = math.floor(magicka / 100) * 0.1 * COEFF_LOW[q_idx or 1]  -- 每100点法力值10%
         mana_bonus = math.min(mana_bonus, 0.9)  -- 限制法力值加成最大为40%
-        
+
         local total_bonus = speed_bonus + mana_bonus
         total_bonus = math.min(total_bonus, 1)  -- 总加成不超过50%
-        
+
         -- 应用移速加成
         P.update_single_modifier(player, 'character_running_speed_modifier', 'jifengbu', total_bonus)
         P.update_player_modifiers(player)
-        
+
         -- 设置定时器取消效果
         Task.set_timeout_in_ticks(60 * 10, jifengbu_timeout, player)
-        
+
         -- 发送提示消息
         new_print(player, { 'tianfu.jifengbu_over', math.floor(total_bonus * 100)})
-        
+
         return true
     end
     return false
@@ -7168,9 +7168,9 @@ local function beibaozhengli(player, q_idx)
 
     local tank = get_player_car_entity(player)
 
-    
+
     if not tank or not tank.valid then return false end
-    
+
     if player.physical_surface ~= tank.surface then return false end
 
     local main_inv = player.get_inventory(defines.inventory.character_main)
@@ -7244,17 +7244,17 @@ local function beibaozhengli(player, q_idx)
 
         local target_count = proto.stack_size * 2
         local current_owned = (player_total[name] and player_total[name][quality]) or 0
-        
+
         -- 这里的逻辑：只要坦克有，或者玩家有，都会进入这个逻辑
         if current_owned > target_count and inv_free_ratio < 0.1 then
             -- 情况 A: 玩家拿多了，往车里放
             local to_move = current_owned - target_count
             -- 注意：只能从背包拿，不能动鼠标上的。所以要看背包里实际有多少
             local in_inv = 0
-            for _, v in pairs(p_contents) do 
-                if v.name == name and (v.quality or "normal") == quality then 
-                    in_inv = v.count; break 
-                end 
+            for _, v in pairs(p_contents) do
+                if v.name == name and (v.quality or "normal") == quality then
+                    in_inv = v.count; break
+                end
             end
             to_move = math.min(to_move, in_inv)
 
@@ -7273,10 +7273,10 @@ local function beibaozhengli(player, q_idx)
             local needed = target_count - current_owned
             -- 检查车里有多少
             local in_tank = 0
-            for _, v in pairs(t_contents) do 
-                if v.name == name and (v.quality or "normal") == quality then 
-                    in_tank = v.count; break 
-                end 
+            for _, v in pairs(t_contents) do
+                if v.name == name and (v.quality or "normal") == quality then
+                    in_tank = v.count; break
+                end
             end
 
             local to_take = math.min(needed, in_tank)
@@ -7324,18 +7324,18 @@ local function fumo(player, q_idx)
     local position = player.physical_position
     local this = TPT.get()
     local rpg_t = rpgtable.get('rpg_t')
-    
+
     -- 获取玩家当前法力值
     local current_mana = rpg_t[player.index].magicka or 0
-    
+
     -- 计算最大附魔虫子数量：基础1只 + 每300法力增加1只
     local base_bug_count = math.floor(current_mana / 300) + 1
     local max_bug_count = math.floor(current_mana / 300) + 1
-    
+
     -- 获取玩家当前已有的附魔虫子数量
     local player_biters = this.fumo_biters[player.index] or {}
     local current_bug_count = 0
-    
+
     -- 统计有效的附魔虫子数量
     for i = #player_biters, 1, -1 do
         local biter = player_biters[i]
@@ -7345,12 +7345,12 @@ local function fumo(player, q_idx)
             current_bug_count = current_bug_count + 1
         end
     end
-    
+
     -- 如果已经达到最大数量，不召唤新虫子
     if current_bug_count >= max_bug_count then
         return true
     end
-    
+
     -- 查找周围的友方虫子（中立或玩家阵营的）
     local allied_entities = surface.find_entities_filtered({
         position = position,
@@ -7358,7 +7358,7 @@ local function fumo(player, q_idx)
         force = {'player'},  -- 查找中立或玩家阵营的实体
         type = {'unit', 'spider-unit'}  -- 只查找单位（虫子和蜘蛛）
     })
-    
+
     -- 过滤出可以转生的虫子（排除已经驯服的）
     local available_bugs = {}
     for _, entity in pairs(allied_entities) do
@@ -7371,25 +7371,25 @@ local function fumo(player, q_idx)
                     break
                 end
             end
-            
+
             if not is_already_enchanted then
                 table.insert(available_bugs, entity)
             end
         end
     end
-    
+
     -- 如果没有可用的虫子，尝试创建一只
     if #available_bugs == 0 then
         return true
     end
-    
+
     -- 如果找到可用的虫子，转生它
     if #available_bugs > 0 then
         local target_bug = available_bugs[math.random(1, #available_bugs)]
-        
+
         -- 杀死并转生虫子
         if target_bug.valid then
-         
+
             local bug_name = target_bug.name
             local position = target_bug.position
             -- 重新创建虫子作为附魔虫子
@@ -7400,10 +7400,10 @@ local function fumo(player, q_idx)
                 force = 'player',  -- 设为玩家阵营
                 quality = QUALITY_NAMES[q_idx or 1]
             })
-            
+
             if enchanted_bug then
                 -- 使用BiterPets系统驯服虫子
-                
+
                 BiterPets.biter_pets_tame_unit(player, enchanted_bug)
                 rendering.draw_text {
         text = '已附魔',
@@ -7429,16 +7429,16 @@ local function fumo(player, q_idx)
                     this.fumo_biters[player.index] = {}
                 end
                 table.insert(this.fumo_biters[player.index], enchanted_bug)
-                
+
                 -- 建立unit_number到玩家的映射
                 if enchanted_bug.valid and enchanted_bug.unit_number then
                     this.fumo_biter_to_player[enchanted_bug.unit_number] = player.index
                 end
-               
+
                 -- 显示激活消息
                 local message = {'tianfu.fumo_over', 1}
                 new_print(player, message)
-                
+
                 -- 添加视觉效果
                 tame_unit_effects(player, enchanted_bug)
                 Task.set_timeout_in_ticks(60 * 60 * 2, kill_forces, {enchanted_bug})
@@ -7446,7 +7446,7 @@ local function fumo(player, q_idx)
             end
         end
     end
-    
+
     return false
 end
 
@@ -7503,7 +7503,7 @@ local function xunshoushi(player, q_idx)
             end
         end
     end
-     
+
     return true
 end
 
@@ -7577,29 +7577,29 @@ local function chaoshikongshangdian(player, q_idx)
 
     -- 从 basic_markets.lua 获取可购买的物品列表（稀有度大于5）
     local market_items = BasicMarkets.get_random_item(12, false, false, 5)
-    
+
     if not market_items or #market_items == 0 then
         return false
     end
-    
+
     -- 随机打乱物品列表
     table.shuffle_table(market_items)
 
     -- 保存24个物品
     local shop_items = {}
     local max_items = math.min(24, #market_items)
-    
+
     for i = 1, max_items do
         local market_item = market_items[i]
         local item_name = market_item.offer.item
-        
+
         -- 获取物品的原价（从市场列表中获取）
         local original_price = market_item.price[1].count
-        
+
         -- 折扣随品质递增（传说仅0.4折）
         local discount_rate = ({0.2, 0.16, 0.12, 0.08, 0.04})[q_idx or 1]
         local discount_price = math.floor(original_price * discount_rate)
-        
+
         -- 确保价格至少为1
         if discount_price < 1 then
             discount_price = 1
@@ -7635,7 +7635,7 @@ Public.insert_item_to_player = insert_item_to_player
 
 local function qiche_ren(player, q_idx)
     if not check_tick(player, 'qiche_ren') then return false end
-    
+
     return true
 end
 
