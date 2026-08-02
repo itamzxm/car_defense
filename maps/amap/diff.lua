@@ -450,7 +450,7 @@ function Public.get_world_bonus_value(world_id, world_data)
         if interval and interval > 0 then
             steps = math.floor(math.max(0, (world_data.max_wave or 0) - start_wave) / interval)
         end
-        bonus_value = bonus_type.base_value + bonus_type.growth_value * steps
+        bonus_value = (bonus_type.base_value or 0) + bonus_type.growth_value * steps
         if bonus_type.max_value then
             bonus_value = math.min(bonus_value, bonus_type.max_value)
         end

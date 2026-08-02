@@ -17,7 +17,7 @@ require 'maps.amap.world.worlds.world_11_jixianchengshi'
 require 'maps.amap.world.worlds.world_12_beishuiyizhan'
 require 'maps.amap.world.worlds.world_13_train_escape'
 require 'maps.amap.world.worlds.world_14_grass_invasion'
--- require 'maps.amap.world.worlds.world_15_tower_defense'  -- 已禁用（PR #1 撤回后待修复）
+require 'maps.amap.world.worlds.world_15_tower_defense'  -- 重新启用（PR #4 合入：事件声明式分发/科技解锁修复/通关奖励等）
 require 'maps.amap.world.worlds.world_16_pingfanzhiri'
 require 'maps.amap.world.worlds.world_17_grid_war'
 -- 以下独立世界机制文件（粉丝新增，原未接线=孤儿文件）：直接挂在 world/ 下（非 worlds/ 子目录），
