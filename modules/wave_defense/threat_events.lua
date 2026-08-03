@@ -89,7 +89,7 @@ local function punish_lightning(char, nk, coeff)
   local surface = char.surface
   local center = char.position
   local K = 1 + math.floor((nk - 25) / 25)
-  local strike_damage = 500 * coeff
+  local strike_damage = 150 * coeff
   local radius = 4 -- 单道劈击命中半径（可调）
   for i = 1, K do
     local angle = math_random() * 2 * math.pi

@@ -866,6 +866,7 @@ local ban_player = {
     ['MoonFairy-a'] = true,
     ['2351472480'] = true,
     ['fang-fang'] = true,
+    ['JiaoLH'] = true,
 
 }
 

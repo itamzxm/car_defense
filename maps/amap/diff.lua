@@ -177,113 +177,9 @@ function Public.reset_table()
   map.max_world=15
   map.world_number=15
 
-  map.record_number=2
   map.record={}
   map.color={}
   map.text={}
-  map.record[1]={}
-
-  map.cunkuang={}
-  map.record[1].name="aceshotter"
-  map.record[1].pass_number=366
-  map.record[1].wave_number=367
-
-  map.record[2]={}
-  map.record[2].name="noneofone"
-  map.record[2].pass_number=1217
-  map.record[2].wave_number=3000
-  --
-
-  map.record[3]={}
-  map.record[3].name="shawnk"
-  map.record[3].pass_number=1400
-  map.record[3].wave_number=3000
-
-  map.record[4]={}
-  map.record[4].name="Wheneverlethe"
-  map.record[4].pass_number=786
-  map.record[4].wave_number=786
-
-  map.record[5]={}
-  map.record[5].name="xiaoyaoda"
-  map.record[5].pass_number=635
-  map.record[5].wave_number=635
-
-
-
-  map.record[6]={}
-  map.record[6].name="itam"
-
-  map.record[7]={}
-  map.record[7].name="liuhu66"
-
-  map.record[8]={}
-  map.record[8].name="mstsc"
-
-  map.record[9]={}
-  map.record[9].name="HY-1989"
-
-  map.record[10]={}
-  map.record[10].name="Prosics"
-
-  map.record[11]={}
-  map.record[11].name="wux2000"
-
-  map.record[12]={}
-  map.record[12].name="jiyang2017"
-
-  map.record[13]={}
-  map.record[13].name="Winnie_Bin"
-
-  map.record[14]={}
-  map.record[14].name="wows"
-  
-
-  map.record[15]={}
-  map.record[15].name="stdioha"
-
-  map.record[16]={}
-  map.record[16].name="18833654531"
-
-map.record[17]={}
-  map.record[17].name="s695922378"
-
-map.record[18]={}
-  map.record[18].name="youjing"
-
-  map.record[19]={}
-  map.record[19].name="tianyuyu"
- 
-  map.record[20]={}
-  map.record[20].name="LymBAOBEI"
-  
- map.record[21]={}
-  map.record[21].name="daoting"
-
-
-   map.record[22]={}
-  map.record[22].name="2351472480"
-
-  map.record[23]={}
-  map.record[23].name="stevenand123"
-
-  map.record[24]={}
-  map.record[24].name="yys666888"
-
-  map.record[25]={}
-  map.record[25].name="goldlzh"
-
-  map.record[26]={}
-  map.record[26].name="jiaoziai"
-
-  map.record[27]={}
-  map.record[27].name="kissblades"
-
-  map.record[28]={}
-  map.record[28].name="SlouchyQuill507"
-
-  map.record[29]={}
-  map.record[29].name="smqdyxgc"
   
   map.record['mstsc']='赞助玩家'
   map.record['Wheneverlethe']='单通困难'
@@ -314,6 +210,7 @@ map.record[18]={}
   map.record['kissblades']='雷火建'
   map.record['SlouchyQuill507']='电量满满'
   map.record['smqdyxgc']='我gaygay的'
+  map.record['1havedone']='绝不可能'
   
 
   map.png={}
@@ -333,6 +230,7 @@ map.record[18]={}
   map.png['jiaoziai']=true
   map.png['kissblades']=true
   map.png['SlouchyQuill507']=true
+  map.png['1havedone']=true
    
   map.map_record={}
   map.edge_reached={}  -- 各世界「飞船抵达星系边缘」记录（集齐全部世界才发终极奖励）
@@ -848,14 +746,12 @@ end
 
 local function on_player_joined_game(event)
   local player = game.players[event.player_index]
-  for k,v in pairs(map.record) do
-    if  player.name==v.name then
-      map.color[#map.color+1]=player
-      text=player.name .. ' ' .. map.record[player.name] .. ' 加入了游戏，你可以输入/itam，多选择1个天赋'
-      eng_text='super player ' .. player.name .. " join the game"
-      game.print(rainbow_text(text))
-      game.print(rainbow_text(eng_text))
-    end
+  if map.record[player.name] then
+    map.color[#map.color+1]=player
+    text=player.name .. ' ' .. map.record[player.name] .. ' 加入了游戏，你可以输入/itam，多选择1个天赋'
+    eng_text='super player ' .. player.name .. " join the game"
+    game.print(rainbow_text(text))
+    game.print(rainbow_text(eng_text))
   end
   changer_color()
  
