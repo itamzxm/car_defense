@@ -357,6 +357,24 @@ Gui.on_click(
 --   2. gui.screen：删除含"清理尸体"按钮（sprite = entity/behemoth-biter）的旧 bottom_frame 框
 -- 清理后由新代码按 get_button_flow 重新创建，不会残留旧结构。
 -- 注意：不能在 on_load 执行（该阶段 game 全局不可用），必须在玩家加入时执行。
+-- 白名单保护：副本（instance）框架的退出按钮/计时器/金币等直接挂 gui.top 的元素
+-- （dungeon_ 前缀）必须保留，否则副本内玩家掉线重连会被误删、困在副本出不来。
+-- 维护：新增的非 get_button_flow 顶栏元素（直接挂 gui.top 的）需在此注册白名单。
+local function is_protected_top_element(name)
+    if not name then
+        return true
+    end
+    -- 副本框架通用 GUI（退出按钮/计时器/金币）+ 各副本玩法 GUI（dungeon_ 前缀）
+    if name:sub(1, 8) == 'dungeon_' then
+        return true
+    end
+    -- coin_mine 副本的回收价格按钮（不带 dungeon_ 前缀）
+    if name == 'recycling_prices_button' then
+        return true
+    end
+    return false
+end
+
 local function cleanup_legacy_top_gui(player)
     local keep = {
         ['mod_gui_top_frame'] = true,
@@ -369,7 +387,7 @@ local function cleanup_legacy_top_gui(player)
     local top = player.gui.top
     if top then
         for _, child in pairs(top.children) do
-            if not keep[child.name] then
+            if not keep[child.name] and not is_protected_top_element(child.name) then
                 Gui.remove_data_recursively(child)
                 child.destroy()
             end
