@@ -13,6 +13,8 @@ local skill_replace_frame_name = Public.skill_replace_frame_name
 local rename_frame_name = Public.rename_frame_name
 local card_button_prefix = Public.card_button_prefix
 
+Gui.allow_player_to_toggle_top_element_visibility(draw_main_button_name)
+
 local floor = math.floor
 
 -- ============================================================

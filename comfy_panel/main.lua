@@ -19,6 +19,8 @@ local main_gui_tabs = {}
 local Public = {}
 local screen_elements = {}
 
+Gui.allow_player_to_toggle_top_element_visibility('comfy_panel_top_button')
+
 --- This adds the given gui to the main gui.
 ---@param tbl
 function Public.add_tab_to_gui(tbl)

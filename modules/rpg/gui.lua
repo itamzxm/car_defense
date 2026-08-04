@@ -31,6 +31,8 @@ local spell_info_button_name = Public.spell_info_button_name
 local spell_info_frame_name = Public.spell_info_frame_name
 local transfer_button_name = Public.transfer_button_name
 
+Gui.allow_player_to_toggle_top_element_visibility(draw_main_frame_name)
+
 local sub = string.sub
 local round = math.round
 local floor = math.floor

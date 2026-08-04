@@ -75,6 +75,10 @@ local CONST = {
     UPDATE_INTERVAL_GUI = 600      -- GUI更新频率（tick）
 }
 
+Gui.allow_player_to_toggle_top_element_visibility(CONST.MAIN_BUTTON)
+Gui.allow_player_to_toggle_top_element_visibility(CONST.BTN_TIANFU)
+Gui.allow_player_to_toggle_top_element_visibility(CONST.MAIN_FRAME)
+
 --[[
     辅助函数区
     工具函数，用于简化主逻辑代码

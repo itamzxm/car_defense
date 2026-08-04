@@ -4,6 +4,8 @@ local Global = require 'utils.global'
 local SpamProtection = require 'utils.spam_protection'
 local Gui = require 'utils.gui'
 
+Gui.allow_player_to_toggle_top_element_visibility('difficulty_gui')
+
 local max = math.max
 local round = math.round
 
