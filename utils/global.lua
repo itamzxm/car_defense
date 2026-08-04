@@ -8,6 +8,8 @@ local concat = table.concat
 local token_filepaths = {}
 
 -- 记录每个 token 期望的数据 keys（从注册时的 tbl 提取）
+-- 注意：仅记录"注册时非空"的 tbl。注册时空表（local this = {}）的模块
+-- 无签名可比对，on_load 时直接信任编号，避免空签名匹配到存档中的空表造成错配
 local token_expected_keys = {}
 
 -- 辅助函数：安全获取 Global.names（存档持久化）
@@ -47,7 +49,8 @@ end
 local function find_correct_data(token)
     local expected_keys = token_expected_keys[token]
     if not expected_keys then
-        return nil
+        -- 注册时空表：无签名可比对，信任编号
+        return Token.get_global(token)
     end
 
     local stored = Token.get_global(token)
@@ -72,10 +75,16 @@ local function find_correct_data(token)
     for _, data in pairs(storage.tokens) do
         if type(data) == 'table' then
             local data_keys = get_keys(data)
+            -- 跳过空表：空表（如从不写入的 bad_name_players）不参与签名匹配，
+            -- 避免"空签名"与"空表"互相匹配导致模块 this 指向错误数据
+            if #data_keys == 0 then
+                goto continue
+            end
             local sig = concat(data_keys, ',')
             if sig == expected_sig then
                 return data
             end
+            ::continue::
         end
     end
 
@@ -128,7 +137,9 @@ function Global.register(tbl, callback)
     token_filepaths[token] = filepath
 
     -- 记录 token 期望的数据 keys（用于 on_load 错位检测）
-    if type(tbl) == 'table' then
+    -- 仅记录非空表：注册时空表的模块（local this = {}）无签名可比对，
+    -- on_load 时直接信任编号（find_correct_data 中 expected_keys == nil 分支）
+    if type(tbl) == 'table' and next(tbl) then
         token_expected_keys[token] = get_keys(tbl)
     end
 
@@ -180,7 +191,7 @@ function Global.register_init(tbl, init_handler, callback)
 
     token_filepaths[token] = filepath
 
-    if type(tbl) == 'table' then
+    if type(tbl) == 'table' and next(tbl) then
         token_expected_keys[token] = get_keys(tbl)
     end
 
