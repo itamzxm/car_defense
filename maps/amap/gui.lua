@@ -225,30 +225,24 @@ end
 
 -- 创建顶部按钮
 local function create_button(player)
-    local top = player.gui.top
-    
-    if not top[CONST.MAIN_BUTTON] then
-        local button = top.add({
-            type = 'sprite-button',
-            name = CONST.MAIN_BUTTON,
-            sprite = 'utility/map',
-            tooltip = {'amap.show_map_info'}
-        })
-        button.style.minimal_height = 38
-        button.style.maximal_height = 38
-    end
+    local button = Gui.add_top_element(player, {
+        type = 'sprite-button',
+        name = CONST.MAIN_BUTTON,
+        sprite = 'utility/map',
+        tooltip = {'amap.show_map_info'}
+    })
+    button.style.minimal_height = 38
+    button.style.maximal_height = 38
 
-    if not top[CONST.BTN_TIANFU] then
-        local talent_button = top.add({
-            type = 'sprite-button',
-            name = CONST.BTN_TIANFU,
-            caption = {'amap.talent'}
-        })
-        talent_button.style.minimal_height = 38
-        talent_button.style.maximal_height = 38
-        talent_button.style.minimal_width = 100
-        talent_button.style.font_color = CONST.COLORS.GREY
-    end
+    local talent_button = Gui.add_top_element(player, {
+        type = 'sprite-button',
+        name = CONST.BTN_TIANFU,
+        caption = {'amap.talent'}
+    })
+    talent_button.style.minimal_height = 38
+    talent_button.style.maximal_height = 38
+    talent_button.style.minimal_width = 100
+    talent_button.style.font_color = CONST.COLORS.GREY
 end
 
 -- 创建统计项（带分隔线）
@@ -272,7 +266,7 @@ end
 
 -- 创建主信息面板
 local function create_main_frame(player)
-    local frame = player.gui.top.add({
+    local frame = Gui.add_top_element(player, {
         type = 'frame', 
         name = CONST.MAIN_FRAME
     })
@@ -306,12 +300,12 @@ end
 
 -- 更新天赋按钮状态
 local function update_tianfu_button(player)
-    if not player.gui.top[CONST.BTN_TIANFU] then
+    if not Gui.get_button_flow(player)[CONST.BTN_TIANFU] then
         create_button(player)
     end
     
     local this = WPT.get()
-    local button = player.gui.top[CONST.BTN_TIANFU]
+    local button = Gui.get_button_flow(player)[CONST.BTN_TIANFU]
     local can_choose = this.skill_canchoise and (this.skill_canchoise[player.name] or 0) > 0
     
     if can_choose then
@@ -1665,7 +1659,7 @@ local function update_gui(player)
         return 
     end
     
-    local frame = player.gui.top[CONST.MAIN_FRAME]
+    local frame = Gui.get_button_flow(player)[CONST.MAIN_FRAME]
     if not (frame and frame.visible) then 
         return 
     end
@@ -1788,7 +1782,7 @@ local function on_gui_click(event)
             return 
         end
         
-        local top = player.gui.top
+        local top = Gui.get_button_flow(player)
         if top[CONST.MAIN_FRAME] then
             local info = top[CONST.MAIN_FRAME]
             if info.visible then
