@@ -1,8 +1,18 @@
+-- control.lua
+-- 场景入口
+--
+-- 原则：
+--   1. 本文件是唯一可含事件 filters 的文件
+--   2. 可开关模块通过 config.lua 决定是否加载（替代注释开关）
+--   3. 核心基础设施（utils/chatbot/commands）始终启用
+
+-- 生命周期与调试开关
 require 'utils.data_stages'
 _LIFECYCLE = _STAGE.control -- Control stage
 _DEBUG = false
 _DUMP_ENV = false
 
+-- 核心基础设施：事件系统、闭包持久化、全局持久化、服务器通信、通用工具
 require 'utils.event_core'
 require 'utils.token'
 require 'utils.global'
@@ -11,6 +21,8 @@ require 'utils.server_commands'
 require 'utils.utils'
 require 'utils.table'
 require 'utils.freeplay'
+
+-- 数据存储：UPS监控、玩家颜色、在线会话、监禁、快捷栏、入服消息、玩家标签
 require 'utils.datastore.server_ups'
 require 'utils.datastore.color_data'
 require 'utils.datastore.session_data'
@@ -18,229 +30,86 @@ require 'utils.datastore.jail_data'
 require 'utils.datastore.quickbar_data'
 require 'utils.datastore.message_on_join_data'
 require 'utils.datastore.player_tag_data'
+
+-- 调试工具：性能分析器（/profile）、调试基础设施、调试面板（/debug，仅admin）
 require 'utils.profiler'
 require 'utils.debug'
 require 'utils.event'
-require 'chatbot'
-require 'commands'
-
-require 'modules.floaty_chat'
-require 'modules.show_inventory'
 require 'utils.debug.command'
 
-require 'comfy_panel.main'
-require 'comfy_panel.player_list'
-require 'comfy_panel.admin'
-require 'comfy_panel.group'
-require 'comfy_panel.poll'
-require 'comfy_panel.score'
-require 'comfy_panel.config'
+-- 聊天机器人：/trust /untrust 命令、关键词自动回复、admin 命令广播
+require 'chatbot'
+-- 玩家命令聚合：commands.misc + commands.where
+require 'commands'
 
-require 'modules.autostash'
+-- config.lua 加载
+local config = require 'config'
 
----------------- !ENABLE MODULES HERE ----------------
---require 'modules.admins_operate_biters'
---require 'modules.the_floor_is_lava'
---require 'modules.biters_landfill_on_death'
---require 'modules.autodecon_when_depleted'
---require 'modules.biter_noms_you'
---require 'modules.biters_avoid_damage'
---require 'modules.biters_double_damage'
---require 'modules.burden'
---require 'modules.comfylatron'
---require 'modules.dangerous_goods'
---require 'modules.explosive_biters'
---require 'modules.explosive_player_respawn'
---require 'modules.explosives_are_explosive'
---require 'modules.fish_respawner'
---require 'modules.fluids_are_explosive'
---require 'modules.hunger'
---require 'modules.hunger_games'
---require 'modules.pistol_buffs'
---require 'modules.players_trample_paths'
---require 'modules.railgun_enhancer'
---require 'modules.restrictive_fluid_mining'
---require 'modules.satellite_score'
---require 'modules.show_health'
---require 'modules.splice_double'
---require 'modules.ores_are_mixed'
---require 'modules.team_teleport'
---require 'modules.surrounded_by_worms'
---require 'modules.no_blueprint_library'
---require 'modules.explosives'
---require 'modules.biter_pets'
---require 'modules.no_solar'
---require 'modules.biter_reanimator'
---require 'modules.force_health_booster'
---require 'modules.immersive_cargo_wagons.main'
---require 'modules.wave_defense.main'
---require 'modules.fjei.main'
---require 'modules.charging_station'
---require 'modules.nuclear_landmines'
---require 'modules.crawl_into_pipes'
---require 'modules.no_acid_puddles'
---require 'modules.simple_tags'
----------------------------------------------------------------
+-- =============================================================================
+-- 功能模块（modules/）
+-- =============================================================================
+if config.modules.floaty_chat.enabled then
+    require 'modules.floaty_chat'
+end
+if config.modules.show_inventory.enabled then
+    require 'modules.show_inventory'
+end
 
----------------- ENABLE MAPS HERE ----------------
---!Make sure only one map is enabled at a time.
---!Remove the "--" in front of the line to enable.
---!All lines with the "require" keyword are different maps.
+-- =============================================================================
+-- 面板（comfy_panel/）
+-- =============================================================================
+if config.panel.main.enabled then
+    require 'comfy_panel.main'
+end
+if config.panel.player_list.enabled then
+    require 'comfy_panel.player_list'
+end
+if config.panel.admin.enabled then
+    require 'comfy_panel.admin'
+end
+if config.panel.group.enabled then
+    require 'comfy_panel.group'
+end
+if config.panel.poll.enabled then
+    require 'comfy_panel.poll'
+end
+if config.panel.score.enabled then
+    require 'comfy_panel.score'
+end
+if config.panel.config.enabled then
+    require 'comfy_panel.config'
+end
 
---![[North VS South Survival PVP, feed the opposing team's biters with science flasks. Disable Autostash, Group and Poll modules.]]--
---require 'maps.biter_battles_v2.main'
---require 'maps.biter_battles.biter_battles'
+if config.modules.autostash.enabled then
+    require 'modules.autostash'
+end
 
---![[A map that imitating MF, defending rocket silos instead of trains]]--
- require 'maps.amap.main'
- require 'maps.amap.tank'
+-- =============================================================================
+-- 地图系统（maps/）——同一时间只启用一个地图
+-- =============================================================================
+if config.map.amap_main.enabled then
+    require 'maps.amap.main'
+end
+if config.map.amap_tank.enabled then
+    require 'maps.amap.tank'
+end
 
+-- =============================================================================
 -- 顶栏按钮顺序（必须在各按钮模块之后加载）
-require 'utils.top_button_order'
+-- =============================================================================
+if config.gui.top_button_order.enabled then
+    require 'utils.top_button_order'
+end
 
-
---![[Guide a Train through rough terrain, while defending it from the biters]]--
--- require 'maps.mountain_fortress_v3.main'
---require 'maps.mountain_fortress_v2.main'
---require 'maps.mountain_fortress'
-
---![[Defend the market against waves of biters]]--
---require 'maps.fish_defender_v2.main'
---require 'maps.crab_defender.main'
---require 'maps.fish_defender_v1.fish_defender'
---require 'maps.fish_defender.main'
-
---![[Comfylatron has seized the Fish Train and turned it into a time machine]]--
---require 'maps.chronosphere.main'
-
---![[East VS West Survival PVP, where you breed biters with science flasks]]--
---require 'maps.biter_hatchery.main'
-
---![[Chop trees to gain resources]]--
---require 'maps.choppy'
---require 'maps.choppy_dx'
-
---![[Infinite random dungeon with RPG]]--
---require 'maps.dungeons.main'
---require 'maps.dungeons.tiered_dungeon'
-
---![[Randomly generating Islands that have to be beaten in levels to gain credits]]--
---require 'maps.island_troopers.main'
-
---![[Infinitely expanding mazes]]--
---require 'maps.stone_maze.main'
---require 'maps.labyrinth'
-
---![[Extreme survival mode with thirst and limited building room]]--
---require 'maps.desert_oasis'
-
---![[The trees are your enemy here]]--
---require 'maps.overgrowth'
-
---![[Wave Defense Map split in 4 Quarters]]--
---require 'maps.quarters'
-
---![[Flee from the collapsing map with portable base inside train]]--
---require 'maps.railway_troopers_v2.main'
-
---![[Another simliar version without collapsing terrain]]--
---require 'maps.railway_troopers.main'
-
---![[You fell in a dark cave, will you survive?]]--
---require 'maps.cave_miner'
---require 'maps.cave_choppy.cave_miner'
---require 'maps.cave_miner_v2.main'
-
---![[Hungry boxes eat your items, but reward you with new territory to build.]]--
---require 'maps.expanse.main'
-
---![[Crashlanding on Junk Planet]]--
---require 'maps.junkyard'
---require 'maps.territorial_control'
---require 'maps.junkyard_pvp.main'
-
---![[A green maze]]--
---require 'maps.hedge_maze'
-
---![[Dangerous forest with unique map revealing]]--
---require 'maps.spooky_forest'
-
---![[Defeat the biters and unlock new areas]]--
---require 'maps.spiral_troopers'
-
---![[Railworld style terrains]]--
---require 'maps.mixed_railworld'
---require 'maps.scrap_railworld'
-
---![[It's tetris!]]--
---require 'maps.tetris.main'
-
---![[4 Team Lane Surival]]--
---require 'maps.wave_of_death.WoD'
-
---![[PVP Battles with Tanks]]--
---require 'maps.tank_conquest.tank_conquest'
---require 'maps.tank_battles'
-
---![[Terrain with lots of Rocks]]--
---require 'maps.rocky_waste'
-
---![[Landfill is reveals the map, set resources to high when rolling the map]]--
---require 'maps.lost'
-
---![[A terrain layout with many rivers]]--
---require 'maps.rivers'
-
---![[Islands Theme]]--
---require 'maps.atoll'
-
---![[Placed buildings can hardly be removed]]--
---require 'maps.refactor-io'
-
---![[Prebuilt buildings on the map that can not be removed, you will hate this map]]--
---require 'maps.spaghettorio'
-
---![[Misc / WIP]]--
---require 'maps.rainbow_road'
---require 'maps.deep_jungle'
---require 'maps.cratewood_forest'
---require 'maps.maze_challenge'
---require 'maps.lost_desert'
---require 'maps.stoneblock'
---require 'maps.wave_defense'
---require 'maps.crossing'
---require 'maps.anarchy'
---require 'maps.planet_prison'
---require 'maps.blue_beach'
---require 'maps.nightfall'
---require 'maps.pitch_black.main'
---require 'maps.cube'
---require 'maps.mountain_race.main'
---require 'maps.native_war.main'
---require 'maps.scrap_towny_ffa.main'
----------------------------------------------------------------
-
----------------- MORE MODULES HERE ----------------
---require 'modules.hidden_dimension.main'
---require 'modules.towny.main'
-require 'modules.rpg.main'
-require 'modules.pet_system.main'
---require 'modules.rpg'
---require 'modules.trees_grow'
---require 'modules.trees_randomly_die'
----------------------------------------------------------------
-
----------------- MOSTLY TERRAIN LAYOUTS HERE ----------------
---require 'terrain_layouts.winter'
---require 'terrain_layouts.caves'
---require 'terrain_layouts.cone_to_east'
---require 'terrain_layouts.biters_and_resources_east'
---require 'terrain_layouts.scrap_01'
---require 'terrain_layouts.scrap_02'
---require 'terrain_layouts.watery_world'
---require 'terrain_layouts.tree_01'
---require 'terrain_layouts.scrap_towny_ffa'
----------------------------------------------------------------
+-- =============================================================================
+-- 更多模块（依赖上述模块，需在其后加载）
+-- =============================================================================
+if config.modules.rpg.enabled then
+    require 'modules.rpg.main'
+end
+if config.modules.pet_system.enabled then
+    require 'modules.pet_system.main'
+end
 
 if _DUMP_ENV then
     require 'utils.dump_env'
