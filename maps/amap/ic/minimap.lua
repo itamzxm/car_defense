@@ -1,11 +1,14 @@
-﻿local Public = {}
+local Public = {}
 
 local ICT = require 'maps.amap.ic.table'
 local Functions = require 'maps.amap.ic.functions'
 local Gui = require 'maps.amap.ic.gui'
+local GuiUtils = require 'utils.gui'
+
+GuiUtils.allow_player_to_toggle_top_element_visibility('minimap_button')
 
 local function get_top_frame_custom(player, name)
-    return player.gui.top[name]
+    return GuiUtils.get_button_flow(player)[name]
 end
 
 local function validate_player(player)
@@ -28,23 +31,22 @@ local function validate_player(player)
 end
 
 local function get_top_frame(player)
-    return player.gui.top['minimap_button']
+    return GuiUtils.get_button_flow(player)['minimap_button']
 end
 
 local function create_button(player)
-    local button = 
-        player.gui.top['minimap_button'] or
-        player.gui.top.add(
+    local button =
+        GuiUtils.get_button_flow(player)['minimap_button'] or
+        GuiUtils.add_top_element(
+            player,
             {
                 type = 'sprite-button',
                 name = 'minimap_button',
                 sprite = 'utility/map',
-                tooltip = 'Open or close minimap.',
-                style = Gui.button_style
+                tooltip = 'Open or close minimap.'
             }
         )
-    button.style.minimal_height = 38
-    button.style.maximal_height = 38
+    -- 尺寸由 quick_bar_page_button 统一样式控制（40x40 正方形），不再单独设置
     return button
 end
 
@@ -145,8 +147,8 @@ local function draw_minimap(player, surface, position)
                 name = 'ic_auto_switch',
                 switch_state = player_data.state,
                 allow_none_state = false,
-                left_label_caption = {'gui.map_on'},
-                right_label_caption = {'gui.map_off'}
+                left_label_caption = {'ic.map_on'},
+                right_label_caption = {'ic.map_off'}
             }
         )
     end

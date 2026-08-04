@@ -31,34 +31,37 @@ local spell_info_button_name = Public.spell_info_button_name
 local spell_info_frame_name = Public.spell_info_frame_name
 local transfer_button_name = Public.transfer_button_name
 
+Gui.allow_player_to_toggle_top_element_visibility(draw_main_frame_name)
+-- RPG 按钮游戏中高频使用，折叠时始终可见
+Gui.register_always_visible_top_element(draw_main_frame_name)
+
 local sub = string.sub
 local round = math.round
 local floor = math.floor
 
 function Public.draw_gui_char_button(player)
-    if player.gui.top[draw_main_frame_name] then
+    if Gui.get_button_flow(player)[draw_main_frame_name] then
         return
     end
-    local b = player.gui.top.add({type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
-    b.style.font_color = {165, 165, 165}
-    -- 尝试设置字体，如果字体不存在则忽略错误
-    pcall(function() b.style.font = 'heading-3' end)
-    b.style.minimal_height = 38
-    b.style.maximal_height = 38
-    b.style.minimal_width = 50
-    b.style.padding = 0
-    b.style.margin = 0
+    local b = Gui.add_top_element(player, {type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
+    -- 默认字体色（深灰，浅灰按钮底上清晰）；有未分配技能点时 update_char_button 变红提示
+    b.style.font_color = {28, 29, 28}
+    -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
+    b.style.left_padding = 4
+    b.style.right_padding = 4
 end
 
 function Public.update_char_button(player)
     local rpg_t = Public.get_value_from_player(player.index)
-    if not player.gui.top[draw_main_frame_name] then
+    if not Gui.get_button_flow(player)[draw_main_frame_name] then
         Public.draw_gui_char_button(player)
     end
     if rpg_t.points_left > 0 then
-        player.gui.top[draw_main_frame_name].style.font_color = {245, 0, 0}
+        -- 有未分配技能点：红色提示（保持）
+        Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {245, 0, 0}
     else
-        player.gui.top[draw_main_frame_name].style.font_color = {175, 175, 175}
+        -- 默认字体色（深灰）
+        Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {28, 29, 28}
     end
 end
 

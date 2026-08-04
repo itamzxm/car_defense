@@ -2,6 +2,9 @@ local Event = require 'utils.event'
 local Server = require 'utils.server'
 local Global = require 'utils.global'
 local SpamProtection = require 'utils.spam_protection'
+local Gui = require 'utils.gui'
+
+Gui.allow_player_to_toggle_top_element_visibility('difficulty_gui')
 
 local max = math.max
 local round = math.round
@@ -64,28 +67,31 @@ Global.register(
     end
 )
 
+-- 难度按钮隐藏开关（模块级常量，不进 Global：避免改变 Global 注册签名导致旧存档错配）
+-- 难度系统耦合场景数值设计，模块绝不能移除，只是顶栏太挤暂不显示按钮。
+-- 哪天要恢复显示，把这里改成 false 即可。
+local HIDE_DIFFICULTY_BUTTON = true
+
 function Public.difficulty_gui()
+    if HIDE_DIFFICULTY_BUTTON then
+        return
+    end
     local tooltip = 'Current difficulty of the map is ' .. this.difficulties[this.difficulty_vote_index].name .. '.'
 
     for _, player in pairs(game.connected_players) do
-        if player.gui.top['difficulty_gui'] then
-            player.gui.top['difficulty_gui'].caption = this.difficulties[this.difficulty_vote_index].name
-            player.gui.top['difficulty_gui'].tooltip = this.button_tooltip or tooltip
-            player.gui.top['difficulty_gui'].style.font_color = this.difficulties[this.difficulty_vote_index].print_color
-        else
-            local b =
-                player.gui.top.add {
-                type = 'button',
-                caption = this.difficulties[this.difficulty_vote_index].name,
-                tooltip = tooltip,
-                name = 'difficulty_gui'
-            }
-            b.style.font = 'heading-2'
-            b.style.font_color = this.difficulties[this.difficulty_vote_index].print_color
-            b.style.minimal_height = 37
-            b.style.maximal_height = 37
-            b.style.minimal_width = this.gui_width
-        end
+        local b = Gui.add_top_element(player, {
+            type = 'button',
+            caption = this.difficulties[this.difficulty_vote_index].name,
+            tooltip = tooltip,
+            name = 'difficulty_gui'
+        })
+        b.style.font = 'heading-2'
+        b.style.font_color = this.difficulties[this.difficulty_vote_index].print_color
+        -- 宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
+        b.style.left_padding = 4
+        b.style.right_padding = 4
+
+        b.tooltip = this.button_tooltip or tooltip
     end
 end
 
@@ -172,8 +178,7 @@ local function poll_difficulty(player)
         }
     )
     b.style.font_color = {r = 0.66, g = 0.0, b = 0.66}
-    -- 尝试设置字体，如果字体不存在则忽略错误
-    pcall(function() b.style.font = 'heading-3' end)
+    b.style.font = 'default-semibold'
     b.style.minimal_width = 96
 end
 

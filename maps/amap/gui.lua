@@ -26,7 +26,6 @@ local CONST = {
     SPELL_FRAME = 'tianfu_gui_frame',
     TALENT_FRAME_CONTAINER = 'tianfu_frame_table',
     BTN_TIANFU = 'tianfu',
-    
     -- 标签页相关
     TABBED_PANE = 'tianfu_tabbed_pane',
     TAB_OCCUPATION_COOLDOWN = 'tab_occupation_cooldown',
@@ -74,6 +73,15 @@ local CONST = {
     UPDATE_INTERVAL_COOLING = 60,  -- 冷却更新频率（tick）
     UPDATE_INTERVAL_GUI = 600      -- GUI更新频率（tick）
 }
+
+-- 导出顶栏按钮名（供 utils/top_button_order.lua 排序使用）
+Public.main_button_name = CONST.MAIN_BUTTON
+
+Gui.allow_player_to_toggle_top_element_visibility(CONST.MAIN_BUTTON)
+Gui.allow_player_to_toggle_top_element_visibility(CONST.BTN_TIANFU)
+Gui.allow_player_to_toggle_top_element_visibility(CONST.MAIN_FRAME)
+-- 天赋按钮游戏中高频使用，折叠时始终可见
+Gui.register_always_visible_top_element(CONST.BTN_TIANFU)
 
 --[[
     辅助函数区
@@ -225,30 +233,23 @@ end
 
 -- 创建顶部按钮
 local function create_button(player)
-    local top = player.gui.top
-    
-    if not top[CONST.MAIN_BUTTON] then
-        local button = top.add({
-            type = 'sprite-button',
-            name = CONST.MAIN_BUTTON,
-            sprite = 'utility/map',
-            tooltip = {'amap.show_map_info'}
-        })
-        button.style.minimal_height = 38
-        button.style.maximal_height = 38
-    end
+    local button = Gui.add_top_element(player, {
+        type = 'sprite-button',
+        name = CONST.MAIN_BUTTON,
+        sprite = 'utility/map',
+        tooltip = {'amap.show_map_info'}
+    })
 
-    if not top[CONST.BTN_TIANFU] then
-        local talent_button = top.add({
-            type = 'sprite-button',
-            name = CONST.BTN_TIANFU,
-            caption = {'amap.talent'}
-        })
-        talent_button.style.minimal_height = 38
-        talent_button.style.maximal_height = 38
-        talent_button.style.minimal_width = 100
-        talent_button.style.font_color = CONST.COLORS.GREY
-    end
+    local talent_button = Gui.add_top_element(player, {
+        type = 'sprite-button',
+        name = CONST.BTN_TIANFU,
+        caption = {'amap.talent'}
+    })
+    -- 默认字体色（深灰，浅灰按钮底上清晰），可学天赋时变绿（update_tianfu_button）
+    talent_button.style.font_color = {28, 29, 28}
+    -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
+    talent_button.style.left_padding = 4
+    talent_button.style.right_padding = 4
 end
 
 -- 创建统计项（带分隔线）
@@ -272,13 +273,14 @@ end
 
 -- 创建主信息面板
 local function create_main_frame(player)
-    local frame = player.gui.top.add({
+    local frame = Gui.add_top_element(player, {
         type = 'frame', 
         name = CONST.MAIN_FRAME
     })
     frame.location = {x = 1, y = 40}
-    frame.style.minimal_height = 37
-    frame.style.maximal_height = 37
+    -- 高度 40，与顶栏按钮（mod_gui_button 40 高）对齐
+    frame.style.minimal_height = 40
+    frame.style.maximal_height = 40
 
     local label = frame.add({
         type = 'label', 
@@ -306,12 +308,12 @@ end
 
 -- 更新天赋按钮状态
 local function update_tianfu_button(player)
-    if not player.gui.top[CONST.BTN_TIANFU] then
+    if not Gui.get_button_flow(player)[CONST.BTN_TIANFU] then
         create_button(player)
     end
     
     local this = WPT.get()
-    local button = player.gui.top[CONST.BTN_TIANFU]
+    local button = Gui.get_button_flow(player)[CONST.BTN_TIANFU]
     local can_choose = this.skill_canchoise and (this.skill_canchoise[player.name] or 0) > 0
     
     if can_choose then
@@ -319,7 +321,8 @@ local function update_tianfu_button(player)
         player.print({'amap.new_tianfu'}, {r = 255, b = 0, g = 255})
         clear_tianfu_cache(player)
     else
-        button.style.font_color = CONST.COLORS.GREY
+        -- 默认字体色（深灰）
+        button.style.font_color = {28, 29, 28}
     end
 end
 
@@ -1665,7 +1668,7 @@ local function update_gui(player)
         return 
     end
     
-    local frame = player.gui.top[CONST.MAIN_FRAME]
+    local frame = Gui.get_button_flow(player)[CONST.MAIN_FRAME]
     if not (frame and frame.visible) then 
         return 
     end
@@ -1788,7 +1791,7 @@ local function on_gui_click(event)
             return 
         end
         
-        local top = player.gui.top
+        local top = Gui.get_button_flow(player)
         if top[CONST.MAIN_FRAME] then
             local info = top[CONST.MAIN_FRAME]
             if info.visible then

@@ -47,6 +47,11 @@ local main_frame_name = Gui.uid_name()
 local create_poll_button_name = Gui.uid_name()
 local notify_checkbox_name = Gui.uid_name()
 
+-- 导出顶栏按钮名（供 utils/top_button_order.lua 排序使用）
+Class.main_button_name = main_button_name
+
+Gui.allow_player_to_toggle_top_element_visibility(main_button_name)
+
 local poll_view_back_name = Gui.uid_name()
 local poll_view_forward_name = Gui.uid_name()
 local poll_view_vote_name = Gui.uid_name()
@@ -754,7 +759,7 @@ local function player_joined(event)
         return
     end
 
-    if player.gui.top[main_button_name] ~= nil then
+    if Gui.get_button_flow(player)[main_button_name] ~= nil then
         local frame = player.gui.top[main_frame_name]
         if frame and frame.valid then
             local data = Gui.get_data(frame)
@@ -762,13 +767,15 @@ local function player_joined(event)
         end
     else
         local b =
-            player.gui.top.add {
-            type = 'sprite-button',
-            name = main_button_name,
-            sprite = 'item/programmable-speaker',
-            tooltip = 'Let your question be heard!'
-        }
-        b.style.maximal_height = 38
+            Gui.add_top_element(
+            player,
+            {
+                type = 'sprite-button',
+                name = main_button_name,
+                sprite = 'item/programmable-speaker',
+                tooltip = 'Let your question be heard!'
+            }
+        )
     end
 end
 

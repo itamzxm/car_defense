@@ -1,9 +1,19 @@
 local WD = require 'modules.wave_defense.table'
 local diff=require 'maps.amap.diff'
+local Gui = require 'utils.gui'
 
+-- 波防进度条常驻顶栏（不参与折叠）：直接挂 gui.top（mod_gui_top_frame 右侧），不进 get_button_flow
 local function create_gui(player)
-    local frame = player.gui.top.add({type = 'frame', name = 'wave_defense'})
-    frame.style.maximal_height = 37
+    -- 先确保 mod_gui_top_frame 大框存在，波防条排在其右侧
+    Gui.get_button_flow(player)
+    local top = player.gui.top
+    if top.wave_defense then
+        return
+    end
+    local frame = top.add({type = 'frame', name = 'wave_defense'})
+    -- 高度 40，与顶栏按钮（mod_gui_button 40 高）对齐
+    frame.style.minimal_height = 40
+    frame.style.maximal_height = 40
 
     local label = frame.add({type = 'label', caption = ' ', name = 'label'})
     label.style.font_color = {r = 0.88, g = 0.88, b = 0.88}

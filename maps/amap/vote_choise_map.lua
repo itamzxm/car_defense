@@ -6,6 +6,8 @@ local World = require 'maps.amap.world.framework'  -- 世界框架
 local main_button_name = "poll_button"
 local main_frame_name = "poll_frame"
 
+Gui.allow_player_to_toggle_top_element_visibility(main_button_name)
+
 -- 获取表中的最大值对应的键
 local function getKeyOfMaxValue(tbl)
     local maxValue = nil
@@ -25,24 +27,27 @@ local function create_main_button(event)
     if not player or not player.valid then
         return
     end
-    if player.gui.top[main_button_name] then
+    if Gui.get_button_flow(player)[main_button_name] then
         return
     end
-    local b = player.gui.top.add {
+    local b = Gui.add_top_element(player, {
         type = 'sprite-button',
         name = main_button_name,
         caption = {'amap.next_map'}
-    }
-    b.style.minimal_height = 38
-    b.style.maximal_height = 38
-    b.style.minimal_width = 120
+    })
+    -- 宽度自适应内容：改 caption 后按钮自动撑到文字宽度（mod_gui_button 无 maximal_width 限制），
+    -- 长地图名（如"帝国竞技场"）会自动撑宽
+    -- 青绿文字（mod_gui_button 深色底上清晰），参考 archive/classic-changes 设计
     b.style.font_color = {0, 255, 255}
+    -- 左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
+    b.style.left_padding = 4
+    b.style.right_padding = 4
 end
 
 -- 更新主按钮的显示数据
 local function updata_gui(player)
     local WPT = WPT.get()
-    local button = player.gui.top[main_button_name]
+    local button = Gui.get_button_flow(player)[main_button_name]
     
     if not button or not button.valid then return end
 
@@ -52,6 +57,8 @@ local function updata_gui(player)
     if has_voted then
         -- 需求3: 如果已经投票了，就显示当前领先的地图
         -- 并且鼠标移动上去(Tooltip)，能提示下一张地图是什么
+        -- 已投票：字体色变深灰（默认青绿在选好后切换）
+        button.style.font_color = {28, 29, 28}
         if WPT.vote_map_number ~= nil then
             button.caption = {'amap.world_name_' .. WPT.vote_map_number}
             button.tooltip = {'', {'amap.next_map'}, ': ', {'amap.world_name_' .. WPT.vote_map_number}}
@@ -63,6 +70,8 @@ local function updata_gui(player)
         -- 需求2: 如果还没有投票，按钮就显示投票下一张地图 (保持默认文案)
         button.caption = {'amap.next_map'}
         button.tooltip = "点击投票 / Click to vote"
+        -- 默认字体色不变（青绿）
+        button.style.font_color = {0, 255, 255}
     end
 end
 

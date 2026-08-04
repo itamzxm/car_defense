@@ -26,14 +26,34 @@ function Token.get(token_id)
     return tokens[token_id]
 end
 
-storage.tokens = {}
+-- 独立计数器：token 分配不再依赖 storage.tokens 内容，
+-- 避免 control stage 写入 storage 违反 Factorio 2.0 生命周期规范
+local global_counter = 0
+
+-- 注册表：记录每个 global token 的初始值，供 on_init 时批量写入 storage.tokens
+local global_registry = {}
 
 function Token.register_global(var)
-    local c = #storage.tokens + 1
+    global_counter = global_counter + 1
+    local c = global_counter
 
-    storage.tokens[c] = var
+    global_registry[c] = var
 
     return c
+end
+
+--- on_init 时调用：将 global_registry 中的初始值写入 storage.tokens
+-- Factorio 2.0 官方文档要求 storage 初始化在 on_init 中完成，
+-- 不应在 control stage（模块加载期）写入 storage
+function Token.init_globals()
+    if not storage.tokens then
+        storage.tokens = {}
+    end
+    for k, v in pairs(global_registry) do
+        if storage.tokens[k] == nil then
+            storage.tokens[k] = v
+        end
+    end
 end
 
 function Token.get_global(token_id)

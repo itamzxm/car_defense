@@ -4,9 +4,12 @@
 local Global = require 'utils.global'
 local Event = require 'utils.event'
 local BottomFrame = require 'comfy_panel.bottom_frame'
+local Gui = require 'utils.gui'
 local math_floor = math.floor
 local print_color = {r = 120, g = 255, b = 0}
 local floor = math.floor
+
+Gui.allow_player_to_toggle_top_element_visibility('auto_stash')
 
 local this = {
     floating_text_y_offsets = {},
@@ -508,7 +511,7 @@ local function auto_stash(player, event)
 end
 
 local function create_gui_button(player)
-    if player.gui.top.auto_stash then
+    if Gui.get_button_flow(player).auto_stash then
         return
     end
     local tooltip
@@ -538,7 +541,8 @@ local function create_gui_button(player)
         end
     else
         local b =
-            player.gui.top.add(
+            Gui.add_top_element(
+            player,
             {
                 type = 'sprite-button',
                 sprite = 'item/wooden-chest',

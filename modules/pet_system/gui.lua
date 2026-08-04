@@ -13,6 +13,10 @@ local skill_replace_frame_name = Public.skill_replace_frame_name
 local rename_frame_name = Public.rename_frame_name
 local card_button_prefix = Public.card_button_prefix
 
+Gui.allow_player_to_toggle_top_element_visibility(draw_main_button_name)
+-- 宠物按钮游戏中高频使用，折叠时始终可见
+Gui.register_always_visible_top_element(draw_main_button_name)
+
 local floor = math.floor
 
 -- ============================================================
@@ -747,21 +751,20 @@ end
 -- ============================================================
 
 function Public.draw_top_button(player)
-    if player.gui.top[draw_main_button_name] then
+    if Gui.get_button_flow(player)[draw_main_button_name] then
         return
     end
-    local b = player.gui.top.add({
+    local b = Gui.add_top_element(player, {
         type = 'sprite-button',
         name = draw_main_button_name,
         caption = ({'pet_system.top_button'}),
         tooltip = ({'pet_system.top_button_tip'}),
     })
-    b.style.font_color = {100, 200, 255}
-    b.style.minimal_height = 38
-    b.style.maximal_height = 38
-    b.style.minimal_width = 55
-    b.style.padding = 0
-    b.style.margin = 0
+    -- 默认字体色（深灰，浅灰按钮底上清晰）
+    b.style.font_color = {28, 29, 28}
+    -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
+    b.style.left_padding = 4
+    b.style.right_padding = 4
 end
 
 -- ============================================================
