@@ -274,8 +274,9 @@ local function create_main_frame(player)
         name = CONST.MAIN_FRAME
     })
     frame.location = {x = 1, y = 40}
-    frame.style.minimal_height = 37
-    frame.style.maximal_height = 37
+    -- 高度 40，与顶栏按钮（mod_gui_button 40 高）对齐
+    frame.style.minimal_height = 40
+    frame.style.maximal_height = 40
     -- 默认折叠：玩家进游戏时地图信息条隐藏，点地图信息按钮展开
     frame.visible = false
 

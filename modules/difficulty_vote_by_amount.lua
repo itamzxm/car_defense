@@ -79,8 +79,7 @@ function Public.difficulty_gui()
         })
         b.style.font = 'heading-2'
         b.style.font_color = this.difficulties[this.difficulty_vote_index].print_color
-        -- 难度名较长，宽度保持自适应；高度由 quick_bar_page_button 统一样式控制
-        b.style.minimal_width = this.gui_width
+        -- 宽度自适应内容（mod_gui_button minimal_width=40 起步，难度名更长自动撑开）
 
         b.tooltip = this.button_tooltip or tooltip
     end
