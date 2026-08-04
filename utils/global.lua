@@ -4,7 +4,7 @@ local Token = require 'utils.token'
 local Global = {}
 local concat = table.concat
 
--- 记录每个 token 的 filepath，用于 on_load 时 token 错位检测与迁移
+-- 记录每个 token 的 filepath
 local token_filepaths = {}
 
 -- 记录每个 token 期望的数据 keys（从注册时的 tbl 提取）
@@ -41,55 +41,46 @@ local function keys_match(keys1, keys2)
     return true
 end
 
---- on_load 时执行 token 错位迁移
--- 遍历所有已注册 token，检查 storage.tokens 中的数据 keys 是否与期望一致
--- 如果不一致，在 storage.tokens 中找到匹配的数据并交换位置
-local function migrate_misaligned_tokens()
+--- on_load 时为错位 token 查找正确的数据
+-- 不修改 storage 表（Factorio 2.0 禁止 on_load 修改 storage），
+-- 而是返回一个 "token -> 正确数据" 的查找表，供各 callback 使用
+local function find_correct_data(token)
+    local expected_keys = token_expected_keys[token]
+    if not expected_keys then
+        return nil
+    end
+
+    local stored = Token.get_global(token)
+    if stored == nil then
+        return nil
+    end
+
+    -- 检查当前 token 的数据是否匹配
+    if type(stored) == 'table' then
+        local stored_keys = get_keys(stored)
+        if keys_match(expected_keys, stored_keys) then
+            return stored
+        end
+    end
+
+    -- 错位：在 storage.tokens 中搜索匹配的数据
     if not storage.tokens then
-        return
+        return nil
     end
 
-    -- 第一遍：找出所有错位的 token
-    local misaligned = {}
-    for token, expected_keys in pairs(token_expected_keys) do
-        local stored = storage.tokens[token]
-        if stored ~= nil then
-            local stored_keys = get_keys(stored)
-            if not keys_match(expected_keys, stored_keys) then
-                misaligned[#misaligned + 1] = token
+    local expected_sig = concat(expected_keys, ',')
+    for _, data in pairs(storage.tokens) do
+        if type(data) == 'table' then
+            local data_keys = get_keys(data)
+            local sig = concat(data_keys, ',')
+            if sig == expected_sig then
+                return data
             end
         end
     end
 
-    if #misaligned == 0 then
-        return
-    end
-
-    -- 第二遍：为每个错位 token 找到正确的数据
-    -- 构建 "key签名 -> token" 的映射，用于快速查找
-    local expected_sig_to_token = {}
-    for token, expected_keys in pairs(token_expected_keys) do
-        local sig = concat(expected_keys, ',')
-        expected_sig_to_token[sig] = token
-    end
-
-    -- 遍历 storage.tokens，按 key 签名找到正确的归属
-    local remap = {}
-    for stored_token, stored_data in pairs(storage.tokens) do
-        if type(stored_data) == 'table' then
-            local stored_keys = get_keys(stored_data)
-            local sig = concat(stored_keys, ',')
-            local target_token = expected_sig_to_token[sig]
-            if target_token and target_token ~= stored_token then
-                remap[target_token] = stored_data
-            end
-        end
-    end
-
-    -- 第三遍：应用重映射
-    for target_token, correct_data in pairs(remap) do
-        storage.tokens[target_token] = correct_data
-    end
+    -- 没找到匹配的，返回原始数据（让错误自然暴露）
+    return stored
 end
 
 -- 标记 on_init 是否已注册过 Token.init_globals
@@ -106,22 +97,6 @@ local function ensure_init_globals()
     Event.on_init(
         function()
             Token.init_globals()
-        end
-    )
-end
-
--- 标记 on_load 迁移是否已注册
-local migration_registered = false
-
---- 注册 on_load 迁移回调（仅注册一次）
-local function ensure_migration()
-    if migration_registered then
-        return
-    end
-    migration_registered = true
-    Event.on_load(
-        function()
-            migrate_misaligned_tokens()
         end
     )
 end
@@ -168,11 +143,12 @@ function Global.register(tbl, callback)
         end
     )
 
-    -- on_load：先注册迁移回调，再恢复数据
-    ensure_migration()
+    -- on_load：检测错位，找到正确数据传给 callback
+    -- 不修改 storage 表，避免触发 Factorio 2.0 的 CRC 校验
     Event.on_load(
         function()
-            callback(Token.get_global(token))
+            local correct_data = find_correct_data(token)
+            callback(correct_data)
         end
     )
 
@@ -220,11 +196,11 @@ function Global.register_init(tbl, init_handler, callback)
         end
     )
 
-    -- on_load：先注册迁移回调，再恢复数据
-    ensure_migration()
+    -- on_load：检测错位，找到正确数据传给 callback
     Event.on_load(
         function()
-            callback(Token.get_global(token))
+            local correct_data = find_correct_data(token)
+            callback(correct_data)
         end
     )
 
