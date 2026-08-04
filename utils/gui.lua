@@ -347,12 +347,68 @@ Gui.on_click(
     end
 )
 
+-- 旧存档 GUI 清理（玩家加入时执行）
+-- 根因：Factorio 存档会保存玩家的 GUI 状态。testsave3 这类旧存档是老代码时代创建的，
+-- 当时顶栏按钮直接挂在 gui.top 原生位置（gui.top.add），右下角也有旧版 bottom_frame 框。
+-- 新代码把按钮迁移到 get_button_flow（mod_gui 大框）后，加载旧存档会恢复旧 GUI 结构，
+-- 与新代码创建的大框按钮并存，造成"老按钮 + 大框"重复。
+-- 清理策略：
+--   1. gui.top：删除所有非 mod-gui 容器（mod_gui_top_frame / mod_gui_inner_frame / mod_gui_button_flow）的子元素
+--   2. gui.screen：删除含"清理尸体"按钮（sprite = entity/behemoth-biter）的旧 bottom_frame 框
+-- 清理后由新代码按 get_button_flow 重新创建，不会残留旧结构。
+-- 注意：不能在 on_load 执行（该阶段 game 全局不可用），必须在玩家加入时执行。
+local function cleanup_legacy_top_gui(player)
+    local keep = {
+        ['mod_gui_top_frame'] = true,
+        ['mod_gui_inner_frame'] = true,
+        ['mod_gui_button_flow'] = true,
+    }
+    if not player or not player.valid then
+        return
+    end
+    local top = player.gui.top
+    if top then
+        for _, child in pairs(top.children) do
+            if not keep[child.name] then
+                Gui.remove_data_recursively(child)
+                child.destroy()
+            end
+        end
+    end
+    local screen = player.gui.screen
+    if screen then
+        for _, child in pairs(screen.children) do
+            if child.type == 'frame' then
+                local has_corpse_button = false
+                for _, sub in pairs(child.children) do
+                    if sub.type == 'frame' then
+                        for _, btn in pairs(sub.children) do
+                            if btn.type == 'sprite-button' and btn.sprite == 'entity/behemoth-biter' then
+                                has_corpse_button = true
+                                break
+                            end
+                        end
+                    end
+                    if has_corpse_button then
+                        break
+                    end
+                end
+                if has_corpse_button then
+                    Gui.remove_data_recursively(child)
+                    child.destroy()
+                end
+            end
+        end
+    end
+end
+
 --- 玩家加入时创建 toggle 按钮
 Event.add(
     defines.events.on_player_joined_game,
     function(event)
         local player = game.get_player(event.player_index)
         if player and player.valid then
+            cleanup_legacy_top_gui(player)
             create_toggle_button(player)
         end
     end
@@ -364,6 +420,7 @@ Event.add(
     function(event)
         local player = game.get_player(event.player_index)
         if player and player.valid then
+            cleanup_legacy_top_gui(player)
             create_toggle_button(player)
         end
     end
