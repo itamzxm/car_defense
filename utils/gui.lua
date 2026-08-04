@@ -41,8 +41,6 @@ local on_pre_hidden_handlers = {}
 
 local top_elements = {}
 
-local CONST_TOGGLE_BUTTON = Gui.uid_name()
-
 function Gui.uid_name()
     return tostring(Token.uid())
 end
@@ -50,6 +48,8 @@ end
 function Gui.uid()
     return Token.uid()
 end
+
+local CONST_TOGGLE_BUTTON = Gui.uid_name()
 
 -- Associates data with the LuaGuiElement. If data is nil then removes the data
 function Gui.set_data(element, value)
