@@ -1,8 +1,9 @@
 local WD = require 'modules.wave_defense.table'
 local diff=require 'maps.amap.diff'
+local Gui = require 'utils.gui'
 
 local function create_gui(player)
-    local frame = player.gui.top.add({type = 'frame', name = 'wave_defense'})
+    local frame = Gui.add_top_element(player, {type = 'frame', name = 'wave_defense'})
     frame.style.maximal_height = 37
 
     local label = frame.add({type = 'label', caption = ' ', name = 'label'})
@@ -61,10 +62,10 @@ local function get_threat_gain()
 end
 
 local function update_gui(player)
-    if not player.gui.top.wave_defense then
+    if not Gui.get_button_flow(player).wave_defense then
         create_gui(player)
     end
-    local gui = player.gui.top.wave_defense
+    local gui = Gui.get_button_flow(player).wave_defense
     local biter_health_boost = 1
 
     local wave_number = WD.get('wave_number')
