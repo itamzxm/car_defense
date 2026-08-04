@@ -12,6 +12,10 @@ local Gui = {}
 local data = {}
 local element_map = {}
 local settings = {}
+-- 折叠状态（内存态）：fold_state[player_index] = {collapsed = bool, saved_visible = {element_name = bool}}
+-- 注意：不放进 Global.register（避免改变 gui token 的字段签名导致旧存档错配），
+-- 玩家重连后折叠状态重置为展开态，可接受
+local fold_state = {}
 
 Gui.token =
     Global.register(
@@ -311,16 +315,32 @@ local function create_toggle_button(player)
         name = CONST_TOGGLE_BUTTON,
         sprite = 'utility/preset',
         tooltip = {'amap.gui_toggle_top_buttons'},
-        style = 'quick_bar_page_button'
+        style = 'mod_gui_button'
     }
     button.style.minimal_width = 18
     button.style.maximal_width = 18
 
+    -- 恢复持久化的折叠状态（玩家重连后保持折叠/展开）
+    local state = fold_state[player.index]
+    if state and state.collapsed then
+        button.sprite = 'utility/expand_dots'
+        button.tooltip = {'amap.gui_toggle_top_buttons_expanded'}
+        for element_name, _ in pairs(top_elements) do
+            if not always_visible_top_elements[element_name] then
+                local child = flow[element_name]
+                if child and child.valid then
+                    child.visible = false
+                end
+            end
+        end
+    end
+
 end
 
 --- toggle 按钮 click handler
--- 收起时：遍历 top_elements 注册表，隐藏注册元素；触发 on_pre_hidden 回调
--- 展开时：遍历 top_elements 注册表，显示注册元素；触发 on_visible 回调
+-- 收起时：记录各元素折叠前的可见状态到 fold_state，隐藏注册元素（豁免除外）；触发 on_pre_hidden 回调
+-- 展开时：恢复 fold_state 中记录的可见状态（而不是一律显示）；触发 on_visible 回调
+-- 状态同步：地图信息条等元素折叠前隐藏的，展开后保持隐藏，需点各自按钮展开
 Gui.on_click(
     CONST_TOGGLE_BUTTON,
     function(event)
@@ -337,9 +357,17 @@ Gui.on_click(
         local flow = Gui.get_button_flow(player)
         local is_expanded = element.sprite == 'utility/preset'
 
+        if not fold_state[player.index] then
+            fold_state[player.index] = {}
+        end
+        local state = fold_state[player.index]
+
         if is_expanded then
             element.sprite = 'utility/expand_dots'
             element.tooltip = {'amap.gui_toggle_top_buttons_expanded'}
+
+            state.collapsed = true
+            state.saved_visible = state.saved_visible or {}
 
             for element_name, _ in pairs(top_elements) do
                 -- 高频按钮（RPG/宠物/天赋/波防条）折叠时始终可见
@@ -348,6 +376,8 @@ Gui.on_click(
                 end
                 local child = flow[element_name]
                 if child and child.valid then
+                    -- 记录折叠前的可见状态，展开时恢复
+                    state.saved_visible[element_name] = child.visible
                     custom_raise(on_pre_hidden_handlers, child, player)
                     child.visible = false
                 end
@@ -357,17 +387,28 @@ Gui.on_click(
             element.sprite = 'utility/preset'
             element.tooltip = {'amap.gui_toggle_top_buttons'}
 
+            state.collapsed = false
+            local saved = state.saved_visible or {}
+
             for element_name, _ in pairs(top_elements) do
                 if always_visible_top_elements[element_name] then
                     goto continue_show
                 end
                 local child = flow[element_name]
                 if child and child.valid then
-                    child.visible = true
-                    custom_raise(on_visible_handlers, child, player)
+                    -- 恢复折叠前状态；无记录（首次展开）默认显示
+                    if saved[element_name] ~= nil then
+                        child.visible = saved[element_name]
+                    else
+                        child.visible = true
+                    end
+                    if child.visible then
+                        custom_raise(on_visible_handlers, child, player)
+                    end
                 end
                 ::continue_show::
             end
+            state.saved_visible = nil
         end
     end
 )
@@ -469,6 +510,14 @@ Event.add(
     end
 )
 
+--- 玩家离开时清理折叠状态（防内存泄漏）
+Event.add(
+    defines.events.on_player_left_game,
+    function(event)
+        fold_state[event.player_index] = nil
+    end
+)
+
 if _DEBUG then
     local concat = table.concat
 
@@ -532,8 +581,9 @@ Gui.mod_button = mod_gui.get_button_flow
 --- 统一的顶栏元素创建函数（幂等 + 热重载旧实例清理 + 默认样式兜底）
 -- 热重载安全：自动清理 gui.top 上的旧实例（旧存档按钮在 gui.top 直接子元素位置）
 -- 幂等：同名元素已存在于 get_button_flow 中则直接返回
--- 默认样式：未指定 style 的 button/sprite-button 自动应用 quick_bar_page_button
---   （Factorio 内置白底正方形按钮样式，40x40，与清理尸体/整理物品按钮一致）
+-- 默认样式：未指定 style 的 button/sprite-button 自动应用 mod_gui_button
+--   （Factorio 内置样式，40x40，minimal_width=40 起步、文字按钮可自适应撑宽，无空隙；
+--    archive/classic-changes 分支同款样式）
 -- 对 frame 类型不做自动样式（与 RedMew 一致）
 function Gui.add_top_element(player, child)
     local old = player.gui.top[child.name]
@@ -549,7 +599,7 @@ function Gui.add_top_element(player, child)
     end
 
     if (child.type == 'button' or child.type == 'sprite-button') and child.style == nil then
-        child.style = 'quick_bar_page_button'
+        child.style = 'mod_gui_button'
     end
     return flow.add(child)
 end

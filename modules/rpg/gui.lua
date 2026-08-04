@@ -44,10 +44,9 @@ function Public.draw_gui_char_button(player)
         return
     end
     local b = Gui.add_top_element(player, {type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
-    -- 黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
-    b.style.font_color = {0, 0, 0}
-    -- 文字按钮 40px 内会截断（显示 r...），加宽到 60
-    b.style.minimal_width = 60
+    -- 浅灰文字（mod_gui_button 深色底上清晰），有剩余点数时变红（update_char_button）
+    b.style.font_color = {165, 165, 165}
+    -- 文字按钮宽度自适应内容（mod_gui_button minimal_width=40 起步，文字更长自动撑开）
 end
 
 function Public.update_char_button(player)
@@ -58,8 +57,8 @@ function Public.update_char_button(player)
     if rpg_t.points_left > 0 then
         Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {245, 0, 0}
     else
-        -- 常态黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
-        Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {0, 0, 0}
+        -- 常态浅灰文字（mod_gui_button 深色底上清晰）
+        Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {165, 165, 165}
     end
 end
 

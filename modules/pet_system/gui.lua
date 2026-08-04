@@ -760,10 +760,9 @@ function Public.draw_top_button(player)
         caption = ({'pet_system.top_button'}),
         tooltip = ({'pet_system.top_button_tip'}),
     })
-    -- 深蓝文字（白底上清晰），浅蓝{100,200,255}在白底看不清
-    b.style.font_color = {0, 80, 160}
-    -- 文字按钮 40px 内会截断（显示 宠...），加宽到 60
-    b.style.minimal_width = 60
+    -- 浅蓝文字（mod_gui_button 深色底上清晰）
+    b.style.font_color = {100, 200, 255}
+    -- 文字按钮宽度自适应内容（mod_gui_button minimal_width=40 起步，文字更长自动撑开）
 end
 
 -- ============================================================

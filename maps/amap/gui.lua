@@ -243,10 +243,9 @@ local function create_button(player)
         name = CONST.BTN_TIANFU,
         caption = {'amap.talent'}
     })
-    -- 黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
-    talent_button.style.font_color = CONST.COLORS.BLACK
-    -- 文字按钮 40px 内会截断（显示 天...），加宽到 60
-    talent_button.style.minimal_width = 60
+    -- 浅灰文字（mod_gui_button 深色底上清晰），可学天赋时变绿（update_tianfu_button）
+    talent_button.style.font_color = CONST.COLORS.GREY
+    -- 文字按钮宽度自适应内容（mod_gui_button minimal_width=40 起步，文字更长自动撑开）
 end
 
 -- 创建统计项（带分隔线）
@@ -317,8 +316,8 @@ local function update_tianfu_button(player)
         player.print({'amap.new_tianfu'}, {r = 255, b = 0, g = 255})
         clear_tianfu_cache(player)
     else
-        -- 常态黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
-        button.style.font_color = CONST.COLORS.BLACK
+        -- 常态浅灰文字（mod_gui_button 深色底上清晰）
+        button.style.font_color = CONST.COLORS.GREY
     end
 end
 
