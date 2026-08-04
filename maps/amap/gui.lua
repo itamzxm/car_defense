@@ -245,8 +245,8 @@ local function create_button(player)
         name = CONST.BTN_TIANFU,
         caption = {'amap.talent'}
     })
-    -- 浅灰文字（mod_gui_button 深色底上清晰），可学天赋时变绿（update_tianfu_button）
-    talent_button.style.font_color = CONST.COLORS.GREY
+    -- 默认字体色（深灰，浅灰按钮底上清晰），可学天赋时变绿（update_tianfu_button）
+    talent_button.style.font_color = {28, 29, 28}
     -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
     talent_button.style.left_padding = 4
     talent_button.style.right_padding = 4
@@ -321,8 +321,8 @@ local function update_tianfu_button(player)
         player.print({'amap.new_tianfu'}, {r = 255, b = 0, g = 255})
         clear_tianfu_cache(player)
     else
-        -- 常态浅灰文字（mod_gui_button 深色底上清晰）
-        button.style.font_color = CONST.COLORS.GREY
+        -- 默认字体色（深灰）
+        button.style.font_color = {28, 29, 28}
     end
 end
 

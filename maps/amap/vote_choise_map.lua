@@ -57,6 +57,8 @@ local function updata_gui(player)
     if has_voted then
         -- 需求3: 如果已经投票了，就显示当前领先的地图
         -- 并且鼠标移动上去(Tooltip)，能提示下一张地图是什么
+        -- 已投票：字体色变深灰（默认青绿在选好后切换）
+        button.style.font_color = {28, 29, 28}
         if WPT.vote_map_number ~= nil then
             button.caption = {'amap.world_name_' .. WPT.vote_map_number}
             button.tooltip = {'', {'amap.next_map'}, ': ', {'amap.world_name_' .. WPT.vote_map_number}}
@@ -68,6 +70,8 @@ local function updata_gui(player)
         -- 需求2: 如果还没有投票，按钮就显示投票下一张地图 (保持默认文案)
         button.caption = {'amap.next_map'}
         button.tooltip = "点击投票 / Click to vote"
+        -- 默认字体色不变（青绿）
+        button.style.font_color = {0, 255, 255}
     end
 end
 
