@@ -46,7 +46,9 @@ function Public.draw_gui_char_button(player)
     local b = Gui.add_top_element(player, {type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
     -- 浅灰文字（mod_gui_button 深色底上清晰），有剩余点数时变红（update_char_button）
     b.style.font_color = {165, 165, 165}
-    -- 文字按钮宽度自适应内容（mod_gui_button minimal_width=40 起步，文字更长自动撑开）
+    -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
+    b.style.left_padding = 4
+    b.style.right_padding = 4
 end
 
 function Public.update_char_button(player)

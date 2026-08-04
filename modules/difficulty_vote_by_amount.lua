@@ -79,7 +79,9 @@ function Public.difficulty_gui()
         })
         b.style.font = 'heading-2'
         b.style.font_color = this.difficulties[this.difficulty_vote_index].print_color
-        -- 宽度自适应内容（mod_gui_button minimal_width=40 起步，难度名更长自动撑开）
+        -- 宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
+        b.style.left_padding = 4
+        b.style.right_padding = 4
 
         b.tooltip = this.button_tooltip or tooltip
     end

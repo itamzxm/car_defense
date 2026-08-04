@@ -2,12 +2,15 @@ local WD = require 'modules.wave_defense.table'
 local diff=require 'maps.amap.diff'
 local Gui = require 'utils.gui'
 
--- 波防进度条游戏中高频查看，注册为折叠时始终可见
--- （当前未注册显隐切换，此注册确保未来加入切换列表也不会被折叠隐藏）
-Gui.register_always_visible_top_element('wave_defense')
-
+-- 波防进度条常驻顶栏（不参与折叠）：直接挂 gui.top（mod_gui_top_frame 右侧），不进 get_button_flow
 local function create_gui(player)
-    local frame = Gui.add_top_element(player, {type = 'frame', name = 'wave_defense'})
+    -- 先确保 mod_gui_top_frame 大框存在，波防条排在其右侧
+    Gui.get_button_flow(player)
+    local top = player.gui.top
+    if top.wave_defense then
+        return
+    end
+    local frame = top.add({type = 'frame', name = 'wave_defense'})
     -- 高度 40，与顶栏按钮（mod_gui_button 40 高）对齐
     frame.style.minimal_height = 40
     frame.style.maximal_height = 40
@@ -68,10 +71,10 @@ local function get_threat_gain()
 end
 
 local function update_gui(player)
-    if not Gui.get_button_flow(player).wave_defense then
+    if not player.gui.top.wave_defense then
         create_gui(player)
     end
-    local gui = Gui.get_button_flow(player).wave_defense
+    local gui = player.gui.top.wave_defense
     local biter_health_boost = 1
 
     local wave_number = WD.get('wave_number')

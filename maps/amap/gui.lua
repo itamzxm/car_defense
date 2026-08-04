@@ -245,7 +245,9 @@ local function create_button(player)
     })
     -- 浅灰文字（mod_gui_button 深色底上清晰），可学天赋时变绿（update_tianfu_button）
     talent_button.style.font_color = CONST.COLORS.GREY
-    -- 文字按钮宽度自适应内容（mod_gui_button minimal_width=40 起步，文字更长自动撑开）
+    -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
+    talent_button.style.left_padding = 4
+    talent_button.style.right_padding = 4
 end
 
 -- 创建统计项（带分隔线）
@@ -277,8 +279,6 @@ local function create_main_frame(player)
     -- 高度 40，与顶栏按钮（mod_gui_button 40 高）对齐
     frame.style.minimal_height = 40
     frame.style.maximal_height = 40
-    -- 默认折叠：玩家进游戏时地图信息条隐藏，点地图信息按钮展开
-    frame.visible = false
 
     local label = frame.add({
         type = 'label', 

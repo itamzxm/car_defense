@@ -426,6 +426,8 @@ Gui.on_click(
 -- 白名单保护：副本（instance）框架的退出按钮/计时器/金币等直接挂 gui.top 的元素
 -- （dungeon_ 前缀）必须保留，否则副本内玩家掉线重连会被误删、困在副本出不来。
 -- 维护：新增的非 get_button_flow 顶栏元素（直接挂 gui.top 的）需在此注册白名单。
+-- 注意：波防条 wave_defense 不在白名单——旧存档残留实例必须被清理删除，
+-- 由新代码在 on_tick 中重建到 mod_gui_top_frame 右侧（否则旧实例占位导致顺序错乱）。
 local function is_protected_top_element(name)
     if not name then
         return true

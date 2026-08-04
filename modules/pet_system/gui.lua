@@ -762,7 +762,9 @@ function Public.draw_top_button(player)
     })
     -- 浅蓝文字（mod_gui_button 深色底上清晰）
     b.style.font_color = {100, 200, 255}
-    -- 文字按钮宽度自适应内容（mod_gui_button minimal_width=40 起步，文字更长自动撑开）
+    -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
+    b.style.left_padding = 4
+    b.style.right_padding = 4
 end
 
 -- ============================================================
