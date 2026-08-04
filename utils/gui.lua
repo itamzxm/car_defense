@@ -39,6 +39,10 @@ local gui_value_changed_handlers = {}
 local on_visible_handlers = {}
 local on_pre_hidden_handlers = {}
 
+local top_elements = {}
+
+local CONST_TOGGLE_BUTTON = Gui.uid_name()
+
 function Gui.uid_name()
     return tostring(Token.uid())
 end
@@ -256,6 +260,114 @@ Gui.on_player_show_top = custom_handler_factory(on_visible_handlers)
 -- Guarantees that the element and the player are valid when calling the handler.
 -- Adds a player field to the event table.
 Gui.on_pre_player_hide_top = custom_handler_factory(on_pre_hidden_handlers)
+
+--- 注册顶栏元素到显隐切换列表（control stage only）
+-- 只有注册的元素才会被 toggle 按钮隐藏/显示
+-- 波次信息条等需始终可见的元素不应注册
+function Gui.allow_player_to_toggle_top_element_visibility(element_name)
+    if _LIFECYCLE == 8 then
+        error('allow_player_to_toggle_top_element_visibility can only be called during control stage', 2)
+    end
+    top_elements[element_name] = true
+end
+
+--- 获取 toggle 按钮的元素名（供外部模块引用）
+function Gui.get_toggle_button_name()
+    return CONST_TOGGLE_BUTTON
+end
+
+--- 创建顶栏显隐切换按钮
+-- 展开态 sprite: utility/preset（齿轮图标，暗示"面板/设置"）
+-- 收起态 sprite: utility/expand_dots（三点图标，暗示"展开更多"）
+local function create_toggle_button(player)
+    local flow = Gui.get_button_flow(player)
+    if flow[CONST_TOGGLE_BUTTON] and flow[CONST_TOGGLE_BUTTON].valid then
+        return
+    end
+
+    local old = player.gui.top[CONST_TOGGLE_BUTTON]
+    if old and old.valid then
+        Gui.remove_data_recursively(old)
+        old.destroy()
+    end
+
+    local button =
+        flow.add {
+        type = 'sprite-button',
+        name = CONST_TOGGLE_BUTTON,
+        sprite = 'utility/preset',
+        tooltip = {'amap.gui_toggle_top_buttons'},
+        style = 'frame_button'
+    }
+    button.move_to_front()
+end
+
+--- toggle 按钮 click handler
+-- 收起时：遍历 top_elements 注册表，隐藏注册元素；触发 on_pre_hidden 回调
+-- 展开时：遍历 top_elements 注册表，显示注册元素；触发 on_visible 回调
+Gui.on_click(
+    CONST_TOGGLE_BUTTON,
+    function(event)
+        local player = event.player
+        if not player or not player.valid then
+            return
+        end
+
+        local element = event.element
+        if not element or not element.valid then
+            return
+        end
+
+        local flow = Gui.get_button_flow(player)
+        local is_expanded = element.sprite == 'utility/preset'
+
+        if is_expanded then
+            element.sprite = 'utility/expand_dots'
+            element.tooltip = {'amap.gui_toggle_top_buttons_expanded'}
+
+            for element_name, _ in pairs(top_elements) do
+                local child = flow[element_name]
+                if child and child.valid then
+                    custom_raise(on_pre_hidden_handlers, child, player)
+                    child.visible = false
+                end
+            end
+        else
+            element.sprite = 'utility/preset'
+            element.tooltip = {'amap.gui_toggle_top_buttons'}
+
+            for element_name, _ in pairs(top_elements) do
+                local child = flow[element_name]
+                if child and child.valid then
+                    child.visible = true
+                    custom_raise(on_visible_handlers, child, player)
+                end
+            end
+        end
+    end
+)
+
+--- 玩家加入时创建 toggle 按钮
+Event.add(
+    defines.events.on_player_joined_game,
+    function(event)
+        local player = game.get_player(event.player_index)
+        if player and player.valid then
+            create_toggle_button(player)
+        end
+    end
+)
+
+--- 玩家创建时也创建 toggle 按钮（覆盖首次加入）
+Event.add(
+    defines.events.on_player_created,
+    function(event)
+        local player = game.get_player(event.player_index)
+        if player and player.valid then
+            create_toggle_button(player)
+        end
+    end
+)
 
 if _DEBUG then
     local concat = table.concat
