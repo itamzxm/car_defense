@@ -8,6 +8,8 @@ Gui.register_always_visible_top_element('wave_defense')
 
 local function create_gui(player)
     local frame = Gui.add_top_element(player, {type = 'frame', name = 'wave_defense'})
+    -- 高度与地图信息条（MAIN_FRAME）统一为 37
+    frame.style.minimal_height = 37
     frame.style.maximal_height = 37
 
     local label = frame.add({type = 'label', caption = ' ', name = 'label'})

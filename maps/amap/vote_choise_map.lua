@@ -35,8 +35,8 @@ local function create_main_button(event)
         name = main_button_name,
         caption = {'amap.next_map'}
     })
-    -- 地图名较长，宽度保持；高度由 mod_gui_button 统一样式控制
-    b.style.minimal_width = 120
+    -- 宽度自适应内容：改 caption 后按钮自动撑到文字宽度（mod_gui_button 无 maximal_width 限制），
+    -- 长地图名（如"帝国竞技场"）会自动撑宽
     -- 青绿文字（mod_gui_button 深色底上清晰），参考 archive/classic-changes 设计
     b.style.font_color = {0, 255, 255}
 end

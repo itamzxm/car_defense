@@ -276,6 +276,8 @@ local function create_main_frame(player)
     frame.location = {x = 1, y = 40}
     frame.style.minimal_height = 37
     frame.style.maximal_height = 37
+    -- 默认折叠：玩家进游戏时地图信息条隐藏，点地图信息按钮展开
+    frame.visible = false
 
     local label = frame.add({
         type = 'label', 
