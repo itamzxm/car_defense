@@ -2,6 +2,7 @@ local Event = require 'utils.event'
 local Server = require 'utils.server'
 local Global = require 'utils.global'
 local SpamProtection = require 'utils.spam_protection'
+local Gui = require 'utils.gui'
 
 local max = math.max
 local round = math.round
@@ -68,24 +69,19 @@ function Public.difficulty_gui()
     local tooltip = 'Current difficulty of the map is ' .. this.difficulties[this.difficulty_vote_index].name .. '.'
 
     for _, player in pairs(game.connected_players) do
-        if player.gui.top['difficulty_gui'] then
-            player.gui.top['difficulty_gui'].caption = this.difficulties[this.difficulty_vote_index].name
-            player.gui.top['difficulty_gui'].tooltip = this.button_tooltip or tooltip
-            player.gui.top['difficulty_gui'].style.font_color = this.difficulties[this.difficulty_vote_index].print_color
-        else
-            local b =
-                player.gui.top.add {
-                type = 'button',
-                caption = this.difficulties[this.difficulty_vote_index].name,
-                tooltip = tooltip,
-                name = 'difficulty_gui'
-            }
-            b.style.font = 'heading-2'
-            b.style.font_color = this.difficulties[this.difficulty_vote_index].print_color
-            b.style.minimal_height = 37
-            b.style.maximal_height = 37
-            b.style.minimal_width = this.gui_width
-        end
+        local b = Gui.add_top_element(player, {
+            type = 'button',
+            caption = this.difficulties[this.difficulty_vote_index].name,
+            tooltip = tooltip,
+            name = 'difficulty_gui'
+        })
+        b.style.font = 'heading-2'
+        b.style.font_color = this.difficulties[this.difficulty_vote_index].print_color
+        b.style.minimal_height = 37
+        b.style.maximal_height = 37
+        b.style.minimal_width = this.gui_width
+
+        b.tooltip = this.button_tooltip or tooltip
     end
 end
 
