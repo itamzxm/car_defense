@@ -36,13 +36,12 @@ local round = math.round
 local floor = math.floor
 
 function Public.draw_gui_char_button(player)
-    if player.gui.top[draw_main_frame_name] then
+    if Gui.get_button_flow(player)[draw_main_frame_name] then
         return
     end
-    local b = player.gui.top.add({type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
+    local b = Gui.add_top_element(player, {type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
     b.style.font_color = {165, 165, 165}
-    -- 尝试设置字体，如果字体不存在则忽略错误
-    pcall(function() b.style.font = 'heading-3' end)
+    b.style.font = 'default-semibold'
     b.style.minimal_height = 38
     b.style.maximal_height = 38
     b.style.minimal_width = 50
@@ -52,13 +51,13 @@ end
 
 function Public.update_char_button(player)
     local rpg_t = Public.get_value_from_player(player.index)
-    if not player.gui.top[draw_main_frame_name] then
+    if not Gui.get_button_flow(player)[draw_main_frame_name] then
         Public.draw_gui_char_button(player)
     end
     if rpg_t.points_left > 0 then
-        player.gui.top[draw_main_frame_name].style.font_color = {245, 0, 0}
+        Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {245, 0, 0}
     else
-        player.gui.top[draw_main_frame_name].style.font_color = {175, 175, 175}
+        Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {175, 175, 175}
     end
 end
 
