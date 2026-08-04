@@ -5,50 +5,46 @@ local Server = require 'utils.server'
 local Color = require 'utils.color_presets'
 
 local font_color = Color.warning
-local font_welcome = {r = 150, g = 100, b = 255, a = 255}
 local font = 'default-game'
 local format = string.format
 
 local brain = {
-    [1] = {'Our Discord server is at: https://getcomfy.eu/discord'},
-    [2] = {
-        'Need an admin? Join our discord at: https://getcomfy.eu/discord,',
-        'and report it in #i-need-halp',
+    [1] = {
+        'Need an admin? Ask in chat or contact a server admin.',
         'If you have played for more than 5h in our maps then,',
         'you are eligible to run the command /jail and /free'
     },
-    [3] = {'Scenario repository for download:', 'https://github.com/M3wM3w/ComfyFactorio'},
-    [4] = {
+    [2] = {},
+    [3] = {
         'If you feel like the server is lagging, run the following command:',
         '/server-ups',
         'This will display the server UPS on your top right screen.'
     },
-    [5] = {
+    [4] = {
         "If you're not trusted - ask a trusted player or an admin to trust you."
     }
 }
 
 local links = {
-    ['admin'] = brain[2],
-    ['administrator'] = brain[2],
-    ['discord'] = brain[1],
-    ['download'] = brain[3],
-    ['github'] = brain[3],
-    ['greifer'] = brain[2],
-    ['grief'] = brain[2],
-    ['griefer'] = brain[2],
-    ['griefing'] = brain[2],
-    ['mod'] = brain[2],
-    ['moderator'] = brain[2],
-    ['scenario'] = brain[3],
-    ['stealing'] = brain[2],
-    ['stole'] = brain[2],
-    ['troll'] = brain[2],
-    ['lag'] = brain[4],
-    ['lagging'] = brain[4],
-    ['trust'] = brain[5],
-    ['trusted'] = brain[5],
-    ['untrusted'] = brain[5]
+    ['admin'] = brain[1],
+    ['administrator'] = brain[1],
+    ['download'] = brain[2],
+    ['github'] = brain[2],
+    ['greifer'] = brain[1],
+    ['grief'] = brain[1],
+    ['griefer'] = brain[1],
+    ['griefing'] = brain[1],
+    ['mod'] = brain[1],
+    ['moderator'] = brain[1],
+    ['scenario'] = brain[2],
+    ['stealing'] = brain[1],
+    ['stole'] = brain[1],
+    ['troll'] = brain[1],
+    ['lag'] = brain[3],
+    ['lagging'] = brain[3],
+    ['trust'] = brain[4],
+    ['trusted'] = brain[4],
+    ['untrusted'] = brain[4]
 }
 
 
