@@ -317,4 +317,28 @@ end
 Gui.get_button_flow = mod_gui.get_button_flow
 Gui.mod_button = mod_gui.get_button_flow
 
+--- 统一的顶栏元素创建函数（幂等 + 热重载旧实例清理 + 默认样式兜底）
+-- 热重载安全：自动清理 gui.top 上的旧实例（旧存档按钮在 gui.top 直接子元素位置）
+-- 幂等：同名元素已存在于 get_button_flow 中则直接返回
+-- 默认样式：未指定 style 的 button/sprite-button 自动应用 frame_button
+-- 对 frame 类型不做自动样式（与 RedMew 一致）
+function Gui.add_top_element(player, child)
+    local old = player.gui.top[child.name]
+    if old and old.valid then
+        Gui.remove_data_recursively(old)
+        old.destroy()
+    end
+
+    local flow = Gui.get_button_flow(player)
+    local element = flow[child.name]
+    if element and element.valid then
+        return element
+    end
+
+    if (child.type == 'button' or child.type == 'sprite-button') and child.style == nil then
+        child.style = 'frame_button'
+    end
+    return flow.add(child)
+end
+
 return Gui
