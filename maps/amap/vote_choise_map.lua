@@ -6,6 +6,8 @@ local World = require 'maps.amap.world.framework'  -- 世界框架
 local main_button_name = "poll_button"
 local main_frame_name = "poll_frame"
 
+Gui.allow_player_to_toggle_top_element_visibility(main_button_name)
+
 -- 获取表中的最大值对应的键
 local function getKeyOfMaxValue(tbl)
     local maxValue = nil
@@ -25,14 +27,14 @@ local function create_main_button(event)
     if not player or not player.valid then
         return
     end
-    if player.gui.top[main_button_name] then
+    if Gui.get_button_flow(player)[main_button_name] then
         return
     end
-    local b = player.gui.top.add {
+    local b = Gui.add_top_element(player, {
         type = 'sprite-button',
         name = main_button_name,
         caption = {'amap.next_map'}
-    }
+    })
     b.style.minimal_height = 38
     b.style.maximal_height = 38
     b.style.minimal_width = 120
@@ -42,7 +44,7 @@ end
 -- 更新主按钮的显示数据
 local function updata_gui(player)
     local WPT = WPT.get()
-    local button = player.gui.top[main_button_name]
+    local button = Gui.get_button_flow(player)[main_button_name]
     
     if not button or not button.valid then return end
 
