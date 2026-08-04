@@ -299,7 +299,7 @@ local function create_toggle_button(player)
         tooltip = {'amap.gui_toggle_top_buttons'},
         style = 'frame_button'
     }
-    button.move_to_front()
+
 end
 
 --- toggle 按钮 click handler
