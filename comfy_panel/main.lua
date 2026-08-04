@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 Comfy Panel
 
 To add a tab, insert into the "main_gui_tabs" table.
@@ -13,6 +13,7 @@ local Event = require 'utils.event'
 local Server = require 'utils.server'
 local SpamProtection = require 'utils.spam_protection'
 local Token = require 'utils.token'
+local Gui = require 'utils.gui'
 
 local main_gui_tabs = {}
 local Public = {}
@@ -118,10 +119,10 @@ function Public.comfy_panel_refresh_active_tab(player)
 end
 
 local function top_button(player)
-    if player.gui.top['comfy_panel_top_button'] then
+    if Gui.get_button_flow(player)['comfy_panel_top_button'] then
         return
     end
-    local button = player.gui.top.add({type = 'sprite-button', name = 'comfy_panel_top_button', sprite = 'item/raw-fish'})
+    local button = Gui.add_top_element(player, {type = 'sprite-button', name = 'comfy_panel_top_button', sprite = 'item/raw-fish'})
     button.style.minimal_height = 38
     button.style.maximal_height = 38
     button.style.minimal_width = 40
