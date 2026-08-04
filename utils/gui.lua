@@ -279,6 +279,7 @@ end
 --- 创建顶栏显隐切换按钮
 -- 展开态 sprite: utility/preset（齿轮图标，暗示"面板/设置"）
 -- 收起态 sprite: utility/expand_dots（三点图标，暗示"展开更多"）
+-- 窄条设计：18px 宽 + 负 padding，与其他顶栏按钮区分开（参考 archive/classic-changes 的 top_bar.lua）
 local function create_toggle_button(player)
     local flow = Gui.get_button_flow(player)
     if flow[CONST_TOGGLE_BUTTON] and flow[CONST_TOGGLE_BUTTON].valid then
@@ -299,6 +300,9 @@ local function create_toggle_button(player)
         tooltip = {'amap.gui_toggle_top_buttons'},
         style = 'frame_button'
     }
+    button.style.minimal_width = 18
+    button.style.maximal_width = 18
+    button.style.padding = -2
 
 end
 
