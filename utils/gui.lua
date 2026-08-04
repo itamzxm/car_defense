@@ -314,7 +314,6 @@ local function create_toggle_button(player)
     }
     button.style.minimal_width = 18
     button.style.maximal_width = 18
-    button.style.padding = -2
 
 end
 

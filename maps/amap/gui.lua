@@ -250,7 +250,6 @@ local function create_button(player)
     -- 用左右 padding 撑出文字与按钮边缘的空隙（宽度自适应），参考 archive/classic-changes 设计
     talent_button.style.left_padding = 4
     talent_button.style.right_padding = 4
-    talent_button.style.padding = 0
     talent_button.style.margin = 0
     -- 黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
     talent_button.style.font_color = CONST.COLORS.BLACK
