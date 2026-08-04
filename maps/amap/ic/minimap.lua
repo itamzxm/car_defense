@@ -1,11 +1,14 @@
-﻿local Public = {}
+local Public = {}
 
 local ICT = require 'maps.amap.ic.table'
 local Functions = require 'maps.amap.ic.functions'
 local Gui = require 'maps.amap.ic.gui'
+local GuiUtils = require 'utils.gui'
+
+GuiUtils.allow_player_to_toggle_top_element_visibility('minimap_button')
 
 local function get_top_frame_custom(player, name)
-    return player.gui.top[name]
+    return GuiUtils.get_button_flow(player)[name]
 end
 
 local function validate_player(player)
@@ -28,13 +31,14 @@ local function validate_player(player)
 end
 
 local function get_top_frame(player)
-    return player.gui.top['minimap_button']
+    return GuiUtils.get_button_flow(player)['minimap_button']
 end
 
 local function create_button(player)
-    local button = 
-        player.gui.top['minimap_button'] or
-        player.gui.top.add(
+    local button =
+        GuiUtils.get_button_flow(player)['minimap_button'] or
+        GuiUtils.add_top_element(
+            player,
             {
                 type = 'sprite-button',
                 name = 'minimap_button',

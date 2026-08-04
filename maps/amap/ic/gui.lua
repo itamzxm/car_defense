@@ -43,6 +43,8 @@ local up_jijing = Gui.uid_name()
 local integration_button_name = Gui.uid_name()
 local integration_frame_name = Gui.uid_name()
 
+Gui.allow_player_to_toggle_top_element_visibility(integration_button_name)
+
 local raise_event = script.raise_event
 local add_toolbar
 local remove_toolbar
@@ -893,7 +895,7 @@ local function add_stop_botton(player)
         pirce_wave = 100000
     end
     if stop_function then
-        player.gui.top.add({
+        Gui.add_top_element(player, {
             type = 'sprite-button',
             sprite = 'entity/behemoth-biter',
             name = stop_wave,
@@ -923,17 +925,16 @@ end
 
 add_toolbar = function(player, remove)
     if remove then
-        if player.gui.top[integration_button_name] then
-            player.gui.top[integration_button_name].destroy()
+        if Gui.get_button_flow(player)[integration_button_name] then
+            Gui.get_button_flow(player)[integration_button_name].destroy()
             return
         end
     end
-    if player.gui.top[integration_button_name] then
+    if Gui.get_button_flow(player)[integration_button_name] then
         return
     end
     
-    -- 只添加整合功能按钮（唯一保留的按钮）
-    player.gui.top.add({
+    Gui.add_top_element(player, {
         type = 'sprite-button',
         sprite = 'item/rocket-silo',
         name = integration_button_name,
@@ -949,8 +950,8 @@ remove_toolbar = function(player)
         remove_main_frame(main_frame)
     end
 
-    if player.gui.top[integration_button_name] then
-        player.gui.top[integration_button_name].destroy()
+    if Gui.get_button_flow(player)[integration_button_name] then
+        Gui.get_button_flow(player)[integration_button_name].destroy()
         
 
          
@@ -1229,8 +1230,8 @@ Gui.on_click('integration_stop_wave', function(event)
         }
         this.last_stop_time = game.tick
         Collapse.start_now(false)
-        if player.gui.top[stop_wave] then
-            player.gui.top[stop_wave].destroy()
+        if Gui.get_button_flow(player)[stop_wave] then
+            Gui.get_button_flow(player)[stop_wave].destroy()
             add_stop_botton(player)
         end
     else
@@ -1525,8 +1526,8 @@ Gui.on_click(stop_wave, function(event)
         }
         this.last_stop_time = game.tick
         Collapse.start_now(false)
-        if player.gui.top[stop_wave] then
-            player.gui.top[stop_wave].destroy()
+        if Gui.get_button_flow(player)[stop_wave] then
+            Gui.get_button_flow(player)[stop_wave].destroy()
             add_stop_botton(player)
         end
     else
