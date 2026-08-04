@@ -252,7 +252,8 @@ local function create_button(player)
     talent_button.style.right_padding = 4
     talent_button.style.padding = 0
     talent_button.style.margin = 0
-    talent_button.style.font_color = CONST.COLORS.GREY
+    -- 黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
+    talent_button.style.font_color = CONST.COLORS.BLACK
 end
 
 -- 创建统计项（带分隔线）
@@ -323,7 +324,8 @@ local function update_tianfu_button(player)
         player.print({'amap.new_tianfu'}, {r = 255, b = 0, g = 255})
         clear_tianfu_cache(player)
     else
-        button.style.font_color = CONST.COLORS.GREY
+        -- 常态黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
+        button.style.font_color = CONST.COLORS.BLACK
     end
 end
 

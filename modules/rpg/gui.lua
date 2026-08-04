@@ -44,7 +44,8 @@ function Public.draw_gui_char_button(player)
         return
     end
     local b = Gui.add_top_element(player, {type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
-    b.style.font_color = {165, 165, 165}
+    -- 黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
+    b.style.font_color = {0, 0, 0}
     b.style.font = 'default-semibold'
     b.style.minimal_height = 38
     b.style.maximal_height = 38
@@ -63,7 +64,8 @@ function Public.update_char_button(player)
     if rpg_t.points_left > 0 then
         Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {245, 0, 0}
     else
-        Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {175, 175, 175}
+        -- 常态黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
+        Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {0, 0, 0}
     end
 end
 
