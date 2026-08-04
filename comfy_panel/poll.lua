@@ -47,6 +47,9 @@ local main_frame_name = Gui.uid_name()
 local create_poll_button_name = Gui.uid_name()
 local notify_checkbox_name = Gui.uid_name()
 
+-- 导出顶栏按钮名（供 utils/top_button_order.lua 排序使用）
+Class.main_button_name = main_button_name
+
 Gui.allow_player_to_toggle_top_element_visibility(main_button_name)
 
 local poll_view_back_name = Gui.uid_name()

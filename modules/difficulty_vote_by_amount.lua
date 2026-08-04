@@ -67,7 +67,15 @@ Global.register(
     end
 )
 
+-- 难度按钮隐藏开关（模块级常量，不进 Global：避免改变 Global 注册签名导致旧存档错配）
+-- 难度系统耦合场景数值设计，模块绝不能移除，只是顶栏太挤暂不显示按钮。
+-- 哪天要恢复显示，把这里改成 false 即可。
+local HIDE_DIFFICULTY_BUTTON = true
+
 function Public.difficulty_gui()
+    if HIDE_DIFFICULTY_BUTTON then
+        return
+    end
     local tooltip = 'Current difficulty of the map is ' .. this.difficulties[this.difficulty_vote_index].name .. '.'
 
     for _, player in pairs(game.connected_players) do

@@ -26,7 +26,6 @@ local CONST = {
     SPELL_FRAME = 'tianfu_gui_frame',
     TALENT_FRAME_CONTAINER = 'tianfu_frame_table',
     BTN_TIANFU = 'tianfu',
-    
     -- 标签页相关
     TABBED_PANE = 'tianfu_tabbed_pane',
     TAB_OCCUPATION_COOLDOWN = 'tab_occupation_cooldown',
@@ -74,6 +73,9 @@ local CONST = {
     UPDATE_INTERVAL_COOLING = 60,  -- 冷却更新频率（tick）
     UPDATE_INTERVAL_GUI = 600      -- GUI更新频率（tick）
 }
+
+-- 导出顶栏按钮名（供 utils/top_button_order.lua 排序使用）
+Public.main_button_name = CONST.MAIN_BUTTON
 
 Gui.allow_player_to_toggle_top_element_visibility(CONST.MAIN_BUTTON)
 Gui.allow_player_to_toggle_top_element_visibility(CONST.BTN_TIANFU)

@@ -95,6 +95,9 @@ require 'modules.autostash'
  require 'maps.amap.main'
  require 'maps.amap.tank'
 
+-- 顶栏按钮顺序（必须在各按钮模块之后加载）
+require 'utils.top_button_order'
+
 
 --![[Guide a Train through rough terrain, while defending it from the biters]]--
 -- require 'maps.mountain_fortress_v3.main'
