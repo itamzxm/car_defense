@@ -147,8 +147,8 @@ local function draw_minimap(player, surface, position)
                 name = 'ic_auto_switch',
                 switch_state = player_data.state,
                 allow_none_state = false,
-                left_label_caption = {'gui.map_on'},
-                right_label_caption = {'gui.map_off'}
+                left_label_caption = {'ic.map_on'},
+                right_label_caption = {'ic.map_off'}
             }
         )
     end
