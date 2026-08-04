@@ -237,22 +237,15 @@ local function create_button(player)
         sprite = 'utility/map',
         tooltip = {'amap.show_map_info'}
     })
-    button.style.minimal_height = 38
-    button.style.maximal_height = 38
 
     local talent_button = Gui.add_top_element(player, {
         type = 'sprite-button',
         name = CONST.BTN_TIANFU,
         caption = {'amap.talent'}
     })
-    talent_button.style.minimal_height = 38
-    talent_button.style.maximal_height = 38
-    -- 用左右 padding 撑出文字与按钮边缘的空隙（宽度自适应），参考 archive/classic-changes 设计
-    talent_button.style.left_padding = 4
-    talent_button.style.right_padding = 4
-    talent_button.style.margin = 0
     -- 黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
     talent_button.style.font_color = CONST.COLORS.BLACK
+    -- 尺寸由 quick_bar_page_button 统一样式控制（40x40 正方形），不再单独设置
 end
 
 -- 创建统计项（带分隔线）

@@ -761,12 +761,7 @@ function Public.draw_top_button(player)
         tooltip = ({'pet_system.top_button_tip'}),
     })
     b.style.font_color = {100, 200, 255}
-    b.style.minimal_height = 38
-    b.style.maximal_height = 38
-    -- 用左右 padding 撑出文字与按钮边缘的空隙（宽度自适应），参考 archive/classic-changes 设计
-    b.style.left_padding = 4
-    b.style.right_padding = 4
-    b.style.margin = 0
+    -- 尺寸由 quick_bar_page_button 统一样式控制（40x40 正方形），不再单独设置
 end
 
 -- ============================================================

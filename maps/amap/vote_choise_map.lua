@@ -35,10 +35,10 @@ local function create_main_button(event)
         name = main_button_name,
         caption = {'amap.next_map'}
     })
-    b.style.minimal_height = 38
-    b.style.maximal_height = 38
+    -- 地图名较长，宽度保持；高度由 quick_bar_page_button 统一样式控制
     b.style.minimal_width = 120
-    b.style.font_color = {0, 255, 255}
+    -- 深蓝文字（白底上清晰），参考 archive/classic-changes 设计
+    b.style.font_color = {0, 60, 120}
 end
 
 -- 更新主按钮的显示数据

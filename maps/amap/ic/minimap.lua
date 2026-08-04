@@ -43,12 +43,10 @@ local function create_button(player)
                 type = 'sprite-button',
                 name = 'minimap_button',
                 sprite = 'utility/map',
-                tooltip = 'Open or close minimap.',
-                style = Gui.button_style
+                tooltip = 'Open or close minimap.'
             }
         )
-    button.style.minimal_height = 38
-    button.style.maximal_height = 38
+    -- 尺寸由 quick_bar_page_button 统一样式控制（40x40 正方形），不再单独设置
     return button
 end
 

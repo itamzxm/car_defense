@@ -79,8 +79,7 @@ function Public.difficulty_gui()
         })
         b.style.font = 'heading-2'
         b.style.font_color = this.difficulties[this.difficulty_vote_index].print_color
-        b.style.minimal_height = 37
-        b.style.maximal_height = 37
+        -- 难度名较长，宽度保持自适应；高度由 quick_bar_page_button 统一样式控制
         b.style.minimal_width = this.gui_width
 
         b.tooltip = this.button_tooltip or tooltip

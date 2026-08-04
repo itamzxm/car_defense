@@ -773,7 +773,6 @@ local function player_joined(event)
                 tooltip = 'Let your question be heard!'
             }
         )
-        b.style.maximal_height = 38
     end
 end
 

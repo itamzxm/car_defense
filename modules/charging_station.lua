@@ -10,9 +10,8 @@ Gui.allow_player_to_toggle_top_element_visibility('charging_station')
 local function draw_charging_gui()
     for _, player in pairs(game.connected_players) do
         if not Gui.get_button_flow(player).charging_station then
-            local b = Gui.add_top_element(player, {type = 'sprite-button', name = 'charging_station', sprite = 'item/battery-mk2-equipment', tooltip = {'modules.charging_station_tooltip'}})
-            b.style.minimal_height = 38
-            b.style.maximal_height = 38
+            -- 尺寸由 quick_bar_page_button 统一样式控制（40x40 正方形），不再单独设置
+            Gui.add_top_element(player, {type = 'sprite-button', name = 'charging_station', sprite = 'item/battery-mk2-equipment', tooltip = {'modules.charging_station_tooltip'}})
         end
     end
 end

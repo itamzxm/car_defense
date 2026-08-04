@@ -291,7 +291,8 @@ end
 --- 创建顶栏显隐切换按钮
 -- 展开态 sprite: utility/preset（齿轮图标，暗示"面板/设置"）
 -- 收起态 sprite: utility/expand_dots（三点图标，暗示"展开更多"）
--- 窄条设计：18px 宽 + 负 padding，与其他顶栏按钮区分开（参考 archive/classic-changes 的 top_bar.lua）
+-- 窄条设计：18px 宽，与其他顶栏按钮区分开（参考 archive/classic-changes 的 top_bar.lua）
+-- 样式与其他按钮统一为 quick_bar_page_button（白底），仅宽度收窄
 local function create_toggle_button(player)
     local flow = Gui.get_button_flow(player)
     if flow[CONST_TOGGLE_BUTTON] and flow[CONST_TOGGLE_BUTTON].valid then
@@ -310,7 +311,7 @@ local function create_toggle_button(player)
         name = CONST_TOGGLE_BUTTON,
         sprite = 'utility/preset',
         tooltip = {'amap.gui_toggle_top_buttons'},
-        style = 'frame_button'
+        style = 'quick_bar_page_button'
     }
     button.style.minimal_width = 18
     button.style.maximal_width = 18
@@ -531,7 +532,8 @@ Gui.mod_button = mod_gui.get_button_flow
 --- 统一的顶栏元素创建函数（幂等 + 热重载旧实例清理 + 默认样式兜底）
 -- 热重载安全：自动清理 gui.top 上的旧实例（旧存档按钮在 gui.top 直接子元素位置）
 -- 幂等：同名元素已存在于 get_button_flow 中则直接返回
--- 默认样式：未指定 style 的 button/sprite-button 自动应用 frame_button
+-- 默认样式：未指定 style 的 button/sprite-button 自动应用 quick_bar_page_button
+--   （Factorio 内置白底正方形按钮样式，40x40，与清理尸体/整理物品按钮一致）
 -- 对 frame 类型不做自动样式（与 RedMew 一致）
 function Gui.add_top_element(player, child)
     local old = player.gui.top[child.name]
@@ -547,7 +549,7 @@ function Gui.add_top_element(player, child)
     end
 
     if (child.type == 'button' or child.type == 'sprite-button') and child.style == nil then
-        child.style = 'frame_button'
+        child.style = 'quick_bar_page_button'
     end
     return flow.add(child)
 end

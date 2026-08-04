@@ -124,11 +124,8 @@ local function top_button(player)
     if Gui.get_button_flow(player)['comfy_panel_top_button'] then
         return
     end
-    local button = Gui.add_top_element(player, {type = 'sprite-button', name = 'comfy_panel_top_button', sprite = 'item/raw-fish'})
-    button.style.minimal_height = 38
-    button.style.maximal_height = 38
-    button.style.minimal_width = 40
-    button.style.padding = -2
+    -- 尺寸由 quick_bar_page_button 统一样式控制（40x40 正方形），不再单独设置
+    Gui.add_top_element(player, {type = 'sprite-button', name = 'comfy_panel_top_button', sprite = 'item/raw-fish'})
 end
 
 local function main_frame(player)
