@@ -168,8 +168,7 @@ local function poll_difficulty(player)
         }
     )
     b.style.font_color = {r = 0.66, g = 0.0, b = 0.66}
-    -- 尝试设置字体，如果字体不存在则忽略错误
-    pcall(function() b.style.font = 'heading-3' end)
+    b.style.font = 'default-semibold'
     b.style.minimal_width = 96
 end
 
