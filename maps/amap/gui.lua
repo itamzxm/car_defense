@@ -78,6 +78,8 @@ local CONST = {
 Gui.allow_player_to_toggle_top_element_visibility(CONST.MAIN_BUTTON)
 Gui.allow_player_to_toggle_top_element_visibility(CONST.BTN_TIANFU)
 Gui.allow_player_to_toggle_top_element_visibility(CONST.MAIN_FRAME)
+-- 天赋按钮游戏中高频使用，折叠时始终可见
+Gui.register_always_visible_top_element(CONST.BTN_TIANFU)
 
 --[[
     辅助函数区

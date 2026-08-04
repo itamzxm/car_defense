@@ -40,6 +40,8 @@ local on_visible_handlers = {}
 local on_pre_hidden_handlers = {}
 
 local top_elements = {}
+-- 折叠时始终可见的顶栏元素（register_always_visible_top_element 注册）
+local always_visible_top_elements = {}
 
 function Gui.uid_name()
     return tostring(Token.uid())
@@ -271,6 +273,16 @@ function Gui.allow_player_to_toggle_top_element_visibility(element_name)
     top_elements[element_name] = true
 end
 
+--- 注册"折叠时始终可见"的顶栏元素（control stage only）
+-- 注册后的元素即使注册了显隐切换，点击折叠按钮时也不会被隐藏
+-- 用于游戏中高频使用的按钮（RPG/宠物/天赋/波防进度条），折叠后仍需随时可点
+function Gui.register_always_visible_top_element(element_name)
+    if _LIFECYCLE == 8 then
+        error('register_always_visible_top_element can only be called during control stage', 2)
+    end
+    always_visible_top_elements[element_name] = true
+end
+
 --- 获取 toggle 按钮的元素名（供外部模块引用）
 function Gui.get_toggle_button_name()
     return CONST_TOGGLE_BUTTON
@@ -330,22 +342,31 @@ Gui.on_click(
             element.tooltip = {'amap.gui_toggle_top_buttons_expanded'}
 
             for element_name, _ in pairs(top_elements) do
+                -- 高频按钮（RPG/宠物/天赋/波防条）折叠时始终可见
+                if always_visible_top_elements[element_name] then
+                    goto continue_hide
+                end
                 local child = flow[element_name]
                 if child and child.valid then
                     custom_raise(on_pre_hidden_handlers, child, player)
                     child.visible = false
                 end
+                ::continue_hide::
             end
         else
             element.sprite = 'utility/preset'
             element.tooltip = {'amap.gui_toggle_top_buttons'}
 
             for element_name, _ in pairs(top_elements) do
+                if always_visible_top_elements[element_name] then
+                    goto continue_show
+                end
                 local child = flow[element_name]
                 if child and child.valid then
                     child.visible = true
                     custom_raise(on_visible_handlers, child, player)
                 end
+                ::continue_show::
             end
         end
     end

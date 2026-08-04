@@ -32,6 +32,8 @@ local spell_info_frame_name = Public.spell_info_frame_name
 local transfer_button_name = Public.transfer_button_name
 
 Gui.allow_player_to_toggle_top_element_visibility(draw_main_frame_name)
+-- RPG 按钮游戏中高频使用，折叠时始终可见
+Gui.register_always_visible_top_element(draw_main_frame_name)
 
 local sub = string.sub
 local round = math.round

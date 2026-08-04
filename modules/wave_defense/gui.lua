@@ -2,6 +2,10 @@ local WD = require 'modules.wave_defense.table'
 local diff=require 'maps.amap.diff'
 local Gui = require 'utils.gui'
 
+-- 波防进度条游戏中高频查看，注册为折叠时始终可见
+-- （当前未注册显隐切换，此注册确保未来加入切换列表也不会被折叠隐藏）
+Gui.register_always_visible_top_element('wave_defense')
+
 local function create_gui(player)
     local frame = Gui.add_top_element(player, {type = 'frame', name = 'wave_defense'})
     frame.style.maximal_height = 37

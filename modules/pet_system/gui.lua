@@ -14,6 +14,8 @@ local rename_frame_name = Public.rename_frame_name
 local card_button_prefix = Public.card_button_prefix
 
 Gui.allow_player_to_toggle_top_element_visibility(draw_main_button_name)
+-- 宠物按钮游戏中高频使用，折叠时始终可见
+Gui.register_always_visible_top_element(draw_main_button_name)
 
 local floor = math.floor
 
