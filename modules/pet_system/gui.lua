@@ -760,8 +760,10 @@ function Public.draw_top_button(player)
         caption = ({'pet_system.top_button'}),
         tooltip = ({'pet_system.top_button_tip'}),
     })
-    b.style.font_color = {100, 200, 255}
-    -- 尺寸由 quick_bar_page_button 统一样式控制（40x40 正方形），不再单独设置
+    -- 深蓝文字（白底上清晰），浅蓝{100,200,255}在白底看不清
+    b.style.font_color = {0, 80, 160}
+    -- 文字按钮 40px 内会截断（显示 宠...），加宽到 60
+    b.style.minimal_width = 60
 end
 
 -- ============================================================

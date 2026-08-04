@@ -46,7 +46,8 @@ function Public.draw_gui_char_button(player)
     local b = Gui.add_top_element(player, {type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
     -- 黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
     b.style.font_color = {0, 0, 0}
-    -- 尺寸由 quick_bar_page_button 统一样式控制（40x40 正方形），不再单独设置
+    -- 文字按钮 40px 内会截断（显示 r...），加宽到 60
+    b.style.minimal_width = 60
 end
 
 function Public.update_char_button(player)

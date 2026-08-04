@@ -245,7 +245,8 @@ local function create_button(player)
     })
     -- 黑色文字（与顶栏白底按钮搭配），参考 archive/classic-changes 设计
     talent_button.style.font_color = CONST.COLORS.BLACK
-    -- 尺寸由 quick_bar_page_button 统一样式控制（40x40 正方形），不再单独设置
+    -- 文字按钮 40px 内会截断（显示 天...），加宽到 60
+    talent_button.style.minimal_width = 60
 end
 
 -- 创建统计项（带分隔线）
