@@ -747,10 +747,10 @@ end
 -- ============================================================
 
 function Public.draw_top_button(player)
-    if player.gui.top[draw_main_button_name] then
+    if Gui.get_button_flow(player)[draw_main_button_name] then
         return
     end
-    local b = player.gui.top.add({
+    local b = Gui.add_top_element(player, {
         type = 'sprite-button',
         name = draw_main_button_name,
         caption = ({'pet_system.top_button'}),
