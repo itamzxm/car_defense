@@ -95,20 +95,21 @@ if config.map.amap_tank.enabled then
 end
 
 -- =============================================================================
--- 顶栏按钮顺序（必须在各按钮模块之后加载）
--- =============================================================================
-if config.gui.top_button_order.enabled then
-    require 'utils.top_button_order'
-end
-
--- =============================================================================
--- 更多模块（依赖上述模块，需在其后加载）
+-- 更多模块（RPG/宠物，需在地图后加载）
 -- =============================================================================
 if config.modules.rpg.enabled then
     require 'modules.rpg.main'
 end
 if config.modules.pet_system.enabled then
     require 'modules.pet_system.main'
+end
+
+-- =============================================================================
+-- 顶栏按钮顺序（必须在所有按钮模块之后加载，否则玩家加入时按钮未创建完、
+-- 重排会漏掉，按钮从末尾闪现到正确位置）
+-- =============================================================================
+if config.gui.top_button_order.enabled then
+    require 'utils.top_button_order'
 end
 
 if _DUMP_ENV then
