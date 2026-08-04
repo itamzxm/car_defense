@@ -42,6 +42,11 @@ local NEST_TYPES = {"biter-spawner", "spitter-spawner"}
 local NEST_DENSITY = 0.4           -- 每候选格生成概率（真实虫巢密度 ≈ 现状 2 倍）
 local NEST_SCAN_STEP = 8            -- 候选格扫描步长（tile），放大以消除虫巢互相重叠
 
+-- 四通道清剿奖励：每 N 波检测一次「野外（四条通道，不含中心正方形）是否已无虫巢」
+local W15_NEST_CHECK_INTERVAL  = 50    -- 检测间隔（波）
+-- 重铺一次约 1.8 万个候选格 / 约 7 千座虫巢，单帧建完会造成秒级卡顿，
+-- 故拆成每 tick 处理固定格数的批处理任务（约 2~3 秒铺完，帧耗时平摊）。
+local W15_NEST_REFILL_PER_TICK = 120   -- 重铺时每 tick 处理的候选格上限
 
 -- Boss
 local BOSS_INTERVAL = 100              -- 每 100 波
@@ -86,6 +91,30 @@ local function is_on_cross_land(x, y)
         or (abs_y <= ARM_HALF_WIDTH and abs_x <= ARM_HALF_LENGTH)
 end
 
+-- 单个候选格的虫巢生成规则（区块生成 与 四通道重铺 共用同一份确定性规则，保证两者布局一致）
+-- @param cx,cy 候选格中心的世界坐标；@param r2 中心禁生成半径的平方
+-- @return boolean 是否真的建出了一座虫巢
+local function try_spawn_nest_at(surface, cx, cy, r2)
+    -- 仅限十字陆地（中心正方形 + 4 通道），海面 / 对角线海域禁止
+    if not is_on_cross_land(cx, cy) then return false end
+
+    -- 距中心半径内禁止（与中心正方形保持距离）
+    if (cx * cx + cy * cy) <= r2 then return false end
+
+    -- 确定性伪随机（坐标哈希），保证每次重开可复现
+    local h = math.sin(cx * 12.9898 + cy * 78.233) * 43758.5453
+    h = h - math.floor(h)
+    if h >= NEST_DENSITY then return false end
+
+    local t = NEST_TYPES[((math.floor(cx) + math.floor(cy)) % #NEST_TYPES) + 1]
+    local pos = surface.find_non_colliding_position(t, {x = cx, y = cy}, 4, 1)
+    if pos and is_on_cross_land(pos.x, pos.y) then
+        surface.create_entity({name = t, position = pos, force = "enemy"})
+        return true
+    end
+    return false
+end
+
 local function spawn_nests_in_chunk(event)
     local this = WPT.get()
     if (this and this.world_number or 0) ~= 15 then return end
@@ -102,28 +131,148 @@ local function spawn_nests_in_chunk(event)
 
     for gx = lt.x, rb.x, NEST_SCAN_STEP do
         for gy = lt.y, rb.y, NEST_SCAN_STEP do
-            local cx = gx + NEST_SCAN_STEP / 2
-            local cy = gy + NEST_SCAN_STEP / 2
-
-            -- 仅限十字陆地（中心正方形 + 4 通道），海面 / 对角线海域禁止
-            if not is_on_cross_land(cx, cy) then goto next_cell end
-
-            -- 距中心半径内禁止（与中心正方形保持距离）
-            if (cx * cx + cy * cy) <= r2 then goto next_cell end
-
-            -- 确定性伪随机（坐标哈希），保证每次重开可复现
-            local h = math.sin(cx * 12.9898 + cy * 78.233) * 43758.5453
-            h = h - math.floor(h)
-            if h < NEST_DENSITY then
-                local t = NEST_TYPES[((math.floor(cx) + math.floor(cy)) % #NEST_TYPES) + 1]
-                local pos = surface.find_non_colliding_position(t, {x = cx, y = cy}, 4, 1)
-                if pos and is_on_cross_land(pos.x, pos.y) then
-                    surface.create_entity({name = t, position = pos, force = "enemy"})
-                end
-            end
-            ::next_cell::
+            try_spawn_nest_at(surface, gx + NEST_SCAN_STEP / 2, gy + NEST_SCAN_STEP / 2, r2)
         end
     end
+end
+
+--==============================================================================
+-- 四通道清剿奖励
+--
+-- 每 W15_NEST_CHECK_INTERVAL 波检测一次「野外」（＝十字四条通道，不含中心正方形）：
+--   四条通道均无敌方虫巢 → 全体玩家天赋 +1 → 重新把虫巢铺满四条通道（新一轮清剿）。
+--==============================================================================
+
+-- 野外 = 十字四臂（不含中心 256×256 正方形）；四个矩形互不重叠，并集即全部通道。
+local W15_CHANNEL_AREAS = {
+    -- 上通道（北）
+    {left_top = {x = -ARM_HALF_WIDTH,  y = -ARM_HALF_LENGTH}, right_bottom = {x =  ARM_HALF_WIDTH,  y = -ARM_HALF_WIDTH}},
+    -- 下通道（南）
+    {left_top = {x = -ARM_HALF_WIDTH,  y =  ARM_HALF_WIDTH},  right_bottom = {x =  ARM_HALF_WIDTH,  y =  ARM_HALF_LENGTH}},
+    -- 左通道（西）
+    {left_top = {x = -ARM_HALF_LENGTH, y = -ARM_HALF_WIDTH},  right_bottom = {x = -ARM_HALF_WIDTH,  y =  ARM_HALF_WIDTH}},
+    -- 右通道（东）
+    {left_top = {x =  ARM_HALF_WIDTH,  y = -ARM_HALF_WIDTH},  right_bottom = {x =  ARM_HALF_LENGTH, y =  ARM_HALF_WIDTH}},
+}
+
+-- 判定单条通道是否「已清空」，两个条件缺一不可：
+--   ① 该通道所有区块均已生成 —— 虫巢是在 on_chunk_generated 时才落地的，未生成的区块
+--      天然查不到虫巢；若把它算作「已清空」，玩家不出门也能白拿奖励，故一律视为未清空；
+--   ② 区域内敌方 unit-spawner 数为 0（limit=1 命中即中断，避免整条臂全量枚举）。
+local function world15_channel_is_clear(surface, area)
+    local cx0 = math.floor(area.left_top.x / 32)
+    local cx1 = math.ceil(area.right_bottom.x / 32) - 1
+    local cy0 = math.floor(area.left_top.y / 32)
+    local cy1 = math.ceil(area.right_bottom.y / 32) - 1
+    for cx = cx0, cx1 do
+        for cy = cy0, cy1 do
+            if not surface.is_chunk_generated({x = cx, y = cy}) then return false end
+        end
+    end
+    return surface.count_entities_filtered({
+        area = area, type = 'unit-spawner', force = 'enemy', limit = 1,
+    }) == 0
+end
+
+-- 全体玩家天赋 +1。
+-- tianfu.lua 的发放判定为 `math.floor(level / jiange) > tianfu_count - 1`，
+-- 因此把 tianfu_count 减 1 就等于多给一次天赋选择配额（与 rock.lua 商店「购买天赋」同源写法）。
+-- 相比直接弹选择界面的好处：不会在战斗/副本中强行弹窗打断，且配额写在存档里，
+-- 离线玩家上线后由 tianfu.lua 的周期检查照常点亮顶部「天赋」按钮领取。
+local function world15_grant_talent_all(this)
+    this.tianfu_count = this.tianfu_count or {}
+    local n = 0
+    for _, p in pairs(game.players) do
+        if p and p.valid then
+            this.tianfu_count[p.index] = (this.tianfu_count[p.index] or 0) - 1
+            n = n + 1
+        end
+    end
+    return n
+end
+
+-- 启动「四通道虫巢重铺」批处理任务（本函数只建任务，实际建造由 world15_nest_refill_tick 分帧执行）
+local function world15_start_nest_refill(this)
+    local first = W15_CHANNEL_AREAS[1]
+    this.world15_nest_refill = {
+        arm = 1,
+        -- 候选格中心与区块生成时用的是同一张网格（中心 ≡ 4 mod 8），保证重铺布局与开局完全一致
+        cx = first.left_top.x + NEST_SCAN_STEP / 2,
+        cy = first.left_top.y + NEST_SCAN_STEP / 2,
+        created = 0,
+    }
+end
+
+-- 分帧重铺：每 tick 最多处理 W15_NEST_REFILL_PER_TICK 个候选格；四条通道全部铺完后播报并清任务
+local function world15_nest_refill_tick()
+    local this = WPT.get()
+    if (this and this.world_number or 0) ~= 15 then return end
+    local job = this.world15_nest_refill
+    if not job then return end
+
+    local surface = this.active_surface_index and game.surfaces[this.active_surface_index]
+    if not surface or not surface.valid then
+        this.world15_nest_refill = nil
+        return
+    end
+
+    local r2 = NEST_NO_SPAWN_RADIUS * NEST_NO_SPAWN_RADIUS
+    local budget = W15_NEST_REFILL_PER_TICK
+    while budget > 0 do
+        local area = W15_CHANNEL_AREAS[job.arm]
+        if not area then
+            -- 四条通道全部铺完
+            game.print({'amap.world15_nest_refilled', job.created}, {r = 1, g = 0.6, b = 0.2})
+            this.world15_nest_refill = nil
+            return
+        end
+
+        if try_spawn_nest_at(surface, job.cx, job.cy, r2) then
+            job.created = job.created + 1
+        end
+        budget = budget - 1
+
+        -- 推进游标：先沿 y 扫完一列，再进一列 x；一条通道扫完则换下一条
+        job.cy = job.cy + NEST_SCAN_STEP
+        if job.cy >= area.right_bottom.y then
+            job.cy = area.left_top.y + NEST_SCAN_STEP / 2
+            job.cx = job.cx + NEST_SCAN_STEP
+            if job.cx >= area.right_bottom.x then
+                job.arm = job.arm + 1
+                local nxt = W15_CHANNEL_AREAS[job.arm]
+                if nxt then
+                    job.cx = nxt.left_top.x + NEST_SCAN_STEP / 2
+                    job.cy = nxt.left_top.y + NEST_SCAN_STEP / 2
+                end
+            end
+        end
+    end
+end
+
+-- 每 W15_NEST_CHECK_INTERVAL 波检测一次四条通道的野外虫巢；全清则发奖 + 重铺
+local function world15_nest_check_tick()
+    local this = WPT.get()
+    if (this and this.world_number or 0) ~= 15 then return end
+    if this.world15_nest_refill then return end   -- 上一轮重铺尚未铺完，本次不检测
+
+    local wave = WD.get('wave_number') or 0
+    if wave <= 0 or wave % W15_NEST_CHECK_INTERVAL ~= 0 then return end
+    if (this.world15_last_nest_check_wave or 0) == wave then return end   -- 同一波只检测一次
+    this.world15_last_nest_check_wave = wave
+
+    local surface = this.active_surface_index and game.surfaces[this.active_surface_index]
+    if not surface or not surface.valid then return end
+
+    for i = 1, #W15_CHANNEL_AREAS do
+        if not world15_channel_is_clear(surface, W15_CHANNEL_AREAS[i]) then return end
+    end
+
+    -- 四条通道均无虫巢 → 全体玩家天赋 +1
+    local granted = world15_grant_talent_all(this)
+    game.print({'amap.world15_nest_cleared', wave, granted}, {r = 0.4, g = 1, b = 0.4})
+
+    -- 奖励完成后重新刷新虫巢，重新覆盖四条通道
+    world15_start_nest_refill(this)
 end
 
 -- 清理岩石：世界15 纯塔防设计，移除地图上所有岩石实体（simple-entity）
@@ -2298,8 +2447,12 @@ World.register(15, {
     },
 
     nth_tick = {
-        -- N-03/N-04：每 tick 遍历已登记炮塔表，laser/tesla 补电、gun/rocket 补弹（无区域扫描）
-        [1] = world15_supply_tick,
+        [1] = {
+            -- N-03/N-04：每 tick 遍历已登记炮塔表，laser/tesla 补电、gun/rocket 补弹（无区域扫描）
+            world15_supply_tick,
+            -- 四通道清剿奖励：虫巢重铺的分帧批处理（无任务时首行即返回，常态零开销）
+            world15_nest_refill_tick,
+        },
         [60] = {
             on_tick,                    -- 主循环：胜利检测 / 通关记录 / world_bonus
             enforce_world15_techs,      -- 按波次分段解锁 + 自愈锁回科技
@@ -2307,6 +2460,7 @@ World.register(15, {
             world15_vote_tick,          -- 卡片1：每 20 波发起投票 + 30s 倒计时结算
             world15_reassert_modifiers, -- 卡片1：永久 modifier 幂等重申
             world15_perfect_tick,       -- 卡片7：完美波挑战 + 连击统计
+            world15_nest_check_tick,    -- 四通道清剿奖励：每 50 波检测通道虫巢是否清空
         },
         [600] = {
             boss_watchdog,               -- Boss 卡住检测 + 重新下令攻中心（每10秒）
