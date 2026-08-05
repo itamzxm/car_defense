@@ -3396,45 +3396,37 @@ local function dgwd(player, q_idx)
         return false
     end
 
-    local ok = false
     local rpg_t = rpgtable.get('rpg_t')
-    if rpg_t[player.index].vitality >= 800 then
-        if rpg_t[player.index].vitality > rpg_t[player.index].strength then
-            if rpg_t[player.index].vitality > rpg_t[player.index].dexterity then
-                if rpg_t[player.index].vitality > rpg_t[player.index].magicka then
-                    ok = true
-                end
-            end
-        end
+    if not rpg_t[player.index] then
+        return false
     end
+    local stats = rpg_t[player.index]
+    local ok = stats.vitality >= 800
+        and stats.vitality > stats.strength
+        and stats.vitality > stats.dexterity
+        and stats.vitality > stats.magicka
 
     if check_tick(player, 'dgwd') and ok then
-        local k = math.floor(rpg_t[player.index].vitality / 135) + 1
+        local k = math.floor(stats.vitality / 135) + 1
         if k > 15 then
             k = 15
         end
 
-        -- local abc = math.floor(k*0.1)+1
-        -- for i=1,abc do
-        local index = upgrade_spell(player, "wudi_turret", { 'spells.wudi_turret' }, true)
-        -- end
-        for a = 1, k, 1 do
-            local forces = {}
-            local index = upgrade_spell(player, "wudi_turret", { 'spells.wudi_turret' }, false)
-
-            local surface = player.physical_surface
-            local position = player.physical_position
-
-            local ammo_name = index
+        upgrade_spell(player, "wudi_turret", { 'spells.wudi_turret' }, true)
+        local forces = {}
+        local surface = player.physical_surface
+        local position = player.physical_position
+        for a = 1, k do
+            local ammo_name = upgrade_spell(player, "wudi_turret", { 'spells.wudi_turret' }, false)
             local turret_position = surface.find_non_colliding_position("gun-turret", {
                 x = position.x + math.random(-15, 15),
                 y = position.y + math.random(-15, 15)
             }, 20, 1, true)
-            
+
             if turret_position then
                 local turret = surface.create_entity {
                     name = "gun-turret",
-                    quality = ({ 'normal', 'uncommon', 'rare', 'epic', 'legendary' })[q_idx or 1],
+                    quality = QUALITY_NAMES[q_idx or 1],
                     position = turret_position,
                     force = game.forces.player
                 }
@@ -3450,13 +3442,17 @@ local function dgwd(player, q_idx)
                 main_table.turret_rpg[#main_table.turret_rpg + 1] = turret
                 forces[#forces + 1] = turret
             end
+        end
 
-            new_print(player, { 'tianfu.dgwd_over' })
+        if #forces > 0 then
+            new_print(player, { 'tianfu.dgwd_over', #forces })
             Task.set_timeout_in_ticks(60 * 11, kill_forces, forces)
-            -- unstuck_player(player.index)
+        else
+            new_print(player, { 'tianfu.dgwd_fail' })
         end
         return true
     end
+    return false
 end
 
 local function honzha(player, q_idx)
