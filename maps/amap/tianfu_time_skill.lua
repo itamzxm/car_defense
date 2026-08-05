@@ -14,6 +14,7 @@ local BasicMarkets = require 'maps.amap.basic_markets'
 local TianfuQuality = require 'maps.amap.tianfu_quality'
 local PetSys = require 'modules.pet_system.table'
 local Event = require 'utils.event'
+local P = require 'player_modifiers'
 local Public = {}
 
 -- 品质系数表（Phase B 方案2）：核心数值 ≤10 用 LOW，>10 用 REG
@@ -33,8 +34,16 @@ local function get_player_car_entity(player, q_idx)
     return false
 end
 
-local lowdowm_1 = Token.register(function(player)
-    rpgtable.update_player_stats(player)
+-- 独狼移速加成超时：精确移除 dl 分类加成并刷写 modifier
+local dl_timeout = Token.register(function(player)
+    P.update_single_modifier(player, 'character_running_speed_modifier', 'dl', 0)
+    P.update_player_modifiers(player)
+end)
+
+-- 疾风步移速加成超时：精确移除 jifengbu 分类加成并刷写 modifier
+local jifengbu_timeout = Token.register(function(player)
+    P.update_single_modifier(player, 'character_running_speed_modifier', 'jifengbu', 0)
+    P.update_player_modifiers(player)
 end)
 local t = {
 
@@ -267,7 +276,7 @@ local time_skills = {
     },
     ['mlzq'] = {
         name = mlzq,
-        time = 60 * 60
+        time = 30  -- 每 30 tick（0.5秒）一次：受伤时正常回蓝（原 60 秒一次几乎无效）
     },
     ['bujiwu'] = {
         name = bujiwu,
@@ -1626,6 +1635,8 @@ local function yanfayanjiuzhongxin(player, q_idx)
     return true
 end
 
+-- 魔力之泉：受伤时正常回蓝（每 30 tick 一次，与正常回蓝频率一致）
+-- 触发条件：掉血（max > now）时，回蓝量与正常回蓝单次量相同
 local function mlzq(player, q_idx)
     if not player.character or not player.character.valid then
         return false
@@ -1635,8 +1646,9 @@ local function mlzq(player, q_idx)
     if max == now then
         return false
     end
+    local rpg_extra = rpgtable.get('rpg_extra')
     local rpg_t = rpgtable.get('rpg_t')
-    local mana_per_tick = RPG_spee.get_mana_modifier(player)
+    local mana_per_tick = rpg_extra.mana_per_tick or 1
     rpg_t[player.index].mana = rpg_t[player.index].mana + mana_per_tick * COEFF_LOW[q_idx or 1]
     if rpg_t[player.index].mana >= rpg_t[player.index].mana_max then
         rpg_t[player.index].mana = rpg_t[player.index].mana_max
@@ -2400,14 +2412,16 @@ local function djrc(player, q_idx)
     local main_table = WPT.get()
 
     if rpg_t[player.index].dexterity < 500 then
-        return
+        return false
     end
 
     -- 上限：最多通过顶尖人才获得 24 个天赋
-    if not main_table.djrc_count then main_table.djrc_count = {} end
-    if not main_table.djrc_count[player.index] then main_table.djrc_count[player.index] = 0 end
+    if not main_table.djrc_count[player.index] then
+        main_table.djrc_count[player.index] = 0
+    end
     if main_table.djrc_count[player.index] >= 24 then
-        return
+        new_print(player, { 'tianfu.djrc_limit' })
+        return false
     end
 
     if check_tick(player, 'djrc') then
@@ -2419,9 +2433,10 @@ local function djrc(player, q_idx)
         end
         main_table.tianfu_count[player.index] = main_table.tianfu_count[player.index] - point_count
         main_table.djrc_count[player.index] = main_table.djrc_count[player.index] + 1
-        new_print(player, { 'tianfu.djrc_over' })
+        new_print(player, { 'tianfu.djrc_over', point_count, 24 - main_table.djrc_count[player.index] })
+        return true
     end
-    return true
+    return false
 end
 
 local function pulu(player, q_idx)
@@ -3098,8 +3113,10 @@ local function dl(player, q_idx)
         end
         -- 品质系数应缩放的是完整倍率(1.5×)而非仅基础加成(0.5)
         -- modifier = 目标倍率 - 1，即 1.5*COEFF_LOW[q_idx] - 1
-        player.character_running_speed_modifier = player.character_running_speed_modifier + 1.5 * COEFF_LOW[q_idx] - 1
-        Task.set_timeout_in_ticks(60 * 4, lowdowm_1, player)
+        local bonus = 1.5 * COEFF_LOW[q_idx] - 1
+        P.update_single_modifier(player, 'character_running_speed_modifier', 'dl', bonus)
+        P.update_player_modifiers(player)
+        Task.set_timeout_in_ticks(60 * 4, dl_timeout, player)
 
         return true
     end
@@ -3396,45 +3413,34 @@ local function dgwd(player, q_idx)
         return false
     end
 
-    local ok = false
     local rpg_t = rpgtable.get('rpg_t')
-    if rpg_t[player.index].vitality >= 800 then
-        if rpg_t[player.index].vitality > rpg_t[player.index].strength then
-            if rpg_t[player.index].vitality > rpg_t[player.index].dexterity then
-                if rpg_t[player.index].vitality > rpg_t[player.index].magicka then
-                    ok = true
-                end
-            end
-        end
-    end
+    local stats = rpg_t[player.index]
+    local ok = stats.vitality >= 800
+        and stats.vitality > stats.strength
+        and stats.vitality > stats.dexterity
+        and stats.vitality > stats.magicka
 
     if check_tick(player, 'dgwd') and ok then
-        local k = math.floor(rpg_t[player.index].vitality / 135) + 1
+        local k = math.floor(stats.vitality / 135) + 1
         if k > 15 then
             k = 15
         end
 
-        -- local abc = math.floor(k*0.1)+1
-        -- for i=1,abc do
-        local index = upgrade_spell(player, "wudi_turret", { 'spells.wudi_turret' }, true)
-        -- end
-        for a = 1, k, 1 do
-            local forces = {}
-            local index = upgrade_spell(player, "wudi_turret", { 'spells.wudi_turret' }, false)
-
-            local surface = player.physical_surface
-            local position = player.physical_position
-
-            local ammo_name = index
+        upgrade_spell(player, "wudi_turret", { 'spells.wudi_turret' }, true)
+        local forces = {}
+        local surface = player.physical_surface
+        local position = player.physical_position
+        for a = 1, k do
+            local ammo_name = upgrade_spell(player, "wudi_turret", { 'spells.wudi_turret' }, false)
             local turret_position = surface.find_non_colliding_position("gun-turret", {
                 x = position.x + math.random(-15, 15),
                 y = position.y + math.random(-15, 15)
             }, 20, 1, true)
-            
+
             if turret_position then
                 local turret = surface.create_entity {
                     name = "gun-turret",
-                    quality = ({ 'normal', 'uncommon', 'rare', 'epic', 'legendary' })[q_idx or 1],
+                    quality = QUALITY_NAMES[q_idx or 1],
                     position = turret_position,
                     force = game.forces.player
                 }
@@ -3450,13 +3456,17 @@ local function dgwd(player, q_idx)
                 main_table.turret_rpg[#main_table.turret_rpg + 1] = turret
                 forces[#forces + 1] = turret
             end
+        end
 
-            new_print(player, { 'tianfu.dgwd_over' })
+        if #forces > 0 then
+            new_print(player, { 'tianfu.dgwd_over', #forces })
             Task.set_timeout_in_ticks(60 * 11, kill_forces, forces)
-            -- unstuck_player(player.index)
+        else
+            new_print(player, { 'tianfu.dgwd_fail' })
         end
         return true
     end
+    return false
 end
 
 local function honzha(player, q_idx)
@@ -7078,10 +7088,12 @@ local function jifengbu(player, q_idx)
         total_bonus = math.min(total_bonus, 1)  -- 总加成不超过50%
         
         -- 应用移速加成
-        player.character_running_speed_modifier = player.character_running_speed_modifier + total_bonus
+        -- 应用移速加成（注册为独立分类，由 update_player_modifiers 统一刷写）
+        P.update_single_modifier(player, 'character_running_speed_modifier', 'jifengbu', total_bonus)
+        P.update_player_modifiers(player)
         
         -- 设置定时器取消效果
-        Task.set_timeout_in_ticks(60 * 10, lowdowm_1, player)  -- 10秒后取消效果
+        Task.set_timeout_in_ticks(60 * 10, jifengbu_timeout, player)  -- 10秒后取消效果
         
         -- 发送提示消息
         new_print(player, { 'tianfu.jifengbu_over', math.floor(total_bonus * 100)})
@@ -7419,7 +7431,7 @@ local function fumo(player, q_idx)
                 
                 -- 添加视觉效果
                 tame_unit_effects(player, enchanted_bug)
-                Task.set_timeout_in_ticks(60 * 60*2, {enchanted_bug}, forces)
+                Task.set_timeout_in_ticks(60 * 60 * 2, kill_forces, {enchanted_bug})
                 return true
             end
         end
@@ -7477,7 +7489,7 @@ local function xunshoushi(player, q_idx)
                     BiterClass.add_warrior_biter(target_bug)
                     new_print(player, {'tianfu.xunshoushi_warrior'})
                 end
-                Task.set_timeout_in_ticks(60 * 60*2, {target_bug}, forces)
+                Task.set_timeout_in_ticks(60 * 60 * 2, kill_forces, {target_bug})
             end
         end
     end
