@@ -343,15 +343,9 @@ local function draw_main_frame(left, player)
 
     local bottom_flow = frame.add {type = 'flow', direction = 'horizontal'}
 
-    local left_flow = bottom_flow.add {type = 'flow'}
-    left_flow.style.horizontal_align = 'left'
-    left_flow.style.horizontally_stretchable = true
-
-    local close_button = left_flow.add {type = 'button', name = main_button_name, caption = 'Close'}
-    apply_button_style(close_button)
-
     local right_flow = bottom_flow.add {type = 'flow'}
     right_flow.style.horizontal_align = 'right'
+    right_flow.style.horizontally_stretchable = true
 
     local comfy_panel_config = Config.get('gui_config')
 
