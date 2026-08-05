@@ -1359,6 +1359,18 @@ local function have_learn(player, skill)
     return Public.is_learned(player, skill)
 end
 
+-- 按升序返回表键：pairs 的哈希遍历顺序在服务器/客户端可能不同（反序列化后表结构
+-- 不一致），多玩家同桶/多 owner 时技能调用顺序分歧会让 math.random 抽取顺序分裂，
+-- 导致 RNG 永久分歧、全服反同步。凡涉及调用技能的遍历必须用本函数保证顺序一致。
+local function sorted_keys(tbl)
+    local keys = {}
+    for k in pairs(tbl) do
+        keys[#keys + 1] = k
+    end
+    table.sort(keys)
+    return keys
+end
+
 local function on_tick()
     local this = TPT.get()
     local current_tick = game.tick
@@ -1378,7 +1390,9 @@ local function on_tick()
     -- 旧存档的 due_buckets 是空的，但玩家已经学了 time_skill
     -- 需要做一次全量迁移：遍历所有 player_time_skills，登记到 due_buckets
     if not this.due_buckets_migrated then
-        for player_name, skills in pairs(this.player_time_skills) do
+        -- 排序遍历：与 on_tick 桶处理保持一致，避免两侧迁移顺序分歧
+        for _, player_name in ipairs(sorted_keys(this.player_time_skills)) do
+            local skills = this.player_time_skills[player_name]
             -- 通过 player_name 找 player_index（玩家可能不在线，用 game.players 遍历）
             local player_index = nil
             for idx, p in pairs(game.players) do
@@ -1421,7 +1435,9 @@ local function on_tick()
         local time_skill_funcs = tianfu_time_skill
         -- time_skills 已是顶部 local（tianfu_time_skill.time_skills 的引用）
 
-        for player_index, skills in pairs(bucket) do
+        -- 排序遍历：多玩家同桶时保证两侧调用顺序一致（反同步根因，见 sorted_keys）
+        for _, player_index in ipairs(sorted_keys(bucket)) do
+            local skills = bucket[player_index]
             local player = game.players[player_index]
             -- 只在玩家对象本身无效时才跳过整个玩家（保证"登记下一次到期"不被跳过）
             if not player or not player.valid then
@@ -1663,7 +1679,7 @@ local function on_pre_player_died(event)
         local main_table = WPT.get()
         local q_all = main_table.skill
         local enabled_all = main_table.tianfu_enabled
-        for player_index, _ in pairs(owners) do
+        for _, player_index in ipairs(sorted_keys(owners)) do
             local player1 = game.players[player_index]
             if player1 and player1.valid and player1.connected and player1.force.name == 'player' then
                 local learned = enabled_all[player_index] or {}
@@ -1814,7 +1830,7 @@ function Public.on_player_used_capsule(event)
         if owners then
             local q_all = main_table.skill
             local enabled_all = main_table.tianfu_enabled
-            for player_index, _ in pairs(owners) do
+            for _, player_index in ipairs(sorted_keys(owners)) do
                 local player1 = game.players[player_index]
                 if player1 and player1.valid and player1.connected and player1.force.name == 'player' then
                     local learned1 = enabled_all[player_index] or {}
@@ -1892,7 +1908,7 @@ local function on_player_died(event)
     -- fcz
     local owners_fcz = owners_all.fcz
     if owners_fcz then
-        for player_index, _ in pairs(owners_fcz) do
+        for _, player_index in ipairs(sorted_keys(owners_fcz)) do
             local player1 = game.players[player_index]
             if player1 and player1.valid and player1.connected and player1.force.name == 'player' then
                 local learned1 = enabled_all[player_index] or {}
@@ -1907,7 +1923,7 @@ local function on_player_died(event)
     -- tjjz
     local owners_tjjz = owners_all.tjjz
     if owners_tjjz then
-        for player_index, _ in pairs(owners_tjjz) do
+        for _, player_index in ipairs(sorted_keys(owners_tjjz)) do
             local player1 = game.players[player_index]
             if player1 and player1.valid and player1.connected and player1.force.name == 'player' then
                 local learned1 = enabled_all[player_index] or {}
@@ -1922,7 +1938,7 @@ local function on_player_died(event)
     -- dijiaojiaotu
     local owners_djjt = owners_all.dijiaojiaotu
     if owners_djjt then
-        for player_index, _ in pairs(owners_djjt) do
+        for _, player_index in ipairs(sorted_keys(owners_djjt)) do
             local player1 = game.players[player_index]
             if player1 and player1.valid and player1.connected and player1.force.name == 'player' then
                 local learned1 = enabled_all[player_index] or {}
@@ -2062,7 +2078,7 @@ local function on_entity_died(event)
         local enabled_all = main_table.tianfu_enabled
         local owners = this.skill_owners and this.skill_owners['dgjx']
         if owners then
-            for player_index, _ in pairs(owners) do
+            for _, player_index in ipairs(sorted_keys(owners)) do
                 local player1 = game.players[player_index]
                 if player1 and player1.valid and player1.connected and player1.force.name == 'player' then
                     local learned1 = enabled_all[player_index] or {}
@@ -2486,7 +2502,7 @@ local function on_research_finished(event)
     -- xueshu
     local owners_xueshu = owners_all.xueshu
     if owners_xueshu then
-        for player_index, _ in pairs(owners_xueshu) do
+        for _, player_index in ipairs(sorted_keys(owners_xueshu)) do
             local player = game.players[player_index]
             if player and player.valid and player.connected and player.force.name == 'player' then
                 local learned = enabled_all[player_index] or {}
@@ -2501,7 +2517,7 @@ local function on_research_finished(event)
     -- kxj
     local owners_kxj = owners_all.kxj
     if owners_kxj then
-        for player_index, _ in pairs(owners_kxj) do
+        for _, player_index in ipairs(sorted_keys(owners_kxj)) do
             local player = game.players[player_index]
             if player and player.valid and player.connected and player.force.name == 'player' then
                 local learned = enabled_all[player_index] or {}
@@ -2516,7 +2532,7 @@ local function on_research_finished(event)
     -- qykj
     local owners_qykj = owners_all.qykj
     if owners_qykj then
-        for player_index, _ in pairs(owners_qykj) do
+        for _, player_index in ipairs(sorted_keys(owners_qykj)) do
             local player = game.players[player_index]
             if player and player.valid and player.connected and player.force.name == 'player' then
                 local learned = enabled_all[player_index] or {}
