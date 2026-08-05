@@ -275,6 +275,19 @@ local function create_main_gui(player, data)
     status.style.top_padding = 4
     status.style.bottom_padding = 4
 
+    -- 合成顺序（从小到大，全名）
+    local order = {''}
+    for v = 1, #TIER_CHAR do
+        order[#order + 1] = {'amap.qiuheti_tier_' .. v}
+        if v < #TIER_CHAR then order[#order + 1] = '→' end
+    end
+    local chain = frame.add({type = 'label', name = GUI_GRID .. '_chain',
+        caption = {'amap.qiuheti_chain_label', {'amap.qiuheti_tier_' .. md.target}, order}})
+    chain.style.font = 'heading-2'
+    chain.style.font_color = {0, 0, 0}
+    chain.style.top_padding = 4
+    chain.style.bottom_padding = 4
+
     -- 棋盘网格
     local grid_table = frame.add({
         type = 'table',

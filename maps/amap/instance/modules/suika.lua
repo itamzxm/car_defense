@@ -252,6 +252,19 @@ local function create_main_gui(player, data)
     next_label.style.top_padding = 4
     next_label.style.bottom_padding = 4
 
+    -- 合成顺序（从小到大，全名）
+    local order = {''}
+    for v = 1, #TIER_CHAR do
+        order[#order + 1] = {'amap.suika_tier_' .. v}
+        if v < #TIER_CHAR then order[#order + 1] = '→' end
+    end
+    local chain = frame.add({type = 'label', name = GUI_GRID .. '_chain',
+        caption = {'amap.suika_chain_label', {'amap.suika_tier_' .. md.target}, order}})
+    chain.style.font = 'heading-2'
+    chain.style.font_color = {0, 0, 0}
+    chain.style.top_padding = 4
+    chain.style.bottom_padding = 4
+
     -- 列头按钮（点列即落子）
     local col_bar = frame.add({type = 'table', name = GUI_GRID .. '_colbar', column_count = cols})
     col_bar.style.horizontal_spacing = 2
