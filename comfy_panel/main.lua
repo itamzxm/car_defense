@@ -134,10 +134,26 @@ local function main_frame(player)
 
     local frame = player.gui.left.comfy_panel
     if not frame or not frame.valid then
-        frame = player.gui.left.add({type = 'frame', name = 'comfy_panel'})
+        frame = player.gui.left.add({type = 'frame', name = 'comfy_panel', direction = 'vertical'})
     end
 
     frame.style.margin = 6
+
+    -- 标题栏：右上角原生关闭按钮（替代原 X 假选项卡）
+    local titlebar = frame.add({type = 'flow', name = 'comfy_panel_titlebar', direction = 'horizontal'})
+    titlebar.style.horizontal_align = 'right'
+    titlebar.add(
+        {
+            type = 'sprite-button',
+            name = 'comfy_panel_close_btn',
+            style = 'frame_action_button',
+            mouse_button_filter = {'left'},
+            sprite = 'utility/close',
+            hovered_sprite = 'utility/close_fat',
+            clicked_sprite = 'utility/close_fat',
+            tooltip = 'Close'
+        }
+    )
 
     local tabbed_pane = frame.add({type = 'tabbed-pane', name = 'tabbed_pane'})
 
@@ -173,11 +189,6 @@ local function main_frame(player)
             tabbed_pane.add_tab(tab, name_frame)
         end
     end
-
-    local tab = tabbed_pane.add({type = 'tab', name = 'comfy_panel_close', caption = 'X'})
-    tab.style.maximal_width = 32
-    local t_frame = tabbed_pane.add({type = 'frame', direction = 'vertical'})
-    tabbed_pane.add_tab(tab, t_frame)
 
     for _, child in pairs(tabbed_pane.children) do
         child.style.padding = 8
@@ -230,7 +241,7 @@ local function on_gui_click(event)
         end
     end
 
-    if element.caption == 'X' and name == 'comfy_panel_close' then
+    if element.name == 'comfy_panel_close_btn' then
         local is_spamming = SpamProtection.is_spamming(player, nil, 'Comfy Main Gui Close Button')
         if is_spamming then
             return
