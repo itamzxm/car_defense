@@ -606,4 +606,54 @@ function Gui.add_top_element(player, child)
     return flow.add(child)
 end
 
+--- 创建带标题栏的面板（标题 + 拖拽区 + 关闭按钮）
+-- 标题栏由原生构件组装（flow + label + empty-widget + sprite-button），
+-- 所有 style/sprite 均为 Factorio 核心自带：
+--   frame_action_button / frame_title / draggable_space / utility/close / utility/close_fat
+-- @param player 玩家
+-- @param align 对齐位置（'left' / 'screen'；screen 时启用拖动）
+-- @param frame_name 面板名（模块 uid_name）
+-- @param close_button_name 关闭按钮名（模块 uid_name，点击由模块自己处理）
+-- @param title 标题文本
+-- @return main_frame, close_button
+function Gui.add_main_frame_with_toolbar(player, align, frame_name, close_button_name, title)
+    local gui = player.gui[align]
+    local main_frame = gui.add({type = 'frame', name = frame_name, direction = 'vertical'})
+
+    local titlebar = main_frame.add({type = 'flow', name = 'titlebar', direction = 'horizontal'})
+    titlebar.style = 'horizontal_flow'
+    titlebar.style.horizontal_spacing = 8
+
+    if align == 'screen' then
+        titlebar.drag_target = main_frame
+    end
+
+    titlebar.add({type = 'label', name = 'main_label', style = 'frame_title', caption = title, ignored_by_interaction = true})
+
+    local widget = titlebar.add({type = 'empty-widget', style = 'draggable_space', ignored_by_interaction = true})
+    widget.style.left_margin = 4
+    widget.style.right_margin = 4
+    widget.style.height = 24
+    widget.style.horizontally_stretchable = true
+
+    local close_button
+    if close_button_name then
+        close_button =
+            titlebar.add(
+            {
+                type = 'sprite-button',
+                name = close_button_name,
+                style = 'frame_action_button',
+                mouse_button_filter = {'left'},
+                sprite = 'utility/close',
+                hovered_sprite = 'utility/close_fat',
+                clicked_sprite = 'utility/close_fat',
+                tooltip = 'Close'
+            }
+        )
+    end
+
+    return main_frame, close_button
+end
+
 return Gui
