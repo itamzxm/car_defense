@@ -6,6 +6,7 @@ local Server = require 'utils.server'
 local Tabs = require 'comfy_panel.main'
 local session = require 'utils.datastore.session_data'
 local Config = require 'comfy_panel.config'
+local SpamProtection = require 'utils.spam_protection'
 
 local Class = {}
 
@@ -403,6 +404,9 @@ local function remove_main_frame(main_frame, left, player)
 end
 
 local function toggle(event)
+    if SpamProtection.is_spamming(event.player, nil, 'Toggle Poll') then
+        return
+    end
     local left = event.player.gui.left
     local main_frame = left[main_frame_name]
 
@@ -640,6 +644,9 @@ end
 
 local function create_poll(event)
     local player = event.player
+    if SpamProtection.is_spamming(player, nil, 'Create Poll Confirm') then
+        return
+    end
     local data = Gui.get_data(event.element)
 
     local frame = data.frame
@@ -720,6 +727,9 @@ end
 local function vote(event)
     local player_index = event.player_index
     local player = game.get_player(player_index)
+    if SpamProtection.is_spamming(player, nil, 'Poll Vote') then
+        return
+    end
     -- 权限检查：仅 trusted 可投票（开关默认关=人人可投，admin 面板开启后生效）
     local comfy_panel_config = Config.get('gui_config')
     if comfy_panel_config.poll_vote_trusted and player and player.valid and not player.admin then
@@ -858,6 +868,9 @@ Gui.on_click(
     create_poll_button_name,
     function(event)
         local player = event.player
+        if SpamProtection.is_spamming(player, nil, 'Create Poll') then
+            return
+        end
         local left = player.gui.left
         local frame = left[create_poll_frame_name]
         if frame and frame.valid then
@@ -872,6 +885,9 @@ Gui.on_click(
     poll_view_edit_name,
     function(event)
         local player = event.player
+        if SpamProtection.is_spamming(player, nil, 'Poll View Edit') then
+            return
+        end
         local left = player.gui.left
         local frame = left[create_poll_frame_name]
 
@@ -1013,6 +1029,9 @@ Gui.on_click(
     create_poll_delete_name,
     function(event)
         local player = event.player
+        if SpamProtection.is_spamming(player, nil, 'Create Poll Delete') then
+            return
+        end
         local data = Gui.get_data(event.element)
         if not data then
             return
@@ -1074,6 +1093,9 @@ Gui.on_click(
     create_poll_edit_name,
     function(event)
         local player = event.player
+        if SpamProtection.is_spamming(player, nil, 'Poll Edit Confirm') then
+            return
+        end
         local data = Gui.get_data(event.element)
         if not data then
             return
@@ -1214,6 +1236,9 @@ Gui.on_checked_state_changed(
 )
 
 local function do_direction(event, sign)
+    if SpamProtection.is_spamming(event.player, nil, 'Poll View Direction') then
+        return
+    end
     local count
     if event.shift then
         count = #polls
