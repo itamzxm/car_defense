@@ -417,10 +417,6 @@ local function regen_health_player(players)
 end
 
 local function regen_mana_player(players)
-  local main_table = WPT.get()
-  local tianfu_enabled = main_table.tianfu_enabled
-  local skill_quality = main_table.skill
-  local COEFF_LOW = {1, 1.2, 1.4, 1.6, 1.8}
   for i = 1, #players do
     local player = players[i]
     local mana_per_tick = Public.get_mana_modifier(player)
@@ -434,18 +430,7 @@ local function regen_mana_player(players)
       mana_per_tick = 1
     end
 
-    -- 魔力之泉（mlzq）：战斗中放行回蓝并乘 2×品质系数
-    local mlzq_active = false
-    if player.in_combat then
-      local enabled = tianfu_enabled[player.index]
-      if enabled and enabled.mlzq then
-        local q = (skill_quality[player.name] or {}).mlzq or 1
-        mlzq_active = true
-        mana_per_tick = mana_per_tick * 2 * COEFF_LOW[q]
-      end
-    end
-
-    if player and player.valid and (not player.in_combat or mlzq_active) then
+    if player and player.valid and not player.in_combat then
       if player.character and player.character.valid then
         if rpg_t.mana < 0 then
           rpg_t.mana = 0

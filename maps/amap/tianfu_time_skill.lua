@@ -36,15 +36,12 @@ end
 
 -- 独狼移速加成超时：精确移除 dl 分类加成并刷写 modifier
 local dl_timeout = Token.register(function(player)
-    if not player or not player.valid then return end
     P.update_single_modifier(player, 'character_running_speed_modifier', 'dl', 0)
     P.update_player_modifiers(player)
-    player.print({'tianfu.dl_end'})
 end)
 
 -- 疾风步移速加成超时：精确移除 jifengbu 分类加成并刷写 modifier
 local jifengbu_timeout = Token.register(function(player)
-    if not player or not player.valid then return end
     P.update_single_modifier(player, 'character_running_speed_modifier', 'jifengbu', 0)
     P.update_player_modifiers(player)
 end)
@@ -279,7 +276,7 @@ local time_skills = {
     },
     ['mlzq'] = {
         name = mlzq,
-        time = 60 * 60
+        time = 30  -- 每 30 tick（0.5秒）一次：受伤时正常回蓝（原 60 秒一次几乎无效）
     },
     ['bujiwu'] = {
         name = bujiwu,
@@ -1638,10 +1635,24 @@ local function yanfayanjiuzhongxin(player, q_idx)
     return true
 end
 
--- 魔力之泉：实际回蓝逻辑已迁移到 rpg/main.lua 的 regen_mana_player（战斗中放行×2×品质系数）
--- 本函数退化为 no-op，保留注册以兼容存档/GUI
-local function mlzq()
-    return false
+-- 魔力之泉：受伤时正常回蓝（每 30 tick 一次，与正常回蓝频率一致）
+-- 触发条件：掉血（max > now）时，回蓝量与正常回蓝单次量相同
+local function mlzq(player, q_idx)
+    if not player.character or not player.character.valid then
+        return false
+    end
+    local max = player.character.max_health
+    local now = player.character.health
+    if max == now then
+        return false
+    end
+    local rpg_extra = rpgtable.get('rpg_extra')
+    local rpg_t = rpgtable.get('rpg_t')
+    local mana_per_tick = rpg_extra.mana_per_tick or 1
+    rpg_t[player.index].mana = rpg_t[player.index].mana + mana_per_tick * COEFF_LOW[q_idx or 1]
+    if rpg_t[player.index].mana >= rpg_t[player.index].mana_max then
+        rpg_t[player.index].mana = rpg_t[player.index].mana_max
+    end
 end
 
 local function bujiwu(player, q_idx)
@@ -3102,11 +3113,10 @@ local function dl(player, q_idx)
         end
         -- 品质系数应缩放的是完整倍率(1.5×)而非仅基础加成(0.5)
         -- modifier = 目标倍率 - 1，即 1.5*COEFF_LOW[q_idx] - 1
-        local bonus = 1.5 * COEFF_LOW[q_idx or 1] - 1
+        local bonus = 1.5 * COEFF_LOW[q_idx] - 1
         P.update_single_modifier(player, 'character_running_speed_modifier', 'dl', bonus)
         P.update_player_modifiers(player)
         Task.set_timeout_in_ticks(60 * 4, dl_timeout, player)
-        new_print(player, {'tianfu.dl_over', math.floor(bonus * 100)})
 
         return true
     end
