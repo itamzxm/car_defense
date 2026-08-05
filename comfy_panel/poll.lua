@@ -24,6 +24,9 @@ local polls_counter = {0}
 local no_notify_players = {}
 local player_poll_index = {}
 local player_create_poll_data = {}
+-- 运行中投票列表（纯内存表，不持久化）：到期检测+广播一次用
+-- 从已恢复的 polls 重建（end_tick==-1 无限期 或 未到期），避免新增 Global 键导致旧存档签名错位
+local running_polls = {}
 
 Global.register(
     {
@@ -39,6 +42,15 @@ Global.register(
         no_notify_players = tbl.no_notify_players
         player_poll_index = tbl.player_poll_index
         player_create_poll_data = tbl.player_create_poll_data
+        -- 重建运行中列表（on_load 阶段 game 不可用，无法用 game.tick 判断；
+        -- 无限期(end_tick==-1)或限时(end_tick>0)都先登记，到期由 tick 检测出列）
+        -- 注意：polls 表内含遗留字段 polls.running（boolean），pairs 会遍历到，必须跳过非表元素
+        running_polls = {}
+        for _, p in pairs(tbl.polls or polls) do
+            if type(p) == 'table' and (p.end_tick == -1 or p.end_tick > 0) then
+                insert(running_polls, p)
+            end
+        end
     end
 )
 
@@ -109,7 +121,6 @@ local function do_remaining_time(poll, remaining_time_label)
     local ticks = end_tick - game.tick
     if ticks < 0 then
         remaining_time_label.caption = 'Poll Finished.'
-        polls.running = false
         return false
     else
         local time = math.ceil(ticks / 60)
@@ -683,7 +694,13 @@ local function create_poll(event)
     }
 
     insert(polls, poll_data)
+    insert(running_polls, poll_data)
 
+    -- ⚠ 遗留字段 polls.running：不能删（历史缺陷写法的残留）。
+    -- 它是 polls 表内部的 boolean 字段（非 Global 顶层 key，删它不影响 Global 签名校验），
+    -- 但旧存档的 polls 表里已持久化该字段；若删掉创建处的赋值，pairs(polls) 遍历到旧存档
+    -- 的 running 字段仍是 boolean，任何"重建运行中列表"的代码都必须跳过非表元素。
+    -- 现逻辑已改用 running_polls 列表（tick 到期检测/广播），polls.running 仅为兼容保留。
     polls.running = true
 
     show_new_poll(poll_data)
@@ -775,9 +792,6 @@ local function player_joined(event)
 end
 
 local function tick()
-    if not polls.running then
-        return
-    end
     for _, p in pairs(game.players) do
         local frame = p.gui.left[main_frame_name]
         if frame and frame.valid then
@@ -801,6 +815,21 @@ local function tick()
                     if not element.valid then
                         player_create_poll_data[player_index] = nil
                     end
+                end
+            end
+        end
+    end
+
+    -- 到期检测：运行中列表逐个检查，到期出列并广播（不互相影响）
+    for i = #running_polls, 1, -1 do
+        local poll = running_polls[i]
+        local finished = poll.end_tick ~= -1 and poll.end_tick <= game.tick
+        if finished then
+            table.remove(running_polls, i)
+            local message = table.concat { 'Poll finished: Poll #', poll.id, ': ', poll.question }
+            for _, p in pairs(game.connected_players) do
+                if not no_notify_players[p.index] then
+                    p.print(message)
                 end
             end
         end
@@ -996,6 +1025,14 @@ Gui.on_click(
             end
         end
 
+        -- 从运行中列表移除
+        for i, p in ipairs(running_polls) do
+            if p == poll then
+                table.remove(running_polls, i)
+                break
+            end
+        end
+
         if not removed_index then
             return
         end
@@ -1111,6 +1148,18 @@ Gui.on_click(
         if not poll_index then
             insert(polls, poll)
             poll_index = #polls
+        end
+
+        -- 编辑后确保在运行中列表（新投票或重新开始计时）
+        local in_running = false
+        for _, rp in ipairs(running_polls) do
+            if rp == poll then
+                in_running = true
+                break
+            end
+        end
+        if not in_running then
+            insert(running_polls, poll)
         end
 
         local message = table.concat {player.name, ' has edited Poll #', poll.id, ': ', poll.question}
@@ -1300,6 +1349,7 @@ function Class.poll(data)
     }
 
     insert(polls, poll_data)
+    insert(running_polls, poll_data)
 
     show_new_poll(poll_data)
     send_poll_result_to_discord(poll_data)
