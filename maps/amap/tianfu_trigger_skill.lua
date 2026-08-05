@@ -2520,13 +2520,17 @@ local function tishenshu(player, event, q_idx)
         return false
     end
     if not player or not player.valid or not player.character then
-        return
+        return false
+    end
+    -- 远程控制（编辑器/星图模式）下不触发传送
+    if player.controller_type == defines.controllers.remote then
+        return false
     end
     
     -- 获取伤害来源
     local cause = event.cause
     if not cause or not cause.valid then
-        return
+        return false
     end
     
     -- 计算远离伤害来源的方向
@@ -2568,8 +2572,12 @@ local function tishenshu(player, event, q_idx)
     -- 查找目标位置附近的无障碍点
     local safe_position = player.physical_surface.find_non_colliding_position('character', target_position, 16, 1, false)
     if not safe_position then
-        -- 如果找不到无障碍点，尝试扩大搜索范围
-       return
+        -- 找不到无障碍点：扩大搜索范围再试一次
+        safe_position = player.physical_surface.find_non_colliding_position('character', target_position, 32, 1, false)
+    end
+    if not safe_position then
+        new_print(player, { 'tianfu.tishenshu_fail' })
+        return false
     end
     
 
