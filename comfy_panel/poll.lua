@@ -955,6 +955,11 @@ Gui.on_text_changed(
         end
 
         if textfield and textfield.valid then
+            -- 50 字符上限：防长文本撑爆 GUI/存档
+            if string.len(textfield.text) >= 50 then
+                textfield.text = ''
+                return
+            end
             data.question = textfield.text
         end
     end
@@ -971,6 +976,11 @@ Gui.on_text_changed(
         end
 
         if textfield and textfield.valid then
+            -- 50 字符上限：防长文本撑爆 GUI/存档
+            if string.len(textfield.text) >= 50 then
+                textfield.text = ''
+                return
+            end
             data.answers[data.count].text = textfield.text
         end
     end
