@@ -418,9 +418,6 @@ end)
 
 local lose_dexterity = Token.register(function(data)
     local player = data.player
-    if not player or not player.valid then
-        return
-    end
     local q_idx = data.q_idx
     local rpg_t = rpgtable.get('rpg_t')
 

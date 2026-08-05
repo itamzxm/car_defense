@@ -126,7 +126,6 @@ end
 -- Token 定义
 -- 疾跑移速加成超时：精确移除 jx 分类加成并刷写 modifier
 local jx_timeout = Token.register(function(player)
-    if not player or not player.valid then return end
     P.update_single_modifier(player, 'character_running_speed_modifier', 'jx', 0)
     P.update_player_modifiers(player)
 end)
