@@ -70,8 +70,9 @@ local function create_map_intro(data)
         horizontal_scroll_policy = 'never',
         vertical_scroll_policy = 'auto'
     }
-    scroll_pane.style.maximal_height = 320
+    scroll_pane.style.maximal_height = 480
     scroll_pane.style.minimal_height = 320
+    scroll_pane.style.vertically_stretchable = true
 
     local l_3 = scroll_pane.add {type = 'label', caption = text}
     l_3.style.font = 'heading-2'

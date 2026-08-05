@@ -139,9 +139,18 @@ local function main_frame(player)
 
     frame.style.margin = 6
 
-    -- 标题栏：右上角原生关闭按钮（替代原 X 假选项卡）
+    -- 标题栏：标题 + 拖拽区 + 右上角原生关闭按钮
     local titlebar = frame.add({type = 'flow', name = 'comfy_panel_titlebar', direction = 'horizontal'})
-    titlebar.style.horizontal_align = 'right'
+    titlebar.style = 'horizontal_flow'
+    titlebar.style.horizontal_spacing = 8
+    titlebar.add({type = 'label', name = 'comfy_panel_title', style = 'frame_title', caption = 'Panel', ignored_by_interaction = true})
+
+    local widget = titlebar.add({type = 'empty-widget', style = 'draggable_space', ignored_by_interaction = true})
+    widget.style.left_margin = 4
+    widget.style.right_margin = 4
+    widget.style.height = 24
+    widget.style.horizontally_stretchable = true
+
     titlebar.add(
         {
             type = 'sprite-button',
