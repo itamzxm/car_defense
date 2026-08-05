@@ -719,6 +719,16 @@ end
 
 local function vote(event)
     local player_index = event.player_index
+    local player = game.get_player(player_index)
+    -- 权限检查：仅 trusted 可投票（开关默认关=人人可投，admin 面板开启后生效）
+    local comfy_panel_config = Config.get('gui_config')
+    if comfy_panel_config.poll_vote_trusted and player and player.valid and not player.admin then
+        if not session.get_trusted_player(player) then
+            player.print('Sorry, you need to be trusted to vote on polls.')
+            player.print('You can become trusted by asking an admin to use the /trust command on you.')
+            return
+        end
+    end
     local voted_button = event.element
     local button_data = Gui.get_data(voted_button)
     local answer = button_data.answer

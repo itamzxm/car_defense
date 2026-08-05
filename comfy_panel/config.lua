@@ -19,7 +19,9 @@ local this = {
         spaghett = {
             undo = {}
         },
-        poll_trusted = false
+        poll_trusted = false,
+        -- 仅 trusted 可投票（默认关=保持现状人人可投；admin 面板开关）
+        poll_vote_trusted = false
     }
 }
 
@@ -229,6 +231,15 @@ local poll_function = {
         else
             this.gui_config.poll_trusted = false
             get_actor(event, '[Poll Mode]', 'has allowed non-trusted people to do polls.')
+        end
+    end,
+    ['comfy_panel_poll_vote_trusted_toggle'] = function(event)
+        if event.element.switch_state == 'left' then
+            this.gui_config.poll_vote_trusted = true
+            get_actor(event, '[Poll Vote]', 'has enabled trusted-only voting.')
+        else
+            this.gui_config.poll_vote_trusted = false
+            get_actor(event, '[Poll Vote]', 'has allowed everyone to vote.')
         end
     end,
     ['comfy_panel_poll_no_notify_toggle'] = function(event)
@@ -560,6 +571,13 @@ local function build_config_gui(data)
                 switch_state = 'left'
             end
             add_switch(scroll_pane, switch_state, 'comfy_panel_poll_trusted_toggle', 'Poll mode', 'Disables non-trusted plebs to create polls.')
+
+            -- 仅 trusted 可投票开关（默认关=人人可投）
+            switch_state = 'right'
+            if this.gui_config.poll_vote_trusted then
+                switch_state = 'left'
+            end
+            add_switch(scroll_pane, switch_state, 'comfy_panel_poll_vote_trusted_toggle', 'Poll vote trusted', 'Only trusted players can vote on polls.')
         end
 
         scroll_pane.add({type = 'line'})
