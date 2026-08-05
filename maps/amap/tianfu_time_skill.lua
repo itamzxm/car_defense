@@ -2400,9 +2400,6 @@ local function djrc(player, q_idx)
     local rpg_t = rpgtable.get('rpg_t')
     local main_table = WPT.get()
 
-    if not rpg_t[player.index] then
-        return false
-    end
     if rpg_t[player.index].dexterity < 500 then
         return false
     end
@@ -3407,9 +3404,6 @@ local function dgwd(player, q_idx)
     end
 
     local rpg_t = rpgtable.get('rpg_t')
-    if not rpg_t[player.index] then
-        return false
-    end
     local stats = rpg_t[player.index]
     local ok = stats.vitality >= 800
         and stats.vitality > stats.strength
