@@ -1389,7 +1389,7 @@ function Class.poll(data)
         start_tick = start_tick,
         end_tick = end_tick,
         duration = duration,
-        created_by = name or {name = '<server>', valid = true},
+        created_by = name or '<server>',
         edited_by = {}
     }
 
