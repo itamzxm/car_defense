@@ -231,16 +231,11 @@ local function create_main_gui(player, data)
     status.style.top_padding = 4
     status.style.bottom_padding = 4
 
-    -- 合成顺序（从小到大，全名）
-    local order = {''}
-    for v = 1, #DROP_CHAR do
-        order[#order + 1] = {'amap.tendrops_tier_' .. v}
-        if v < #DROP_CHAR then order[#order + 1] = '→' end
-    end
+    -- 合成顺序（从小到大，全名；静态 chain_tiers 键，避免嵌套数组超 20 参数限制）
     local chain = frame.add({type = 'label', name = GUI_GRID .. '_chain',
-        caption = {'amap.tendrops_chain_label', order}})
+        caption = {'amap.tendrops_chain_label', {'amap.tendrops_chain_tiers'}}})
     chain.style.font = 'heading-2'
-    chain.style.font_color = {0, 0, 0}
+    chain.style.font_color = {0.702, 0.702, 0.702}  -- #B3B3B3，弱化合成顺序提示
     chain.style.top_padding = 4
     chain.style.bottom_padding = 4
 

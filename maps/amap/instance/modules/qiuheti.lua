@@ -275,16 +275,11 @@ local function create_main_gui(player, data)
     status.style.top_padding = 4
     status.style.bottom_padding = 4
 
-    -- 合成顺序（从小到大，全名）
-    local order = {''}
-    for v = 1, #TIER_CHAR do
-        order[#order + 1] = {'amap.qiuheti_tier_' .. v}
-        if v < #TIER_CHAR then order[#order + 1] = '→' end
-    end
+    -- 合成顺序（从小到大，全名；静态 chain_tiers 键，避免嵌套数组超 20 参数限制）
     local chain = frame.add({type = 'label', name = GUI_GRID .. '_chain',
-        caption = {'amap.qiuheti_chain_label', {'amap.qiuheti_tier_' .. md.target}, order}})
+        caption = {'amap.qiuheti_chain_label', {'amap.qiuheti_tier_' .. md.target}, {'amap.qiuheti_chain_tiers'}}})
     chain.style.font = 'heading-2'
-    chain.style.font_color = {0, 0, 0}
+    chain.style.font_color = {0.702, 0.702, 0.702}  -- #B3B3B3，弱化合成顺序提示
     chain.style.top_padding = 4
     chain.style.bottom_padding = 4
 
@@ -328,7 +323,7 @@ local function create_main_gui(player, data)
     -- 待放区
     local next_label = frame.add({type = 'label', name = GUI_NEXT_LABEL, caption = ''})
     next_label.style.font = 'heading-2'
-    next_label.style.font_color = {0, 0, 0}  -- 统一黑色字体
+    next_label.style.font_color = {0.702, 0.702, 0.702}  -- #B3B3B3，弱化待放提示
     next_label.style.top_padding = 6
 
     -- 提示
@@ -363,7 +358,7 @@ local function refresh_gui(player, data)
     if next_label and next_label.valid then
         local v = md.next
         next_label.caption = {'amap.qiuheti_next_label', cell_caption(v)}
-        next_label.style.font_color = {0, 0, 0}  -- 统一黑色字体
+        next_label.style.font_color = {0.702, 0.702, 0.702}  -- #B3B3B3，弱化待放提示
     end
 
     -- 棋盘
