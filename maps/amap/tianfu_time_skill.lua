@@ -1638,21 +1638,10 @@ local function yanfayanjiuzhongxin(player, q_idx)
     return true
 end
 
-local function mlzq(player, q_idx)
-    if not player.character or not player.character.valid then
-        return false
-    end
-    local max = player.character.max_health
-    local now = player.character.health
-    if max == now then
-        return false
-    end
-    local rpg_t = rpgtable.get('rpg_t')
-    local mana_per_tick = RPG_spee.get_mana_modifier(player)
-    rpg_t[player.index].mana = rpg_t[player.index].mana + mana_per_tick * COEFF_LOW[q_idx or 1]
-    if rpg_t[player.index].mana >= rpg_t[player.index].mana_max then
-        rpg_t[player.index].mana = rpg_t[player.index].mana_max
-    end
+-- 魔力之泉：实际回蓝逻辑已迁移到 rpg/main.lua 的 regen_mana_player（战斗中放行×2×品质系数）
+-- 本函数退化为 no-op，保留注册以兼容存档/GUI
+local function mlzq()
+    return false
 end
 
 local function bujiwu(player, q_idx)
