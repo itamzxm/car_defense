@@ -144,6 +144,34 @@ if wave_number>= 1300 and wave_number <=2005 then
   wave_defense_table.wave_interval = 1380/diff_k
 end
 
+-- 世界专属波次间隔曲线（框架字段 wave_interval_segments，纯数据表）。
+-- 放在通用逻辑最末尾：该字段一旦定义即为该世界节奏的唯一权威，通用的 1080/1380/强制段全部作废。
+-- 未定义该字段的世界（1~14、竞技场）不进入本分支，节奏完全不变。
+-- 数据格式：
+--   数组部分  { {hi=波次上界, interval=该段间隔tick}, ... }  按 wave_number < hi 顺序命中
+--   tail_interval  超出最后一段后的固定间隔
+--   diff_k_cap     参与除法的 diff_k 上限（超过部分不再压缩间隔）
+--   min_interval   间隔硬下限，防止极端难度把节奏压成空转
+local wi_segments = World.get_field(map.world, 'wave_interval_segments')
+if wi_segments then
+  local interval = wi_segments.tail_interval
+  for _, seg in ipairs(wi_segments) do
+    if wave_number < seg.hi then
+      interval = seg.interval
+      break
+    end
+  end
+  local k = diff_k
+  if wi_segments.diff_k_cap and k > wi_segments.diff_k_cap then
+    k = wi_segments.diff_k_cap
+  end
+  interval = interval / k
+  if wi_segments.min_interval and interval < wi_segments.min_interval then
+    interval = wi_segments.min_interval
+  end
+  wave_defense_table.wave_interval = interval
+end
+
 -- if wave_number<= 800 then
 --   wave_defense_table.wave_interval = wave_defense_table.wave_interval +600
 -- end

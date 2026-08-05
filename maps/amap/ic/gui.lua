@@ -899,7 +899,7 @@ local function add_stop_botton(player)
             type = 'sprite-button',
             sprite = 'entity/behemoth-biter',
             name = stop_wave,
-            tooltip = {'ic.ic_pause_wave_price', pirce_wave}
+            tooltip = {'ic.pause_wave_price', pirce_wave}
         })
     end
 end

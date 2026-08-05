@@ -421,13 +421,14 @@ local lose_dexterity = Token.register(function(data)
     local q_idx = data.q_idx
     local rpg_t = rpgtable.get('rpg_t')
 
-    -- 必须与 sxf 中加成的数值完全一致（随品质缩放），否则高品質时敏捷无法被正确消除
+    -- 与 sxf 中加成的数值完全一致，品质系数加成，若品质降低时无法正确扣除
     local loss = math.floor(30 * COEFF_REG[q_idx or 1] + 0.5)
     if rpg_t[player.index].dexterity < loss then
         rpg_t[player.index].dexterity = 0
     else
         rpg_t[player.index].dexterity = rpg_t[player.index].dexterity - loss
     end
+    rpgtable.update_player_stats(player)
 end)
 
 local un_wudi = Token.register(function(player)
@@ -851,7 +852,7 @@ local function xixue(player, q_idx)
     end
 end
 
--- 嗜血疯狂
+-- 失心疯
 local function sxf(player, q_idx)
     local this = TPT.get()
     if not this.sxf_count[player.name] then
@@ -863,6 +864,7 @@ local function sxf(player, q_idx)
         local rpg_t = rpgtable.get('rpg_t')
         local gain = math.floor(30 * COEFF_REG[q_idx or 1] + 0.5)
         rpg_t[player.index].dexterity = rpg_t[player.index].dexterity + gain
+        rpgtable.update_player_stats(player)
 
         Task.set_timeout_in_ticks(60 * 30, lose_dexterity, { player = player, q_idx = q_idx })
         new_print(player, { 'tianfu.sxf_over', gain })
@@ -2520,13 +2522,17 @@ local function tishenshu(player, event, q_idx)
         return false
     end
     if not player or not player.valid or not player.character then
-        return
+        return false
+    end
+    -- 远程控制（编辑器/星图模式）下不触发传送
+    if player.controller_type == defines.controllers.remote then
+        return false
     end
     
     -- 获取伤害来源
     local cause = event.cause
     if not cause or not cause.valid then
-        return
+        return false
     end
     
     -- 计算远离伤害来源的方向
@@ -2568,8 +2574,12 @@ local function tishenshu(player, event, q_idx)
     -- 查找目标位置附近的无障碍点
     local safe_position = player.physical_surface.find_non_colliding_position('character', target_position, 16, 1, false)
     if not safe_position then
-        -- 如果找不到无障碍点，尝试扩大搜索范围
-       return
+        -- 找不到无障碍点：扩大搜索范围再试一次
+        safe_position = player.physical_surface.find_non_colliding_position('character', target_position, 32, 1, false)
+    end
+    if not safe_position then
+        new_print(player, { 'tianfu.tishenshu_fail' })
+        return false
     end
     
 

@@ -24,6 +24,9 @@ local polls_counter = {0}
 local no_notify_players = {}
 local player_poll_index = {}
 local player_create_poll_data = {}
+-- 运行中投票列表（纯内存表，不持久化）：到期检测+广播一次用
+-- 从已恢复的 polls 重建（end_tick==-1 无限期 或 未到期），避免新增 Global 键导致旧存档签名错位
+local running_polls = {}
 
 Global.register(
     {
@@ -39,6 +42,15 @@ Global.register(
         no_notify_players = tbl.no_notify_players
         player_poll_index = tbl.player_poll_index
         player_create_poll_data = tbl.player_create_poll_data
+        -- 重建运行中列表（on_load 阶段 game 不可用，无法用 game.tick 判断；
+        -- 无限期(end_tick==-1)或限时(end_tick>0)都先登记，到期由 tick 检测出列）
+        -- 注意：polls 表内含遗留字段 polls.running（boolean），pairs 会遍历到，必须跳过非表元素
+        running_polls = {}
+        for _, p in pairs(tbl.polls or polls) do
+            if type(p) == 'table' and (p.end_tick == -1 or p.end_tick > 0) then
+                insert(running_polls, p)
+            end
+        end
     end
 )
 
@@ -46,6 +58,7 @@ local main_button_name = Gui.uid_name()
 local main_frame_name = Gui.uid_name()
 local create_poll_button_name = Gui.uid_name()
 local notify_checkbox_name = Gui.uid_name()
+local poll_close_button_name = Gui.uid_name()
 
 -- 导出顶栏按钮名（供 utils/top_button_order.lua 排序使用）
 Class.main_button_name = main_button_name
@@ -108,7 +121,6 @@ local function do_remaining_time(poll, remaining_time_label)
     local ticks = end_tick - game.tick
     if ticks < 0 then
         remaining_time_label.caption = 'Poll Finished.'
-        polls.running = false
         return false
     else
         local time = math.ceil(ticks / 60)
@@ -300,7 +312,7 @@ end
 
 local function draw_main_frame(left, player)
     local trusted = session.get_trusted_table()
-    local frame = left.add {type = 'frame', name = main_frame_name, caption = 'Polls', direction = 'vertical'}
+    local frame = Gui.add_main_frame_with_toolbar(player, 'left', main_frame_name, poll_close_button_name, 'Polls')
 
     local poll_viewer_top_flow = frame.add {type = 'table', column_count = 5}
     poll_viewer_top_flow.style.horizontal_spacing = 0
@@ -342,15 +354,9 @@ local function draw_main_frame(left, player)
 
     local bottom_flow = frame.add {type = 'flow', direction = 'horizontal'}
 
-    local left_flow = bottom_flow.add {type = 'flow'}
-    left_flow.style.horizontal_align = 'left'
-    left_flow.style.horizontally_stretchable = true
-
-    local close_button = left_flow.add {type = 'button', name = main_button_name, caption = 'Close'}
-    apply_button_style(close_button)
-
     local right_flow = bottom_flow.add {type = 'flow'}
     right_flow.style.horizontal_align = 'right'
+    right_flow.style.horizontally_stretchable = true
 
     local comfy_panel_config = Config.get('gui_config')
 
@@ -688,7 +694,13 @@ local function create_poll(event)
     }
 
     insert(polls, poll_data)
+    insert(running_polls, poll_data)
 
+    -- ⚠ 遗留字段 polls.running：不能删（历史缺陷写法的残留）。
+    -- 它是 polls 表内部的 boolean 字段（非 Global 顶层 key，删它不影响 Global 签名校验），
+    -- 但旧存档的 polls 表里已持久化该字段；若删掉创建处的赋值，pairs(polls) 遍历到旧存档
+    -- 的 running 字段仍是 boolean，任何"重建运行中列表"的代码都必须跳过非表元素。
+    -- 现逻辑已改用 running_polls 列表（tick 到期检测/广播），polls.running 仅为兼容保留。
     polls.running = true
 
     show_new_poll(poll_data)
@@ -707,6 +719,16 @@ end
 
 local function vote(event)
     local player_index = event.player_index
+    local player = game.get_player(player_index)
+    -- 权限检查：仅 trusted 可投票（开关默认关=人人可投，admin 面板开启后生效）
+    local comfy_panel_config = Config.get('gui_config')
+    if comfy_panel_config.poll_vote_trusted and player and player.valid and not player.admin then
+        if not session.get_trusted_player(player) then
+            player.print('Sorry, you need to be trusted to vote on polls.')
+            player.print('You can become trusted by asking an admin to use the /trust command on you.')
+            return
+        end
+    end
     local voted_button = event.element
     local button_data = Gui.get_data(voted_button)
     local answer = button_data.answer
@@ -780,9 +802,6 @@ local function player_joined(event)
 end
 
 local function tick()
-    if not polls.running then
-        return
-    end
     for _, p in pairs(game.players) do
         local frame = p.gui.left[main_frame_name]
         if frame and frame.valid then
@@ -810,6 +829,21 @@ local function tick()
             end
         end
     end
+
+    -- 到期检测：运行中列表逐个检查，到期出列并广播（不互相影响）
+    for i = #running_polls, 1, -1 do
+        local poll = running_polls[i]
+        local finished = poll.end_tick ~= -1 and poll.end_tick <= game.tick
+        if finished then
+            table.remove(running_polls, i)
+            local message = table.concat { 'Poll finished: Poll #', poll.id, ': ', poll.question }
+            for _, p in pairs(game.connected_players) do
+                if not no_notify_players[p.index] then
+                    p.print(message)
+                end
+            end
+        end
+    end
 end
 
 Event.add(defines.events.on_player_joined_game, player_joined)
@@ -817,6 +851,8 @@ Event.add(defines.events.on_player_created, player_joined)
 Event.on_nth_tick(60, tick)
 
 Gui.on_click(main_button_name, toggle)
+-- 标题栏 X 关闭按钮（复用 toggle 关闭逻辑）
+Gui.on_click(poll_close_button_name, toggle)
 
 Gui.on_click(
     create_poll_button_name,
@@ -903,6 +939,11 @@ Gui.on_text_changed(
         end
 
         if textfield and textfield.valid then
+            -- 50 字符上限：防长文本撑爆 GUI/存档
+            if string.len(textfield.text) >= 50 then
+                textfield.text = ''
+                return
+            end
             data.question = textfield.text
         end
     end
@@ -919,6 +960,11 @@ Gui.on_text_changed(
         end
 
         if textfield and textfield.valid then
+            -- 50 字符上限：防长文本撑爆 GUI/存档
+            if string.len(textfield.text) >= 50 then
+                textfield.text = ''
+                return
+            end
             data.answers[data.count].text = textfield.text
         end
     end
@@ -995,6 +1041,14 @@ Gui.on_click(
             if p == poll then
                 table.remove(polls, i)
                 removed_index = i
+                break
+            end
+        end
+
+        -- 从运行中列表移除
+        for i, p in ipairs(running_polls) do
+            if p == poll then
+                table.remove(running_polls, i)
                 break
             end
         end
@@ -1114,6 +1168,18 @@ Gui.on_click(
         if not poll_index then
             insert(polls, poll)
             poll_index = #polls
+        end
+
+        -- 编辑后确保在运行中列表（新投票或重新开始计时）
+        local in_running = false
+        for _, rp in ipairs(running_polls) do
+            if rp == poll then
+                in_running = true
+                break
+            end
+        end
+        if not in_running then
+            insert(running_polls, poll)
         end
 
         local message = table.concat {player.name, ' has edited Poll #', poll.id, ': ', poll.question}
@@ -1298,11 +1364,12 @@ function Class.poll(data)
         start_tick = start_tick,
         end_tick = end_tick,
         duration = duration,
-        created_by = name or {name = '<server>', valid = true},
+        created_by = name or '<server>',
         edited_by = {}
     }
 
     insert(polls, poll_data)
+    insert(running_polls, poll_data)
 
     show_new_poll(poll_data)
     send_poll_result_to_discord(poll_data)
