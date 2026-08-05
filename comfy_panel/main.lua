@@ -261,8 +261,26 @@ local function on_gui_click(event)
     Public.comfy_panel_refresh_active_tab(player)
 end
 
+-- ESC 关闭面板：Factorio 按 ESC 对场景 GUI 触发 on_gui_closed，
+-- 恢复被面板遮挡的 left GUI
+local function on_gui_closed(event)
+    local element = event.element
+    if not element or not element.valid then
+        return
+    end
+    local player = game.get_player(event.player_index)
+    if not (player and player.valid) then
+        return
+    end
+    if element == player.gui.left.comfy_panel then
+        Public.comfy_panel_restore_left_gui(player)
+        Public.comfy_panel_restore_screen_gui(player)
+    end
+end
+
 Event.add(defines.events.on_player_joined_game, on_player_joined_game)
 Event.add(defines.events.on_player_created, on_player_joined_game)
 Event.add(defines.events.on_gui_click, on_gui_click)
+Event.add(defines.events.on_gui_closed, on_gui_closed)
 
 return Public
