@@ -45,10 +45,9 @@ Global.register(
         -- 重建运行中列表（on_load 阶段 game 不可用，无法用 game.tick 判断；
         -- 无限期(end_tick==-1)或限时(end_tick>0)都先登记，到期由 tick 检测出列）
         -- 注意：polls 表内含遗留字段 polls.running（boolean），pairs 会遍历到，必须跳过非表元素
-        -- 已结算(finished=true)的投票不重新登记：防止重启/重连后过期投票复活并重复广播
         running_polls = {}
         for _, p in pairs(tbl.polls or polls) do
-            if type(p) == 'table' and not p.finished and (p.end_tick == -1 or p.end_tick > 0) then
+            if type(p) == 'table' and (p.end_tick == -1 or p.end_tick > 0) then
                 insert(running_polls, p)
             end
         end
@@ -691,8 +690,7 @@ local function create_poll(event)
         end_tick = end_tick,
         duration = duration,
         created_by = name,
-        edited_by = {},
-        finished = false
+        edited_by = {}
     }
 
     insert(polls, poll_data)
@@ -838,8 +836,6 @@ local function tick()
         local finished = poll.end_tick ~= -1 and poll.end_tick <= game.tick
         if finished then
             table.remove(running_polls, i)
-            -- 持久化结算标记：防重启/重连后重建 running_polls 时把过期投票捞回来重复广播
-            poll.finished = true
             local message = table.concat { 'Poll finished: Poll #', poll.id, ': ', poll.question }
             for _, p in pairs(game.connected_players) do
                 if not no_notify_players[p.index] then
@@ -1159,7 +1155,6 @@ Gui.on_click(
 
         poll.start_tick = start_tick
         poll.end_tick = end_tick
-        poll.finished = false  -- 编辑重启计时，清除已结算标记
         poll.duration = duration
 
         local poll_index
@@ -1370,8 +1365,7 @@ function Class.poll(data)
         end_tick = end_tick,
         duration = duration,
         created_by = name or '<server>',
-        edited_by = {},
-        finished = false
+        edited_by = {}
     }
 
     insert(polls, poll_data)
