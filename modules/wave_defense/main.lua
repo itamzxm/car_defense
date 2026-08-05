@@ -728,6 +728,116 @@ local function command_to_main_target(group, bypass)
     end
 end
 
+--- 在指定坐标生成一支进攻小队（一个 unit_group）。
+-- 由 spawn_unit_group 直接调用（第一支小队），或由错峰延迟任务调用（第二支起）。
+-- 从原 spawn_unit_group 的位置循环体原样抽出，逻辑未作改动。
+-- @param surface LuaSurface 生成所在地表
+-- @param position table 生成坐标
+-- @param group_size number 本小队目标虫数
+-- @param max_threat number 本小队可消耗的威胁预算
+local function spawn_one_group(surface, position, group_size, max_threat)
+    local tick = game.tick
+    local last_mine_check_time = WD.get('last_mine_check_time')
+    local need_check_mine = (tick - last_mine_check_time) >= 1200
+
+    if need_check_mine then
+        local radius = 10
+        for k, v in pairs(surface.find_entities_filtered {
+            position = position,
+            radius = radius,
+            name = 'land-mine'
+        }) do
+            if v and v.valid then
+                v.die()
+            end
+        end
+        WD.set('last_mine_check_time', tick)
+    end
+
+    -- 生怪前清场：清树、清石头、填水（与 MFv3 对齐）
+    local remove_entities = WD.get('remove_entities')
+    if remove_entities then
+        remove_trees({ surface = surface, position = position, valid = true })
+        remove_rocks({ surface = surface, position = position, valid = true })
+        fill_tiles({ surface = surface, position = position, valid = true })
+    end
+
+    local unit_group = surface.create_unit_group({
+        position = position,
+        force = 'enemy'
+    })
+
+    local unit_table = BiterRolls.wave_defense_generate_unit_table(group_size, 0.73, 0.27, max_threat)
+
+    local spawned_biters = {}
+    for _, unit_info in ipairs(unit_table) do
+        local unit_name = unit_info.unit_name
+        local quality_name = unit_info.quality_name
+
+        -- 共享计数器检查
+        local can_spawn, category = WD.try_register_biter_spawn(unit_name)
+        if can_spawn then
+            local biter = create_biter_unit(surface, position, unit_name, 'enemy', quality_name, false, 1, tick)
+            if biter then
+                unit_group.add_member(biter)
+                spawned_biters[#spawned_biters + 1] = biter
+            end
+        else
+            -- 超额，存入血量池
+            WD.add_health_to_pool(unit_name, quality_name, category)
+        end
+    end
+
+    if #spawned_biters > 0 then
+        local active_biters = WD.get('active_biters')
+        local active_biter_count = WD.get('active_biter_count')
+        local active_biter_threat = WD.get('active_biter_threat')
+
+        for _, biter in pairs(spawned_biters) do
+            active_biters[biter.unit_number] = {
+                entity = biter,
+                spawn_tick = tick
+            }
+            active_biter_count = active_biter_count + 1
+            active_biter_threat = active_biter_threat + math_round(threat_values[biter.name], 2)
+            WD.inc_type_counter(biter.name)
+        end
+
+        WD.set('active_biters', active_biters)
+        WD.set('active_biter_count', active_biter_count)
+        WD.set('active_biter_threat', active_biter_threat)
+    end
+
+    local unit_groups = WD.get('unit_groups')
+    unit_groups[unit_group.unique_id] = unit_group
+    WD.get('unit_group_pos').positions[unit_group.unique_id] = { position = unit_group.position, index = 0 }
+    if math_random(1, 2) == 1 then
+        WD.set('random_group', unit_group.unique_id)
+    end
+    WD.set('spot', 'nil')
+
+    command_to_main_target(unit_group, true)
+end
+
+--- 错峰生成延迟任务：同一路的第 2、3… 支小队由此在若干 tick 后落地。
+-- 延迟期间场况可能变化，因此重新校验地表 / 目标 / 活跃上限，任一不满足则本小队作废。
+local delayed_squad_token =
+    Token.register(
+    function(data)
+        local surface = game.surfaces[data.surface_index]
+        if not (surface and surface.valid) then
+            return
+        end
+        if not valid(WD.get('target')) then
+            return
+        end
+        if not can_units_spawn() then
+            return
+        end
+        spawn_one_group(surface, data.position, data.group_size, data.max_threat)
+    end
+)
+
 local function spawn_unit_group()
     if not can_units_spawn() then
         return
@@ -756,99 +866,65 @@ local function spawn_unit_group()
     end
 
     local num_positions = #spawn_positions
-    local wave_number = WD.get('wave_number')
-    local tick = game.tick
     local full_max_threat = WD.get('threat') - WD.get('active_biter_threat')
     -- 四路同时进攻世界：不平分威胁/群上限，每路都按"原来一波满编"生成 → 总压力×4
     -- 其他世界（单位置）position_divisor=num_positions，保持原平摊行为
     local this = WPT.get()
-    local divisor = World.get_field(this and this.world_number, 'spawn_threat_divisor')
+    local world_id = this and this.world_number
+    local divisor = World.get_field(world_id, 'spawn_threat_divisor')
     local position_divisor = divisor or num_positions
     local max_threat = full_max_threat / position_divisor
     local group_size = math.floor(64 / position_divisor)
 
-    for i, position in ipairs(spawn_positions) do
-        local current_time = game.tick
-        local last_mine_check_time = WD.get('last_mine_check_time')
-        local need_check_mine = (current_time - last_mine_check_time) >= 1200
+    -- 框架字段 spawn_squad_config（纯数据）：每个生成点派出的并排小队编制。
+    -- 未定义该字段的世界 → squads=1 / spread=0 / stagger=0 / 沿用上面算出的 group_size，
+    -- 即退化成「一个生成点一支满编队伍、当场落地」，与本次改动前逐字节等价。
+    local squad_cfg = World.get_field(world_id, 'spawn_squad_config')
+    local squads = 1
+    local spread = 0
+    local stagger = 0
+    if squad_cfg then
+        squads = squad_cfg.squads_per_lane or 1
+        spread = squad_cfg.lateral_spread or 0
+        stagger = squad_cfg.stagger_ticks or 0
+        if squad_cfg.group_size then
+            group_size = squad_cfg.group_size
+        end
+    end
 
-        if need_check_mine then
-            local radius = 10
-            for k, v in pairs(surface.find_entities_filtered {
-                position = position,
-                radius = radius,
-                name = 'land-mine'
-            }) do
-                if v and v.valid then
-                    v.die()
-                end
+    for _, position in ipairs(spawn_positions) do
+        -- 并排方向 = 垂直于「生成点 → 目标」连线的单位向量，使多支小队沿通道横截面左中右铺开，
+        -- 而不是前后叠成一列（叠成一列会被同一座炮塔逐个点掉，形不成多点压力）。
+        local px, py = 0, 0
+        if squads > 1 and spread ~= 0 then
+            local dx = target.position.x - position.x
+            local dy = target.position.y - position.y
+            local len = math_sqrt(dx * dx + dy * dy)
+            if len > 0 then
+                px = -dy / len
+                py = dx / len
             end
-            WD.set('last_mine_check_time', current_time)
         end
 
-        -- 生怪前清场：清树、清石头、填水（与 MFv3 对齐）
-        local remove_entities = WD.get('remove_entities')
-        if remove_entities then
-            remove_trees({ surface = surface, position = position, valid = true })
-            remove_rocks({ surface = surface, position = position, valid = true })
-            fill_tiles({ surface = surface, position = position, valid = true })
-        end
-
-        local unit_group = surface.create_unit_group({
-            position = position,
-            force = 'enemy'
-        })
-
-        local unit_table = BiterRolls.wave_defense_generate_unit_table(group_size, 0.73, 0.27, max_threat)
-
-        local spawned_biters = {}
-        for _, unit_info in ipairs(unit_table) do
-            local unit_name = unit_info.unit_name
-            local quality_name = unit_info.quality_name
-
-            -- 共享计数器检查
-            local can_spawn, category = WD.try_register_biter_spawn(unit_name)
-            if can_spawn then
-                local biter = create_biter_unit(surface, position, unit_name, 'enemy', quality_name, false, 1, tick)
-                if biter then
-                    unit_group.add_member(biter)
-                    spawned_biters[#spawned_biters + 1] = biter
-                end
+        for s = 1, squads do
+            local offset = (s - (squads + 1) * 0.5) * spread
+            local pos = {x = position.x + px * offset, y = position.y + py * offset}
+            local delay = (s - 1) * stagger
+            if delay <= 0 then
+                spawn_one_group(surface, pos, group_size, max_threat)
             else
-                -- 超额，存入血量池
-                WD.add_health_to_pool(unit_name, quality_name, category)
+                Task.set_timeout_in_ticks(
+                    delay,
+                    delayed_squad_token,
+                    {
+                        surface_index = surface_index,
+                        position = pos,
+                        group_size = group_size,
+                        max_threat = max_threat
+                    }
+                )
             end
         end
-
-        if #spawned_biters > 0 then
-            local active_biters = WD.get('active_biters')
-            local active_biter_count = WD.get('active_biter_count')
-            local active_biter_threat = WD.get('active_biter_threat')
-
-            for _, biter in pairs(spawned_biters) do
-                active_biters[biter.unit_number] = {
-                    entity = biter,
-                    spawn_tick = tick
-                }
-                active_biter_count = active_biter_count + 1
-                active_biter_threat = active_biter_threat + math_round(threat_values[biter.name], 2)
-                WD.inc_type_counter(biter.name)
-            end
-
-            WD.set('active_biters', active_biters)
-            WD.set('active_biter_count', active_biter_count)
-            WD.set('active_biter_threat', active_biter_threat)
-        end
-
-        local unit_groups = WD.get('unit_groups')
-        unit_groups[unit_group.unique_id] = unit_group
-        WD.get('unit_group_pos').positions[unit_group.unique_id] = { position = unit_group.position, index = 0 }
-        if math_random(1, 2) == 1 then
-            WD.set('random_group', unit_group.unique_id)
-        end
-        WD.set('spot', 'nil')
-
-        command_to_main_target(unit_group, true)
     end
 
     -- 撼地虫仅在单位置生成时触发（避免多位置重复生成）

@@ -52,6 +52,59 @@ local W15_NEST_REFILL_PER_TICK = 120   -- 重铺时每 tick 处理的候选格�
 local BOSS_INTERVAL = 100              -- 每 100 波
 
 --==============================================================================
+-- 波次压力参数（Bug B：四路出兵只出两路 / 每波虫量不足 / 节奏不够激进）
+--==============================================================================
+-- 【根因】wave_defense 的 spawn_unit_group 按 spawn_positions 逐路生成，但 active_biter_count
+-- 只在「每路循环结束后」批量累加，而每只虫的准入检查读的是这个尚未刷新的计数。
+-- 世界15 四路各请求 floor(64/1)=64 只，通用上限 max_active_biters=96：
+--   第1路 count 0→64 全出；第2路 count 仍读到 64<96 全出，出口 128；
+--   第3、4路 count=128≥96 → 全部被拒进血量池。
+-- 结果恒定只有两路出兵（场上有残留虫时更少），四路设计意图的 256 只实际只落地 128 只。
+--
+-- 【破格上限依据】新编制 4 路 × 3 小队 × 28 只 = 336 只必须能全部落地，否则同一 bug 换形式复现；
+-- 336 × 1.19 ≈ 400，余下 64 只名额留给上一波残留虫与血量池复活。
+-- 上界侧：活跃单位数对 UPS 的开销近似线性，500+ 单位在 unit_group 指令下开始明显掉帧，
+-- 400 保留 20% 安全边际。实测阈值由 T2 压测复核，若掉帧则回退 320（=4×3×26 + 8 余量）。
+local W15_MAX_ACTIVE_BITERS = 400
+
+-- 每路并排小队编制（被 wave_defense 的 spawn_squad_config 框架字段消费）
+--   squads_per_lane 3 ：用户需求「每路三波并排进攻」
+--   lateral_spread 24 ：三小队横向占 48 tile，不越出十字通道；24 tile 正好是激光炮塔射程量级，
+--                       使三队分别落进不同炮塔的火力覆盖，形成多点压力而非叠成一坨被逐个点掉
+--   stagger_ticks  60 ：第2队 +1s、第3队 +2s，落在用户要求的「错峰 1~2 秒」区间；
+--                       同时把 336 只的生成开销从单帧摊到三帧，消除生成瞬间的帧尖峰
+--   group_size     28 ：旧「每路 64 只」是四路平分前的满编值，实际只有两路能用；
+--                       改为 12 队 × 28 = 336 只，相对旧实际落地 128 只 +162%，相对旧设计意图 256 只 +31%。
+--                       单队 28 而非 64：unit_group 成员越多，队形维持与路径求解越贵，
+--                       28 属 Factorio 原生进攻队列的常见量级。
+local W15_SQUAD_CONFIG = {
+    squads_per_lane = 3,
+    lateral_spread  = 24,
+    stagger_ticks   = 60,
+    group_size      = 28,
+}
+
+-- 世界15 专属波次间隔曲线（被 diff.lua 的 wave_interval_segments 框架字段消费）
+-- 对照旧值：通用逻辑常态 1380/diff_k（23s），且 1300~2005 波被强制写死 1380/diff_k。
+-- 新曲线在 2000 波区间给到 480 tick（8s），提速 2.9 倍，即「波次间隔动态更激进」的量化落地。
+--
+-- tail_interval=360（6s）的下限依据：虫子从 200 tile 外走到中心约需 1300 tick，
+-- 间隔 360 时在途并存约 3.6 波 × 336 只 ≈ 1200 只的生成需求，早已被 400 活跃上限截断。
+-- 再压间隔不会增加场上虫数，只增加 create_unit_group 与寻路开销 —— 360 是收益饱和点。
+-- 同理 diff_k_cap=1.5：diff_k 超过 1.5 后的额外压缩同样被上限吃掉，无难度增益。
+local W15_WAVE_INTERVAL_SEGMENTS = {
+    {hi = 100,  interval = 1200},   -- 20s 开局建塔期（已比通用 2420 激进一倍）
+    {hi = 500,  interval = 900},    -- 15s
+    {hi = 1000, interval = 720},    -- 12s
+    {hi = 2000, interval = 600},    -- 10s
+    {hi = 3000, interval = 480},    -- 8s（对应难度锚点 D≈7）
+    {hi = 4000, interval = 420},    -- 7s
+    tail_interval = 360,            -- 6s
+    diff_k_cap    = 1.5,
+    min_interval  = 300,            -- 5s 硬下限
+}
+
+--==============================================================================
 -- 十字地形生成器
 --==============================================================================
 
@@ -1004,114 +1057,157 @@ local function boss_watchdog()
 end
 
 --==============================================================================
--- 科技初始化：开局解锁全部科技，以下三类除外（开局不解锁）
---   1) 武器伤害类：physical-projectile-damage / stronger-explosives / refined-flammables / energy-weapons-damage / laser-weapons-damage
---   2) 射速类（通用武器射速 + 炮台专属射速 + 武器射速）：weapon-shooting-speed / gun-turret-speed / laser-turret-speed / laser-shooting-speed —— 以上两类在 1000 波前分段解锁
---   3) 永久升级类：采矿/机器人/火炮/机械臂/刹车/生产力等 —— 1000 波后每 100 波实际推进一级（免资源）
+-- 【世界15 统一科技节奏表】—— 单一数据源
+--
+-- 设计目标（Bug A 修复）：全部「武器伤害 / 射速 / 永久升级」类科技走【同一条等级
+-- 曲线 L(wave)】，增速受控、与虫子成长动态匹配，杜绝「某族错名空转、某族无限膨胀」。
+--
+-- ── 三条实测铁律（Factorio 2.1.12 RCON 无头实证，改这段前必读）───────────────
+-- 1) 无限科技 tech.researched 【恒读 false】，每写一次 researched = true 就 level + 1。
+--    因此【绝不可】用 `not tech.researched` 判「尚未授予」——旧写法在 755 波后每 60 tick
+--    重复授予一次，等级 / 伤害无限膨胀 + 刷屏。
+-- 2) 无限科技 tech.level 【可读可写、可升可降】：写 level = 20 生效，再写 level = 6 会降回。
+--    语义：已完成级数 = tech.level - 原型基准级。→ 直接写 level 天然幂等，无需登记表。
+-- 3) 有限科技写 level 无效（researched 仍为 false），只能用 researched 控制。
+--
+-- ── 旧实现的三个坑（本次一并修掉）─────────────────────────────────────────
+-- a) 手写禁用表出现 5 个【真实科技树中不存在】的名字：energy-weapons-damage /
+--    gun-turret-speed / laser-turret-speed / worker-robot-speed / worker-robot-storage。
+--    → 真名是 electric-weapons-damage / worker-robots-speed / worker-robots-storage，
+--      两个 turret-speed 科技压根不存在。electric 族因此从未被禁用，开局即全解锁。
+-- b) 禁用表写到 -8 级，而真实科技树最高只有 -6 / -7 级 → 第 8 级条目全是死数据。
+-- c) init_technologies 的 50 轮定点迭代对无限科技每轮写一次 researched = true
+--    → 未被 skip 的无限科技开局直接【+50 级】（实测 health level = 51、+2500 HP）。
+--
+-- → 本版改为【单一数据源 W15_TECH_FAMILIES】，禁用集与等级映射全部自动派生，
+--    从结构上杜绝错名和「三表口径不一致」。
 --==============================================================================
 
-local DISABLED_TECHNOLOGIES_LIST = {
-    "physical-projectile-damage-1", "physical-projectile-damage-2", "physical-projectile-damage-3",
-    "physical-projectile-damage-4", "physical-projectile-damage-5", "physical-projectile-damage-6",
-    "physical-projectile-damage-7", "physical-projectile-damage-8",
-    "stronger-explosives-1", "stronger-explosives-2", "stronger-explosives-3",
-    "stronger-explosives-4", "stronger-explosives-5", "stronger-explosives-6",
-    "stronger-explosives-7", "stronger-explosives-8",
-    "refined-flammables-1", "refined-flammables-2", "refined-flammables-3",
-    "refined-flammables-4", "refined-flammables-5", "refined-flammables-6",
-    "refined-flammables-7", "refined-flammables-8",
-    "energy-weapons-damage-1", "energy-weapons-damage-2", "energy-weapons-damage-3",
-    "energy-weapons-damage-4", "energy-weapons-damage-5", "energy-weapons-damage-6",
-    "energy-weapons-damage-7", "energy-weapons-damage-8",
-    "laser-weapons-damage-1", "laser-weapons-damage-2", "laser-weapons-damage-3",
-    "laser-weapons-damage-4", "laser-weapons-damage-5", "laser-weapons-damage-6",
-    "laser-weapons-damage-7", "laser-weapons-damage-8",
-    "gun-turret-speed-1", "gun-turret-speed-2", "gun-turret-speed-3",
-    "gun-turret-speed-4", "gun-turret-speed-5", "gun-turret-speed-6",
-    "gun-turret-speed-7", "gun-turret-speed-8",
-    "laser-turret-speed-1", "laser-turret-speed-2", "laser-turret-speed-3",
-    "laser-turret-speed-4", "laser-turret-speed-5", "laser-turret-speed-6",
-    "laser-turret-speed-7", "laser-turret-speed-8",
-    "weapon-shooting-speed-1", "weapon-shooting-speed-2", "weapon-shooting-speed-3",
-    "weapon-shooting-speed-4", "weapon-shooting-speed-5", "weapon-shooting-speed-6",
-    "weapon-shooting-speed-7", "weapon-shooting-speed-8",
-    "laser-shooting-speed-1", "laser-shooting-speed-2", "laser-shooting-speed-3",
-    "laser-shooting-speed-4", "laser-shooting-speed-5", "laser-shooting-speed-6",
-    "laser-shooting-speed-7", "laser-shooting-speed-8",
-    "mining-productivity-1", "mining-productivity-2", "mining-productivity-3",
-    "mining-productivity-4", "mining-productivity-5",
-    "worker-robot-speed-1", "worker-robot-speed-2", "worker-robot-speed-3",
-    "worker-robot-speed-4", "worker-robot-speed-5", "worker-robot-speed-6",
-    "worker-robot-speed-7", "worker-robot-speed-8",
-    "worker-robot-storage-1", "worker-robot-storage-2", "worker-robot-storage-3",
-    "follower-robot-count-1", "follower-robot-count-2", "follower-robot-count-3",
-    "follower-robot-count-4", "follower-robot-count-5", "follower-robot-count-6",
-    "follower-robot-count-7", "follower-robot-count-8",
-    "artillery-shell-range-1", "artillery-shell-range-2", "artillery-shell-range-3",
-    "artillery-shell-range-4", "artillery-shell-range-5", "artillery-shell-range-6",
-    "artillery-shell-range-7", "artillery-shell-range-8",
-    "artillery-shell-speed-1", "artillery-shell-speed-2", "artillery-shell-speed-3",
-    "artillery-shell-speed-4", "artillery-shell-speed-5", "artillery-shell-speed-6",
-    "artillery-shell-speed-7", "artillery-shell-speed-8",
-    "inserter-capacity-bonus-1", "inserter-capacity-bonus-2", "inserter-capacity-bonus-3",
-    "inserter-capacity-bonus-4", "inserter-capacity-bonus-5", "inserter-capacity-bonus-6",
-    "inserter-capacity-bonus-7", "inserter-capacity-bonus-8",
-    "steel-plate-productivity", "scrap-recycling-productivity",
-    "plastic-bar-productivity", "rocket-fuel-productivity",
-    "processing-unit-productivity", "low-density-structure-productivity",
-    "rocket-part-productivity",
-    "braking-force-2", "braking-force-3", "braking-force-4",
-    "braking-force-5", "braking-force-6", "braking-force-7", "braking-force-8",
+-- 各科技族的真实结构（全部经 RCON 读原型实测，勿凭记忆填写）
+--   prefix     族名前缀（有限级科技名 = prefix .. '-' .. i）
+--   finite_max 有限级最高后缀号（0 = 该族没有有限级科技，科技名即前缀本身）
+--   inf_name   该族无限科技的完整名（nil = 该族无无限科技，等级封顶 finite_max）
+--   inf_base   该无限科技的原型基准 level（已完成级数 = tech.level - inf_base）
+--   cap        该族等级上限（nil = 跟随统一曲线，不封顶）
+local W15_TECH_FAMILIES = {
+    -- ① 武器伤害类 --------------------------------------------------------------
+    {prefix = 'physical-projectile-damage', finite_max = 6, inf_name = 'physical-projectile-damage-7', inf_base = 7},
+    {prefix = 'laser-weapons-damage',       finite_max = 6, inf_name = 'laser-weapons-damage-7',       inf_base = 7},
+    {prefix = 'electric-weapons-damage',    finite_max = 3, inf_name = 'electric-weapons-damage-4',    inf_base = 4},
+    {prefix = 'stronger-explosives',        finite_max = 6, inf_name = 'stronger-explosives-7',        inf_base = 7},
+    {prefix = 'refined-flammables',         finite_max = 6, inf_name = 'refined-flammables-7',         inf_base = 7},
+    {prefix = 'railgun-damage',             finite_max = 0, inf_name = 'railgun-damage-1',             inf_base = 1},
+    {prefix = 'artillery-shell-damage',     finite_max = 0, inf_name = 'artillery-shell-damage-1',     inf_base = 1},
+    -- ② 射速类 ------------------------------------------------------------------
+    -- weapon-shooting-speed 只有 1~6 级、laser-shooting-speed 只有 1~7 级，二者【均无无限级】，
+    -- 到顶后自然封顶（旧表写到 -8 是死数据）。
+    {prefix = 'weapon-shooting-speed',      finite_max = 6},
+    {prefix = 'laser-shooting-speed',       finite_max = 7},
+    {prefix = 'railgun-shooting-speed',     finite_max = 0, inf_name = 'railgun-shooting-speed-1',     inf_base = 1},
+    {prefix = 'artillery-shell-speed',      finite_max = 0, inf_name = 'artillery-shell-speed-1',      inf_base = 1},
+    -- ③ 永久升级类 --------------------------------------------------------------
+    {prefix = 'mining-productivity',        finite_max = 2, inf_name = 'mining-productivity-3',        inf_base = 3},
+    {prefix = 'worker-robots-speed',        finite_max = 6, inf_name = 'worker-robots-speed-7',        inf_base = 7},
+    {prefix = 'worker-robots-storage',      finite_max = 3},
+    {prefix = 'artillery-shell-range',      finite_max = 0, inf_name = 'artillery-shell-range-1',      inf_base = 1},
+    {prefix = 'inserter-capacity-bonus',    finite_max = 7},
+    {prefix = 'braking-force',              finite_max = 7},
+    -- 跟随机器人：【性能封顶 L10】（≈195 个跟随机器人）。
+    -- 依据：base 5 + 前 4 级(5/10/10/20) = 45，之后每级 +25 → L10 = 195、L132 = 3245。
+    -- 3245 个是真实实体（各自跑寻路 + 攻击判定），叠加本世界场上 400 只虫必然 UPS 崩溃。
+    -- 这是纯性能约束，不是平衡约束。
+    {prefix = 'follower-robot-count',       finite_max = 4, inf_name = 'follower-robot-count-5',       inf_base = 5, cap = 10},
+    -- ④ 生产力类（无有限级，科技名即前缀，全部为无限研究）--------------------------
+    {prefix = 'steel-plate-productivity',           finite_max = 0, inf_name = 'steel-plate-productivity',           inf_base = 1},
+    {prefix = 'scrap-recycling-productivity',       finite_max = 0, inf_name = 'scrap-recycling-productivity',       inf_base = 1},
+    {prefix = 'plastic-bar-productivity',           finite_max = 0, inf_name = 'plastic-bar-productivity',           inf_base = 1},
+    {prefix = 'rocket-fuel-productivity',           finite_max = 0, inf_name = 'rocket-fuel-productivity',           inf_base = 1},
+    {prefix = 'processing-unit-productivity',       finite_max = 0, inf_name = 'processing-unit-productivity',       inf_base = 1},
+    {prefix = 'low-density-structure-productivity', finite_max = 0, inf_name = 'low-density-structure-productivity', inf_base = 1},
+    {prefix = 'rocket-part-productivity',           finite_max = 0, inf_name = 'rocket-part-productivity',           inf_base = 1},
+    {prefix = 'research-productivity',              finite_max = 0, inf_name = 'research-productivity',              inf_base = 1},
+    {prefix = 'asteroid-productivity',              finite_max = 0, inf_name = 'asteroid-productivity',              inf_base = 1},
 }
 
---==============================================================================
--- 武器伤害类 + 射速类科技：1000 波前分段全部解锁
---==============================================================================
-
--- 需要按波次进度解锁的武器伤害 / 射速科技（9 类 × 8 级 = 72 项）
--- 世界 15 开局不解锁这些科技，而是随波次推进自动研究，全部在 1000 波前完成。
--- 其余被禁用科技（永久升级类）保持锁定，直到 1000 波后才分阶段开放。
-local WEAPON_DAMAGE_CATEGORIES = {
-    {id = "physical-projectile-damage", cn = "物理弹道伤害"},  -- 机枪 / 子弹伤害
-    {id = "stronger-explosives",        cn = "爆炸伤害"},       -- 火箭 / 爆破伤害
-    {id = "refined-flammables",         cn = "火焰伤害"},        -- 火焰伤害（备用）
-    {id = "energy-weapons-damage",      cn = "电力武器伤害"},   -- 电力 / 特斯拉能量伤害
-    {id = "laser-weapons-damage",       cn = "激光武器伤害"},   -- 激光武器专属伤害（独立于 energy-weapons-damage）
-    -- 射速类：通用武器射速 + 炮台专属射速科技（机枪炮塔 / 激光炮塔）
-    {id = "weapon-shooting-speed",      cn = "武器射速"},        -- 通用射击速度
-    {id = "gun-turret-speed",           cn = "机枪炮塔射速"},
-    {id = "laser-turret-speed",         cn = "激光炮塔射速"},
-    {id = "laser-shooting-speed",       cn = "激光武器射速"},
+-- 固定完成级数的科技（【不跟随】统一节奏，开局设定后不再变动）
+--   health（无限科技，每级 +50 角色生命）不入节奏的两条依据：
+--   1) 生存能力已由框架 world_bonus 单独管理（diff.apply_world_bonuses →
+--      character_health_bonus 线性增长）。纳入节奏 = 同一属性加两遍，双重膨胀。
+--   2) health 既非武器伤害、也非射速、也不属于「永久升级类」，本就不在统一节奏范围内。
+--   固定 1 级 = +50 HP。（旧版被 50 轮定点迭代顶到 level 51 → +2500 HP，即 Bug A 的一支。）
+local W15_FIXED_TECH_LEVELS = {
+    ['health'] = 1,
 }
 
--- 生成解锁时间表（交错排列：先逐类解锁第 1 级，再进第 2 级……保证各类型均衡成长）
--- 分布范围：首级 ≈ 第 10 波，末级 ≈ 第 990 波（1000 波前全部完成）
-local WEAPON_TECH_SCHEDULE = {}
+-- 由 W15_TECH_FAMILIES【自动派生】的「受统一节奏管理的科技名集合」。
+-- 该集合同时承担旧 DISABLED_TECHNOLOGIES_LIST 的职责：开局这些科技一律锁定（L0），
+-- 之后完全由 w15_apply_tech_level_for_force 按 L(wave) 驱动升降。
+-- 手写清单已删除 —— 从结构上杜绝再写出不存在的科技名。
+local W15_MANAGED_TECHS = {}
 do
-    local LEVELS = 8
-    local FIRST_WAVE = 10
-    local LAST_WAVE = 990
-    local total = #WEAPON_DAMAGE_CATEGORIES * LEVELS  -- 64
-    local idx = 0
-    for lvl = 1, LEVELS do
-        for _, cat in ipairs(WEAPON_DAMAGE_CATEGORIES) do
-            idx = idx + 1
-            local wave = FIRST_WAVE + math.floor((idx - 1) * (LAST_WAVE - FIRST_WAVE) / (total - 1))
-            WEAPON_TECH_SCHEDULE[idx] = {
-                tech = cat.id .. "-" .. lvl,
-                cat_cn = cat.cn,
-                lvl = lvl,
-                wave = wave,
-            }
+    for _, fam in ipairs(W15_TECH_FAMILIES) do
+        for i = 1, fam.finite_max do
+            W15_MANAGED_TECHS[fam.prefix .. '-' .. i] = true
+        end
+        if fam.inf_name then
+            W15_MANAGED_TECHS[fam.inf_name] = true
         end
     end
 end
 
--- 根据当前波次，逐条核对进度表科技（【自愈式】，不再依赖持久化波次做节流）：
---   · 已到解锁波次（entry.wave <= current_wave）→ 确保解锁（仅首次解锁时提示）
---   · 尚未到解锁波次 → 强制保持锁定（即便读档 / 框架误解锁，下一波次立即纠正）
--- 旧写法用「区间增量 + last_wave 持久化」节流，读档后 last_wave 重置为 0、current_wave 已是存档内高波次，
--- 首帧就把进度表内全部科技一次性解锁 —— 即“开局三类被提前解锁”的根因。
+--==============================================================================
+-- 统一等级曲线 L(wave)
+--
+-- 由平衡模型 .workbuddy/w15_design_model.py 二分反解得出，对齐指定的难度锚点
+-- （2000 波≈7.0 / 3000 波≈8.0 / 4000 波≈9.0 / 5000 波≈9.5，实测偏差 ≤0.04 全部 PASS）。
+-- 模型口径：难度 D = 5 + 2 * log2(R / R0)，R = 敌方 HP 吞吐需求 / 玩家混合 DPS；
+-- 玩家 DPS 按炮塔构成加权（laser 0.40 / physical 0.30 / explosives 0.15 /
+-- electric 0.10 / flamethrower 0.05）并计入对应射速科技乘区。
+--
+--   波次 < 10        → L0（开局全锁，保持塔防前期的纯净手感）
+--   10 ≤ 波次 < 1000 → L = 1 + floor(波次 / 100)，即每 100 波 +1 级，L(900..999) = 10
+--   波次 ≥ 1000      → 分段线性，每段「每 step 波推进 1 级」：
+--        ≤1500: 28 波/级   ≤2000: 50 波/级   ≤3000: 25 波/级
+--        ≤4000: 36 波/级   >4000: 37 波/级（外推同斜率）
+--   校验点：L(1000)=10  L(2000)=37  L(3000)=77  L(4000)=105  L(5000)=132
+--==============================================================================
+local W15_LEVEL_SEGMENTS = {
+    {hi = 1500, step = 28},
+    {hi = 2000, step = 50},
+    {hi = 3000, step = 25},
+    {hi = 4000, step = 36},
+    {hi = 5000, step = 37},
+}
+
+-- 预计算每段起点的累计等级：用浮点保留小数，避免「逐段先取整再累加」造成的等级漂移
+-- （模型侧同样是浮点累加后一次性取整，两边口径必须一致，否则实机曲线会偏离验收锚点）。
+do
+    local lvl, prev = 10.0, 1000
+    for _, seg in ipairs(W15_LEVEL_SEGMENTS) do
+        seg.base_wave = prev
+        seg.base_level = lvl
+        lvl = lvl + (seg.hi - prev) / seg.step
+        prev = seg.hi
+    end
+end
+
+local function w15_level_for_wave(wave)
+    if not wave or wave < 10 then return 0 end
+    if wave < 1000 then
+        return 1 + math.floor(wave / 100)
+    end
+    for _, seg in ipairs(W15_LEVEL_SEGMENTS) do
+        if wave <= seg.hi then
+            return math.floor(seg.base_level + (wave - seg.base_wave) / seg.step)
+        end
+    end
+    -- 超出最后一段（>5000 波）：按最后一段的斜率外推，保持连续无断崖
+    local last = W15_LEVEL_SEGMENTS[#W15_LEVEL_SEGMENTS]
+    return math.floor(last.base_level
+        + (last.hi - last.base_wave) / last.step
+        + (wave - last.hi) / last.step)
+end
+
 -- 世界15 玩家实际势力可能不是默认 game.forces.player（RPG/角色系统或框架会给玩家分配
 -- 队伍势力——与「金币按 player.index 发放」同源）。科技解锁/锁回必须作用到玩家真实势力，
 -- 否则只会动默认 player 势力、玩家真实势力的科技仍被提前解锁（即「开局科技提前解锁」真凶）。
@@ -1132,190 +1228,143 @@ local function world15_get_player_forces()
     return forces
 end
 
-local function unlock_progressive_weapon_techs_for_force(force, current_wave)
-    -- 第一遍（升序）：按波次解锁。低级先于高级处理，保证依赖链满足。
-    for _, entry in ipairs(WEAPON_TECH_SCHEDULE) do
-        local tech = force.technologies[entry.tech]
-        if tech and entry.wave <= current_wave and not tech.researched then
-            tech.researched = true
-            game.print({"amap.world15_tech_unlock", entry.cat_cn .. " Lv" .. entry.lvl},
-                {r = 1, g = 0.7, b = 0.2})
-        end
-    end
-    -- 第二遍（降序）：未到解锁波次 → 强制锁回（自愈）。
-    -- 高等级先于低等级处理：避免「低等级因高等级仍被研究而无法回锁」导致整族残留
-    -- （真实 bug：框架默认把整族 1..N 级全部解锁，若只升序回锁，level1 回锁会因 level2 已研究而失败）。
-    for i = #WEAPON_TECH_SCHEDULE, 1, -1 do
-        local entry = WEAPON_TECH_SCHEDULE[i]
-        local tech = force.technologies[entry.tech]
-        if tech and entry.wave > current_wave and tech.researched then
+-- 无限研究科技的 max_level 读数（uint 上限）
+local W15_INFINITE_MAX_LEVEL = 4294967295
+
+-- 等级变更日志开关：true = 每次统一等级发生变化写一行 log()，便于排查。
+-- 【仅影响日志输出，不参与任何解锁判定】。
+local W15_TECH_LOG = true
+
+local function w15_is_infinite_tech(tech)
+    local proto = tech.prototype
+    return proto ~= nil and proto.max_level >= W15_INFINITE_MAX_LEVEL
+end
+
+-- 把单个科技族精确设定到 target_level（可升【也可降】，自愈式、天然幂等）。
+--
+-- 分两种写入通道，缺一不可（见文件上方「三条实测铁律」）：
+--   · 有限级（prefix-1 .. prefix-finite_max）：只能用 researched 控制，写 level 无效。
+--   · 无限级（inf_name）：直接写 level = inf_base + 超出有限段的级数。
+--
+-- 有限段必须先【降序锁回】再【升序解锁】：
+--   升序锁回会失败 —— 低等级科技在「更高等级仍处于已研究」时无法置回 false，
+--   导致整族残留（真实 bug：框架默认把整族 1..N 全解锁，只升序回锁则 level1 锁不掉）。
+local function w15_apply_family(force, fam, target_level)
+    local fin_cap = fam.finite_max
+    local fin_target = target_level
+    if fin_target > fin_cap then fin_target = fin_cap end
+    if fin_target < 0 then fin_target = 0 end
+
+    for i = fin_cap, fin_target + 1, -1 do
+        local tech = force.technologies[fam.prefix .. '-' .. i]
+        if tech and tech.researched then
             pcall(function() tech.researched = false end)
         end
     end
+    for i = 1, fin_target do
+        local tech = force.technologies[fam.prefix .. '-' .. i]
+        if tech and not tech.researched then
+            pcall(function() tech.researched = true end)
+        end
+    end
+
+    if fam.inf_name then
+        local tech = force.technologies[fam.inf_name]
+        if tech then
+            local extra = target_level - fin_cap
+            if extra < 0 then extra = 0 end
+            local want = fam.inf_base + extra
+            -- 只在不相等时写：level 写入本身是幂等的，但避免无谓的引擎调用
+            if tech.level ~= want then
+                pcall(function() tech.level = want end)
+            end
+        end
+    end
 end
 
+-- 把【全部族】推到统一等级 level。
+-- 自愈：无论读档、框架误解锁、还是玩家手动研究，下一次调用即纠正回目标等级。
+local function w15_apply_tech_level_for_force(force, level)
+    for _, fam in ipairs(W15_TECH_FAMILIES) do
+        local target = level
+        if fam.cap and target > fam.cap then target = fam.cap end
+        w15_apply_family(force, fam, target)
+    end
+end
+
+-- 框架扩展点 unlock_progressive_techs 的实现：按当前波次施加统一等级。
+-- 返回本次施加的等级，供调用方做「等级提升播报」的节流判定。
 local function unlock_progressive_weapon_techs(current_wave)
+    local level = w15_level_for_wave(current_wave)
     -- 对每个在线玩家的真实势力执行（玩家势力可能不是默认 game.forces.player）
     for _, force in pairs(world15_get_player_forces()) do
-        unlock_progressive_weapon_techs_for_force(force, current_wave)
+        w15_apply_tech_level_for_force(force, level)
     end
+    return level
 end
 
---==============================================================================
--- 永久升级类科技：1000 波后、2000 波前，每 100 波（1100/.../1900）实际推进一级
---   推进方式：force.add_research 排队 + 直接置 researched=true，完全免消耗科研资源
---==============================================================================
-
--- 永久升级类科技前缀（无限研究 / 永久加成）：开局不解锁，留待后期分阶段开放
-local PERMANENT_UPGRADE_PREFIXES = {
-    "mining-productivity",          -- 采矿生产力（无限）
-    "worker-robot-speed",           -- 施工机器人速度
-    "worker-robot-storage",         -- 施工机器人储物
-    "follower-robot-count",         -- 跟随机器人数量
-    "artillery-shell-range",        -- 火炮射程
-    "artillery-shell-speed",        -- 火炮弹速
-    "inserter-capacity-bonus",      -- 机械臂吞吐
-    "braking-force",                -- 刹车力
-    "steel-plate-productivity", "scrap-recycling-productivity", "plastic-bar-productivity",
-    "rocket-fuel-productivity", "processing-unit-productivity", "low-density-structure-productivity",
-    "rocket-part-productivity",     -- 各类生产力（无限）
-}
-
--- 永久升级类科技：1000 波后、2000 波前，每 100 波（1100/1200/.../1900）实际推进一级
--- 推进方式：force.add_research 排队当前等级 + 直接置 researched=true，完全免消耗任何科研资源
--- （Factorio 标准免资源即时研究手法：infinite 科技每完成一次研究即等级 +1）
-local function unlock_permanent_upgrades_for_force(force, current_wave)
-    -- 1000 波前：强制锁住全部永久升级类（【自愈】：读档或任何误解锁后下一波次立即纠正）
-    if current_wave <= 1000 then
-        for _, tech in pairs(force.technologies) do
-            repeat
-                if not tech.enabled then break end
-                local matched = false
-                for _, prefix in ipairs(PERMANENT_UPGRADE_PREFIXES) do
-                    if tech.name == prefix or tech.name:find("^" .. prefix .. "%-") then
-                        matched = true
-                        break
-                    end
-                end
-                if not matched then break end
-                if tech.researched then
-                    pcall(function() tech.researched = false end)
-                end
-            until true
-        end
-        return false
-    end
-
-    -- 仅在第 1100~1900 波、且为 100 的整数倍时推进一级（与 on_tick 调用保持一致）
-    if current_wave >= 2000 or (current_wave % 100 ~= 0) then return false end
-
-    for name, tech in pairs(force.technologies) do
-        repeat
-            if not tech.enabled then break end
-
-            -- 前缀匹配永久升级类
-            local matched = false
-            for _, prefix in ipairs(PERMANENT_UPGRADE_PREFIXES) do
-                if name == prefix or name:find("^" .. prefix .. "%-") then
-                    matched = true
-                    break
-                end
-            end
-            if not matched then break end
-
-            -- 已满级则跳过（max_level == 0 表示无限研究）
-
-            local proto = tech.prototype
-            local max_level = (proto and proto.max_level) or 1
-            if max_level == 0 then max_level = 1e9 end
-            if tech.level >= max_level then break end
-
-            if not tech.researched then
-                -- 首次触发（第 1100 波）：开放至第 1 级
-                tech.researched = true
-            else
-                -- 已开放：免资源推进一级
-                -- 仅当当前没有其它研究在进行时推进，避免干扰玩家手动研究队列
-                if force.current_research == nil then
-                    local ok = pcall(function() force.add_research(name) end)
-                    if ok then
-                        local cr = force.current_research
-                        if cr and cr.name == name then
-                            cr.researched = true  -- 直接完成当前等级研究，不消耗科技包
-                        end
-                    end
-                end
-            end
-        until true
-    end
-
-    return true
-end
-
-local function unlock_permanent_upgrades(current_wave)
-    local this = WPT.get()
-    -- 同一 100 波节点只推进一次（避免读档/多势力重复升级）
-    if this then
-        local last_perm = this.world15_last_permanent_wave or 0
-        if current_wave <= last_perm then return false end
-    end
-    -- 对每个在线玩家的真实势力执行（玩家势力可能不是默认 game.forces.player）
-    local promoted = false
-    for _, force in pairs(world15_get_player_forces()) do
-        if unlock_permanent_upgrades_for_force(force, current_wave) then
-            promoted = true
-        end
-    end
-    -- 持久化已处理的 100 波节点
-    if promoted and this then this.world15_last_permanent_wave = current_wave end
-    return promoted
-end
-
--- 世界15 玩家实际势力可能不是默认 game.forces.player（RPG/角色系统或框架会给玩家分配
--- 队伍势力——与「金币按 player.index 发放」同源）。科技解锁/锁回必须作用到玩家真实势力，
--- 否则只会动默认 player 势力、玩家真实势力的科技仍被提前解锁（即「开局科技提前解锁」真凶）。
--- 该 helper 的定义见文件前部（unlock_progressive_weapon_techs 之前），供三处科技函数遍历调用。
-
--- 对单个势力执行：开局解锁全部非禁用科技，并兜底锁回三类暂不解锁科技。
+-- 对单个势力执行开局初始化：
+--   ① 解锁全部「不受统一节奏管理」的有限科技（定点迭代，满足前置依赖链）
+--   ② 族外无限科技统一给 1 级
+--   ③ 固定级科技（health）按 W15_FIXED_TECH_LEVELS 写死
+--   ④ 受统一节奏管理的科技全部归零（L0），之后交给 enforce_world15_techs 按波次驱动
 local function init_technologies_for_force(force)
-    -- 预计算需要跳过的科技名：禁用项本身 + 其无限研究派生系列（如 gun-turret-speed-* / laser-turret-speed-*）
-    local skip = {}
-    for _, dname in ipairs(DISABLED_TECHNOLOGIES_LIST) do
-        skip[dname] = true
-    end
-    for name, _ in pairs(force.technologies) do
-        for _, dname in ipairs(DISABLED_TECHNOLOGIES_LIST) do
-            local base = dname:gsub("%-%d+$", "")
-            if name ~= dname and name:find("^" .. base .. "%-") then
-                skip[name] = true
-                break
-            end
-        end
-    end
-
-    -- 定点迭代解锁：每轮解锁当前无前置阻碍的科技，下一轮再解锁依赖它们的科技。
-    -- 用 pcall 包裹 researched=true，避免「前置未满足」抛错中断整轮（部分科技有前置依赖链）。
+    -- ① 定点迭代解锁：每轮解锁当前无前置阻碍的科技，下一轮再解锁依赖它们的科技。
+    -- 用 pcall 包裹 researched = true，避免「前置未满足」抛错中断整轮。
+    --
+    -- ⚠️【必须跳过全部无限科技】—— 这是旧版科技膨胀最大的一支：
+    -- 无限科技 researched 恒读 false → while 循环每轮都判定它「还没研究」并写一次，
+    -- 每写一次 level + 1，50 轮下来直接 +50 级（实测 health level = 51、+2500 HP，
+    -- electric-weapons-damage-4 level = 54、电力伤害 +35.0）。
+    -- 无限科技一律走下方 ②③④ 的 level 写入通道。
     local changed = true
     local guard = 0
     while changed and guard < 50 do
         changed = false
         guard = guard + 1
         for name, tech in pairs(force.technologies) do
-            if not skip[name] and tech.enabled and not tech.researched then
+            if not W15_MANAGED_TECHS[name]
+                and not W15_FIXED_TECH_LEVELS[name]
+                and tech.enabled
+                and not tech.researched
+                and not w15_is_infinite_tech(tech)
+            then
                 local ok = pcall(function() tech.researched = true end)
                 if ok then changed = true end
             end
         end
     end
 
-    -- 兜底：强制把「暂不解锁」科技重置为未研究，确保开局一定锁着。
-    -- （即便框架层或其它逻辑提前开放了它们，这里也会纠正；后续由分段解锁函数按波次逐渐开放。）
-    -- 按禁用表【逆序】（高等级先于低等级）回锁，避免「低等级因高等级已研究而无法回锁」的级联失败。
-    for i = #DISABLED_TECHNOLOGIES_LIST, 1, -1 do
-        local name = DISABLED_TECHNOLOGIES_LIST[i]
-        local tech = force.technologies[name]
-        if tech then pcall(function() tech.researched = false end) end
+    -- ② 族外无限科技（既不受统一节奏管理、也不在固定表里）：统一给 1 级。
+    -- 既不让它们停在 0 级（玩家会觉得少了东西），也不让它们被迭代顶到 50 级。
+    for name, tech in pairs(force.technologies) do
+        if not W15_MANAGED_TECHS[name]
+            and not W15_FIXED_TECH_LEVELS[name]
+            and tech.enabled
+            and w15_is_infinite_tech(tech)
+        then
+            local base = (tech.prototype and tech.prototype.level) or 1
+            if tech.level ~= base + 1 then
+                pcall(function() tech.level = base + 1 end)
+            end
+        end
     end
+
+    -- ③ 固定级科技（health）：写死完成级数，不跟随统一节奏。
+    for name, lv in pairs(W15_FIXED_TECH_LEVELS) do
+        local tech = force.technologies[name]
+        if tech then
+            local base = (tech.prototype and tech.prototype.level) or 1
+            local want = base + lv
+            if tech.level ~= want then
+                pcall(function() tech.level = want end)
+            end
+        end
+    end
+
+    -- ④ 受统一节奏管理的科技：开局一律归零（L0）。
+    -- 之后由 enforce_world15_techs 每 60 tick 按 L(wave) 推进 / 回收（可升可降、自愈）。
+    w15_apply_tech_level_for_force(force, 0)
 end
 
 local function init_technologies()
@@ -1482,6 +1531,18 @@ end
 
 -- 进入/重进世界15 钩子：解锁科技（通关奖励改走框架 world_bonus，无需按玩家补发）
 local function world15_on_world_start(world_number)
+    -- 已播报等级必须与 init_technologies 的归零同步复位：
+    -- init_technologies_for_force 会把全部受管科技降到 L0，
+    -- 若不清 world15_tech_level，重进世界后新一局要爬到旧等级才会再播报一次。
+    local this = WPT.get()
+    if this then
+        this.world15_tech_level = nil
+        -- 波次提速段位同步复位：新一局波数从 0 开始，段位不清会漏播第 2 段以后的提速提示
+        this.world15_pace_stage = nil
+        -- 旧版遗留字段清理（登记表 / 永久升级节点已随统一节奏表一起废弃）
+        this.world15_tech_granted = nil
+        this.world15_last_permanent_wave = nil
+    end
     init_technologies()
 end
 
@@ -1516,22 +1577,10 @@ local function on_tick(event)
     -- 胜利条件：坚守 2000 波
     local wave_number = WD.get('wave_number') or 0
 
-    -- 波次提速：坚守超过 300 波后，波次间隔缩短 50%（仅生效一次）。
-    -- wave_interval 是波防框架的「波间延迟」WD 字段，set_next_wave 每波读取用于设定 next_wave；
-    -- 减半它即可让此后每一波间隔减半。同时立即压缩当前已排队的下一波倒计时，
-    -- 保证「300波后」无缝提速（含 300→301 这一跳），无需等到下个波次边界。
-    if wave_number > 300 and not this.world15_wave_speedup then
-        local cur = WD.get('wave_interval')
-        if cur and cur > 0 then
-            WD.set('wave_interval', math.floor(cur / 2))
-            local nw = WD.get('next_wave')
-            if nw and nw > game.tick then
-                WD.set('next_wave', game.tick + math.floor((nw - game.tick) / 2))
-            end
-            this.world15_wave_speedup = true
-            game.print({'amap.world15_wave_speedup'}, {r = 1, g = 0.75, b = 0.3})
-        end
-    end
+    -- 【已移除】旧的「300 波后 wave_interval 减半（仅一次）」。
+    -- 移除原因：它是一次性写 WD 字段，而 diff.lua 的 set_diff 每 60 tick 会按难度重算并覆盖
+    -- wave_interval（1300~2005 波区间甚至强制写死 1380/diff_k），减半结果活不过 1 秒。
+    -- 世界15 的波次节奏改由专属间隔曲线接管（见 Step4 / World.register 的 wave_interval_curve）。
 
     if wave_number >= 2000 then
         -- 通关奖励：框架 world_bonus（初始生命值 +100，2000 波起每坚守 100 波再 +10、不设上限，
@@ -1564,14 +1613,63 @@ local function enforce_world15_techs()
 
     local wave_number = WD.get('wave_number') or 0
 
-    -- 武器伤害 / 射速：1000 波前分段解锁；未到波次「自愈锁回」
-    unlock_progressive_weapon_techs(wave_number)
-    -- 永久升级类：1000 波前锁住；1100~1900 每 100 波实际推进一级（免资源，推进受持久化守卫保护）
-    if unlock_permanent_upgrades(wave_number) then
-        local stage = math.floor((wave_number - 1000) / 100)
-        game.print({"amap.world15_permanent_unlock", stage}, {r = 1, g = 0.7, b = 0.2})
+    -- 武器伤害 / 射速 / 永久升级：全部走同一条统一等级曲线 L(wave)，可升可降、自愈幂等。
+    local level = unlock_progressive_weapon_techs(wave_number)
+
+    -- 等级提升播报（每级一次）。降级（读档 / 重进世界）时只静默同步记录，不播报。
+    local last = this.world15_tech_level or 0
+    if level > last then
+        this.world15_tech_level = level
+        if W15_TECH_LOG then
+            log('[world15] tech level -> ' .. level .. ' (wave ' .. wave_number .. ')')
+        end
+        game.print({'amap.world15_tech_unlock', level}, {r = 1, g = 0.7, b = 0.2})
+    elseif level < last then
+        this.world15_tech_level = level
+    end
+end
+
+--==============================================================================
+-- 波次压力自愈：每 60 tick 幂等重申世界15 的活跃虫上限
+--==============================================================================
+-- max_active_biters 是 wave_defense 的通用初值（96），reset_wave_defense 每次开图都会把它写回 96。
+-- 世界15 需要 400 才能让「四路 × 三小队 = 336 只」全部落地（详见文件顶部 W15_MAX_ACTIVE_BITERS 依据）。
+-- 这里每秒幂等重申：无论中途被谁重置（开新图 / 重进世界 / 读档），下一秒自愈；
+-- 写入前先比较，值一致时不写，常态零开销。
+-- 放在世界模块内而不是改 wave_defense 的读取点，是为了不给通用文件引入任何世界号相关分支。
+-- 当前波次落在间隔曲线的第几段（1 起）。返回段序号，供「跨段即播报提速」使用。
+local function w15_pace_stage_for_wave(wave)
+    for i, seg in ipairs(W15_WAVE_INTERVAL_SEGMENTS) do
+        if wave < seg.hi then
+            return i
+        end
+    end
+    return #W15_WAVE_INTERVAL_SEGMENTS + 1
+end
+
+local function enforce_world15_wave_params()
+    local this = WPT.get()
+    if (this and this.world_number or 0) ~= 15 then return end
+
+    if WD.get('max_active_biters') ~= W15_MAX_ACTIVE_BITERS then
+        WD.set('max_active_biters', W15_MAX_ACTIVE_BITERS)
     end
 
+    -- 跨段提速播报：每段只播一次。播报的秒数取 wave_interval 的实际生效值
+    -- （已含 diff.lua 的 diff_k 折算），而不是曲线基准值，保证与玩家实际体感一致。
+    local wave = WD.get('wave_number') or 0
+    local stage = w15_pace_stage_for_wave(wave)
+    local last_stage = this.world15_pace_stage or 0
+    if stage > last_stage then
+        this.world15_pace_stage = stage
+        -- last_stage==0 是开图后的首次同步（第 1 段），不算「提速」，静默记录即可
+        if last_stage > 0 then
+            local seconds = math.floor((WD.get('wave_interval') or 0) / 60 + 0.5)
+            game.print({'amap.world15_wave_speedup', wave, seconds}, {r = 1, g = 0.5, b = 0.2})
+        end
+    elseif stage < last_stage then
+        this.world15_pace_stage = stage
+    end
 end
 
 -- N-03/N-04：事件注册式供能（laser/tesla 补电 + gun/rocket 补弹，免费）
@@ -2409,15 +2507,28 @@ World.register(15, {
     -- 四路同时进攻：每路按整波压力生成（不平分威胁）
     spawn_threat_divisor = 1,
 
+    -- 每路并排小队编制（wave_defense/main.lua spawn_unit_group 查表消费）
+    -- 定义即生效：每个生成点派 3 支小队、横向铺开 24 tile、相邻队错峰 60 tick、每队 28 只。
+    -- 其他世界不定义此字段 → 退化为「一个生成点一支满编队伍、当场落地」，行为与改动前一致。
+    spawn_squad_config = W15_SQUAD_CONFIG,
+
+    -- 世界15 专属波次间隔曲线（diff.lua set_diff 查表消费）
+    -- 定义即接管：通用的 2420 / 1380 / 1080 / 1300~2005 强制段对世界15 全部作废。
+    wave_interval_segments = W15_WAVE_INTERVAL_SEGMENTS,
+
     -- 波次强度重映射（框架扩展点，wave_defense 按世界查询）：
-    -- 后期强度不足 → 把原版 2000~4000 波的虫子强度线性映射到 1000~2000 波（2000 波通关前）。
-    -- 1000 波前不变；1000 波后有效强度波数 = 2000 + (波数 - 1000) * 2：
-    --   1001 波 ≈ 原版 2002 波强度，1500 波 = 原版 3000 波，2000 波通关 = 原版 4000 波。
-    -- 影响：兵种池、威胁值增长、品质虫概率、撼地虫出场（原 2500/3000/3500 → 1250/1500/1750 波）。
-    -- 仅影响强度计算，不改变真实 wave_number（GUI 波次显示 / Boss 间隔 / 科技解锁 / 2000 波胜利判定均不受影响）。
+    -- 1000 波后按 2.25 倍斜率线性加速虫子成长，让后期强度跟得上科技节奏。
+    --   有效强度波数 = 1000 + (波数 - 1000) * 2.25
+    --   校验点：w1000=1000  w2000=3250  w3000=5500  w4000=7750  w5000=10000
+    -- 影响：兵种池、威胁值增长、品质虫概率、撼地虫出场时机。
+    -- 仅影响强度计算，不改变真实 wave_number（GUI 波次显示 / Boss 间隔 / 科技等级 / 2000 波胜利判定均不受影响）。
+    --
+    -- ⚠️ 相比旧式 `2000 + (wave-1000)*2` 的关键修正：旧式在 w1000→w1001 处从 1000 直接跳到 2002，
+    -- 一波之内强度翻倍 —— 玩家在 1000 波整点会遭遇断崖式团灭。新式在 w1000 处连续（1000→1002.25），
+    -- 且终点 w5000 仍等于 10000，后期强度总量不变，只是把断崖摊平成斜坡。
     wave_strength_remap = function(wave_number)
         if wave_number > 1000 then
-            return 2000 + (wave_number - 1000) * 2
+            return 1000 + (wave_number - 1000) * 2.25
         end
         return wave_number
     end,
@@ -2456,6 +2567,7 @@ World.register(15, {
         [60] = {
             on_tick,                    -- 主循环：胜利检测 / 通关记录 / world_bonus
             enforce_world15_techs,      -- 按波次分段解锁 + 自愈锁回科技
+            enforce_world15_wave_params,-- 活跃虫上限 400 幂等重申（四路×三队全落地的前提）
             enforce_initial_terrain,    -- 开局一次性十字地形校正（跑一次后自锁）
             world15_vote_tick,          -- 卡片1：每 20 波发起投票 + 30s 倒计时结算
             world15_reassert_modifiers, -- 卡片1：永久 modifier 幂等重申
