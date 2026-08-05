@@ -4,18 +4,6 @@ local math_round = math.round
 local threat_values = require 'modules.wave_defense.threat_values'
 local Public = {}
 
--- 按升序返回表键：pairs 哈希遍历顺序在服务器/客户端可能不同（反序列化后哈希布局不一致），
--- 抽奖区间的累积权重列表依赖遍历顺序 → 同一随机数会选中不同单位/品质 → 波次生成分歧 → 反同步。
--- 凡涉及"遍历权重表并构建累积区间"的代码必须用本函数保证两侧顺序一致。
-local function sorted_keys(tbl)
-    local keys = {}
-    for k in pairs(tbl) do
-        keys[#keys + 1] = k
-    end
-    table.sort(keys)
-    return keys
-end
-
 
 
 local CACHE_UPDATE_INTERVAL = 6000
@@ -23,13 +11,13 @@ local CACHE_UPDATE_INTERVAL = 6000
 function Public.roll_from_raffle(raffle_key)
     local raffle = WD.get(raffle_key)
     local max_chance = 0
-    for _, k in ipairs(sorted_keys(raffle)) do
-        max_chance = max_chance + raffle[k]
+    for k, v in pairs(raffle) do
+        max_chance = max_chance + v
     end
     local r = math.random(0, math.floor(max_chance))
     local current_chance = 0
-    for _, k in ipairs(sorted_keys(raffle)) do
-        current_chance = current_chance + raffle[k]
+    for k, v in pairs(raffle) do
+        current_chance = current_chance + v
         if r <= current_chance then
             return k
         end
@@ -238,9 +226,7 @@ local function calculate_quality_raffle(wave_number)
     end
     
     local result_raffle = {}
-    -- 排序遍历：result_raffle 会写入同步的 quality_raffle_cache，列表顺序必须两侧一致
-    for _, name in ipairs(sorted_keys(quality_raffle_cache_temp)) do
-        local chance = quality_raffle_cache_temp[name]
+    for name, chance in pairs(quality_raffle_cache_temp) do
         table.insert(result_raffle, {name = name, weight = chance})
         total_quality_weight = total_quality_weight + chance
     end
@@ -287,9 +273,7 @@ local function build_raffle_cache(raffle)
     local total_weight = 0
     local current_weight = 0
     
-    -- 排序遍历：累积权重列表顺序必须两侧一致（见 sorted_keys 注释），否则二分选中单位分歧
-    for _, k in ipairs(sorted_keys(raffle)) do
-        local v = raffle[k]
+    for k, v in pairs(raffle) do
         current_weight = current_weight + v
         table.insert(cache, {unit = k, weight = current_weight})
         total_weight = total_weight + v
