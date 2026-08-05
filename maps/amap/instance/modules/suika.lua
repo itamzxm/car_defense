@@ -248,9 +248,17 @@ local function create_main_gui(player, data)
     -- 待落区
     local next_label = frame.add({type = 'label', name = GUI_NEXT, caption = ''})
     next_label.style.font = 'heading-2'
-    next_label.style.font_color = {0, 0, 0}
+    next_label.style.font_color = {0.702, 0.702, 0.702}  -- #B3B3B3，弱化待落提示
     next_label.style.top_padding = 4
     next_label.style.bottom_padding = 4
+
+    -- 合成顺序（从小到大，全名；静态 chain_tiers 键，避免嵌套数组超 20 参数限制）
+    local chain = frame.add({type = 'label', name = GUI_GRID .. '_chain',
+        caption = {'amap.suika_chain_label', {'amap.suika_tier_' .. md.target}, {'amap.suika_chain_tiers'}}})
+    chain.style.font = 'heading-2'
+    chain.style.font_color = {0.702, 0.702, 0.702}  -- #B3B3B3，弱化合成顺序提示
+    chain.style.top_padding = 4
+    chain.style.bottom_padding = 4
 
     -- 列头按钮（点列即落子）
     local col_bar = frame.add({type = 'table', name = GUI_GRID .. '_colbar', column_count = cols})
@@ -338,7 +346,7 @@ local function refresh_gui(player, data)
     local next_label = frame[GUI_NEXT]
     if next_label and next_label.valid then
         next_label.caption = {'amap.suika_next_label', cell_caption(md.next)}
-        next_label.style.font_color = {0, 0, 0}
+        next_label.style.font_color = {0.702, 0.702, 0.702}  -- #B3B3B3，弱化待落提示
     end
 
     -- 棋盘

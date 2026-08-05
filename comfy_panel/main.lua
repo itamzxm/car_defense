@@ -134,10 +134,35 @@ local function main_frame(player)
 
     local frame = player.gui.left.comfy_panel
     if not frame or not frame.valid then
-        frame = player.gui.left.add({type = 'frame', name = 'comfy_panel'})
+        frame = player.gui.left.add({type = 'frame', name = 'comfy_panel', direction = 'vertical'})
     end
 
-    frame.style.margin = 6
+    -- 无外边距：面板紧贴屏幕左缘（gui.left 区域由引擎定位，顶部间距不可控）
+
+    -- 标题栏：标题 + 拖拽区 + 右上角原生关闭按钮
+    local titlebar = frame.add({type = 'flow', name = 'comfy_panel_titlebar', direction = 'horizontal'})
+    titlebar.style = 'horizontal_flow'
+    titlebar.style.horizontal_spacing = 8
+    titlebar.add({type = 'label', name = 'comfy_panel_title', style = 'frame_title', caption = 'Panel', ignored_by_interaction = true})
+
+    local widget = titlebar.add({type = 'empty-widget', style = 'draggable_space', ignored_by_interaction = true})
+    widget.style.left_margin = 4
+    widget.style.right_margin = 4
+    widget.style.height = 24
+    widget.style.horizontally_stretchable = true
+
+    titlebar.add(
+        {
+            type = 'sprite-button',
+            name = 'comfy_panel_close_btn',
+            style = 'frame_action_button',
+            mouse_button_filter = {'left'},
+            sprite = 'utility/close',
+            hovered_sprite = 'utility/close_fat',
+            clicked_sprite = 'utility/close_fat',
+            tooltip = 'Close'
+        }
+    )
 
     local tabbed_pane = frame.add({type = 'tabbed-pane', name = 'tabbed_pane'})
 
@@ -173,11 +198,6 @@ local function main_frame(player)
             tabbed_pane.add_tab(tab, name_frame)
         end
     end
-
-    local tab = tabbed_pane.add({type = 'tab', name = 'comfy_panel_close', caption = 'X'})
-    tab.style.maximal_width = 32
-    local t_frame = tabbed_pane.add({type = 'frame', direction = 'vertical'})
-    tabbed_pane.add_tab(tab, t_frame)
 
     for _, child in pairs(tabbed_pane.children) do
         child.style.padding = 8
@@ -230,7 +250,7 @@ local function on_gui_click(event)
         end
     end
 
-    if element.caption == 'X' and name == 'comfy_panel_close' then
+    if element.name == 'comfy_panel_close_btn' then
         local is_spamming = SpamProtection.is_spamming(player, nil, 'Comfy Main Gui Close Button')
         if is_spamming then
             return
@@ -250,8 +270,26 @@ local function on_gui_click(event)
     Public.comfy_panel_refresh_active_tab(player)
 end
 
+-- ESC 关闭面板：Factorio 按 ESC 对场景 GUI 触发 on_gui_closed，
+-- 恢复被面板遮挡的 left GUI
+local function on_gui_closed(event)
+    local element = event.element
+    if not element or not element.valid then
+        return
+    end
+    local player = game.get_player(event.player_index)
+    if not (player and player.valid) then
+        return
+    end
+    if element == player.gui.left.comfy_panel then
+        Public.comfy_panel_restore_left_gui(player)
+        Public.comfy_panel_restore_screen_gui(player)
+    end
+end
+
 Event.add(defines.events.on_player_joined_game, on_player_joined_game)
 Event.add(defines.events.on_player_created, on_player_joined_game)
 Event.add(defines.events.on_gui_click, on_gui_click)
+Event.add(defines.events.on_gui_closed, on_gui_closed)
 
 return Public
