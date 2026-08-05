@@ -931,21 +931,10 @@ function Public.exit(player, reason)
                 player.set_controller({type = defines.controllers.ghost})
                 player.teleport(data.original_position, original_surface)
 
-                if data.original_force then
-                    local original_force = game.forces[data.original_force]
-                    if original_force then
-                        player.force = original_force
-                    end
-                end
-
                 player.set_controller({
                     type = defines.controllers.character,
                     character = data.original_character
                 })
-
-                -- [DIAG] 记录 force 还原后的状态
-                log('[Instance.exit DIAG] after restore player=' .. player.name
-                    .. ' player_force=' .. (player.force and player.force.name or 'nil'))
 
                 -- 恢复原角色的个人物流设置（与 enter 中的 backup_logistic_filters 配对）
                 if data.backup_logistic_filters then
@@ -953,6 +942,19 @@ function Public.exit(player, reason)
                     data.backup_logistic_filters = nil
                 end
             end
+        end
+    end
+
+    -- 无条件还原阵营：不依赖原角色/原表面/原 force 是否有效。
+    -- 原实现把 force 还原嵌套在 4 层 if 内（original_character.valid 等），
+    -- 玩家在副本期间主世界原角色被虫子击杀 → 还原被跳过 → force 残留
+    -- dungeon_force_* → 天赋（force=='player' 过滤）全失效 + 伤害加成丢失。
+    if data.original_force then
+        local original_force = game.forces[data.original_force]
+        if original_force and original_force.valid then
+            player.force = original_force
+        else
+            player.force = game.forces.player
         end
     end
 
@@ -1338,6 +1340,16 @@ local function on_nth_tick_timeout()
                     Public.exit(player, "timeout")
                 else
                     -- 玩家不在线，强制清理
+                    -- 先还原离线玩家 force（对象仍有效），避免重连后 force 残留 dungeon_force_*，
+                    -- 与 Public.exit 的无条件还原保持一致
+                    if player and data.original_force then
+                        local original_force = game.forces[data.original_force]
+                        if original_force and original_force.valid then
+                            player.force = original_force
+                        else
+                            player.force = game.forces.player
+                        end
+                    end
                     if data.dungeon_force then
                         cleanup_force(data.dungeon_force)
                     end

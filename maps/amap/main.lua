@@ -639,8 +639,6 @@ function Public.reset_map()
   global.watery_world_fishes = {}
   
 game.forces.player.technologies['atomic-bomb'].enabled=false
-game.forces.player.technologies['productivity-module-2'].enabled=false
-game.forces.player.technologies['productivity-module-3'].enabled=false
 -- 世界14仅开局解锁高级星岩处理(advanced-asteroid-processing)，由 world_14 def.unlocked_technologies 控制；
 -- asteroid-reprocessing 仍留给玩家手动研究（非 14 世界照旧开局解锁全套）
 if world_number ~= 14 then
