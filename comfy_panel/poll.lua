@@ -46,6 +46,7 @@ local main_button_name = Gui.uid_name()
 local main_frame_name = Gui.uid_name()
 local create_poll_button_name = Gui.uid_name()
 local notify_checkbox_name = Gui.uid_name()
+local poll_close_button_name = Gui.uid_name()
 
 -- 导出顶栏按钮名（供 utils/top_button_order.lua 排序使用）
 Class.main_button_name = main_button_name
@@ -300,7 +301,7 @@ end
 
 local function draw_main_frame(left, player)
     local trusted = session.get_trusted_table()
-    local frame = left.add {type = 'frame', name = main_frame_name, caption = 'Polls', direction = 'vertical'}
+    local frame = Gui.add_main_frame_with_toolbar(player, 'left', main_frame_name, poll_close_button_name, 'Polls')
 
     local poll_viewer_top_flow = frame.add {type = 'table', column_count = 5}
     poll_viewer_top_flow.style.horizontal_spacing = 0
@@ -817,6 +818,8 @@ Event.add(defines.events.on_player_created, player_joined)
 Event.on_nth_tick(60, tick)
 
 Gui.on_click(main_button_name, toggle)
+-- 标题栏 X 关闭按钮（复用 toggle 关闭逻辑）
+Gui.on_click(poll_close_button_name, toggle)
 
 Gui.on_click(
     create_poll_button_name,
