@@ -137,7 +137,7 @@ local function main_frame(player)
         frame = player.gui.left.add({type = 'frame', name = 'comfy_panel', direction = 'vertical'})
     end
 
-    frame.style.margin = 6
+    -- 无外边距：面板紧贴屏幕左缘（gui.left 区域由引擎定位，顶部间距不可控）
 
     -- 标题栏：标题 + 拖拽区 + 右上角原生关闭按钮
     local titlebar = frame.add({type = 'flow', name = 'comfy_panel_titlebar', direction = 'horizontal'})
