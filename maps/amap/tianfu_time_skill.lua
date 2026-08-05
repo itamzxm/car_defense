@@ -2399,15 +2399,20 @@ local function djrc(player, q_idx)
     local rpg_t = rpgtable.get('rpg_t')
     local main_table = WPT.get()
 
+    if not rpg_t[player.index] then
+        return false
+    end
     if rpg_t[player.index].dexterity < 500 then
-        return
+        return false
     end
 
     -- 上限：最多通过顶尖人才获得 24 个天赋
-    if not main_table.djrc_count then main_table.djrc_count = {} end
-    if not main_table.djrc_count[player.index] then main_table.djrc_count[player.index] = 0 end
+    if not main_table.djrc_count[player.index] then
+        main_table.djrc_count[player.index] = 0
+    end
     if main_table.djrc_count[player.index] >= 24 then
-        return
+        new_print(player, { 'tianfu.djrc_limit' })
+        return false
     end
 
     if check_tick(player, 'djrc') then
@@ -2419,9 +2424,10 @@ local function djrc(player, q_idx)
         end
         main_table.tianfu_count[player.index] = main_table.tianfu_count[player.index] - point_count
         main_table.djrc_count[player.index] = main_table.djrc_count[player.index] + 1
-        new_print(player, { 'tianfu.djrc_over' })
+        new_print(player, { 'tianfu.djrc_over', point_count, 24 - main_table.djrc_count[player.index] })
+        return true
     end
-    return true
+    return false
 end
 
 local function pulu(player, q_idx)
