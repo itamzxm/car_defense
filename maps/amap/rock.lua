@@ -322,7 +322,7 @@ function Public.refresh_shop(market)
         for _, item in ipairs(extra_items) do
             market.add_market_item({
                 price = {{name = "coin", count = item.gold}},
-                offer = {type = 'give-item', item = item.name, count = 1}
+                offer = {type = 'give-item', item = item.name, count = 1, quality = item.quality}
             })
         end
     end
