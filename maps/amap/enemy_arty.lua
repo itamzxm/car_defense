@@ -1066,6 +1066,35 @@ local function kill_wall(baolei_id)
     end
 end
 
+local Stronghold = require 'stronghold_generation_algorithm_v2'
+
+-- 核弹发射井失去保护：堡垒被摧毁（炮塔清零/平台死亡）时，解锁其上的敌方核弹发射井。
+-- 按位置查找，不依赖 stronghold 模块的 table.robot_platform 身份比对，
+-- 避免发射井叠在机器人平台上导致平台无法被摧毁、发射井永久无敌的死锁。
+local function unprotect_nuke_silo(position, surface)
+    if not surface or not surface.valid then
+        return
+    end
+    local found = false
+    for _, e in pairs(surface.find_entities_filtered({
+        name = "rocket-silo",
+        position = position,
+        radius = 10,
+        force = game.forces.enemy
+    })) do
+        if e and e.valid then
+            if not e.destructible then
+                e.destructible = true
+                found = true
+                game.print('敌方堡垒已被摧毁！核弹发射井失去保护！', {255, 255, 0})
+            end
+        end
+    end
+    if found then
+        Stronghold.clear_rocket_silo()
+    end
+end
+
 local function check_roboport_destructible()
     if not arty_count.arty then
         return
@@ -1104,6 +1133,7 @@ local function check_roboport_destructible()
                     baolei_data.roboport.destructible = true
                     baolei_data.number = 0
                     kill_wall(baolei_id)
+                    unprotect_nuke_silo(baolei_data.roboport.position, baolei_data.roboport.surface)
                 end
             end
         end
@@ -2110,8 +2140,12 @@ local function on_entity_died(event)
 
         arty_count.arty[baolei_id].number = arty_count.arty[baolei_id].number - 1
         if arty_count.arty[baolei_id].number <= 0 then
-            arty_count.arty[baolei_id].roboport.destructible = true
+            local roboport = arty_count.arty[baolei_id].roboport
+            roboport.destructible = true
             kill_wall(baolei_id)
+            if roboport and roboport.valid then
+                unprotect_nuke_silo(roboport.position, roboport.surface)
+            end
         end
         arty_count.unit[unit_number] = nil
 
@@ -2201,6 +2235,9 @@ local function on_entity_died(event)
             end
         end
     end
+
+    -- 平台死亡兜底：堡垒已彻底摧毁，解锁其上的核弹发射井
+    unprotect_nuke_silo(position, surface)
 
     game.print({'amap.baolei_die' .. (this.world_number == 10 and '_world10' or '')})
 
