@@ -194,7 +194,7 @@ local function draw_main_frame(player, location)
     if location then
         main_frame.location = location
     else
-        main_frame.location = {x = 1, y = 40}
+        main_frame.location = {x = 1, y = 80}
     end
 
     -- 初始化数据表，用于存储GUI元素的引用
