@@ -892,6 +892,16 @@ local function spawn_unit_group()
         end
     end
 
+    -- 多路公平配额（Bug #32 修复：世界15「100波后左/下通道不刷虫」）
+    -- 原逻辑按 spawn_positions 顺序逐路整编生成，而每只虫的准入检查读的是「本路开始时写入的全局
+    -- active_biter_count」：前几路生成完写回后，共享上限（世界15=400）被占满，靠后的通道整路被拒进
+    -- 血量池，从第 ~100 波起（场上残留虫越过阈值）恒定表现为「只从先遍历的两条通道出兵」。
+    -- 现把「剩余容量」按路均分、再按小队均分，每路至多落 lane_budget 只，保证所有通道持续出兵；
+    -- 单路世界（num_positions=1、squads=1）退化为原行为：effective_group_size = min(原编制, 剩余容量)。
+    local remaining_capacity = math.max(0, WD.get('max_active_biters') - WD.get('active_biter_count'))
+    local lane_budget = math.floor(remaining_capacity / num_positions)
+    local effective_group_size = math.min(group_size, lane_budget > 0 and math.max(1, math.floor(lane_budget / squads)) or 0)
+
     for _, position in ipairs(spawn_positions) do
         -- 并排方向 = 垂直于「生成点 → 目标」连线的单位向量，使多支小队沿通道横截面左中右铺开，
         -- 而不是前后叠成一列（叠成一列会被同一座炮塔逐个点掉，形不成多点压力）。
@@ -911,18 +921,22 @@ local function spawn_unit_group()
             local pos = {x = position.x + px * offset, y = position.y + py * offset}
             local delay = (s - 1) * stagger
             if delay <= 0 then
-                spawn_one_group(surface, pos, group_size, max_threat)
+                if effective_group_size > 0 then
+                    spawn_one_group(surface, pos, effective_group_size, max_threat)
+                end
             else
-                Task.set_timeout_in_ticks(
-                    delay,
-                    delayed_squad_token,
-                    {
-                        surface_index = surface_index,
-                        position = pos,
-                        group_size = group_size,
-                        max_threat = max_threat
-                    }
-                )
+                if effective_group_size > 0 then
+                    Task.set_timeout_in_ticks(
+                        delay,
+                        delayed_squad_token,
+                        {
+                            surface_index = surface_index,
+                            position = pos,
+                            group_size = effective_group_size,
+                            max_threat = max_threat
+                        }
+                    )
+                end
             end
         end
     end
