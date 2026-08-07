@@ -2253,7 +2253,7 @@ local function fumo_biter_attack_logic(event)
     -- 显示法力消耗的飞行文本
     if owner_player.valid then
         owner_player.create_local_flying_text({
-            text = '-' .. mana_consumption .. ' Mana',
+            text = {'amap.mana_cost_text', mana_consumption},
             position = { x = owner_player.physical_position.x, y = owner_player.physical_position.y - 2 },
             color = { r = 0.3, g = 0.5, b = 1.0 },
             time_to_live = 120,

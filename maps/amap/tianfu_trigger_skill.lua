@@ -683,7 +683,7 @@ remaining_value=remaining_value*2+12
                 if bug_entity and bug_entity.valid then
                     
                       rendering.draw_text {
-        text = '~' .. player.name .. "'s pet~",
+        text = {'amap.pet_label', player.name},
         surface = player.physical_surface,
         target = bug_entity,
         target_offset = { 0, -2.6 },
@@ -921,7 +921,7 @@ local function youxia(player, entity, q_idx)
         force = 'player'
     })
     rendering.draw_text {
-        text = '~' .. player.name .. "'s pet~",
+        text = {'amap.pet_label', player.name},
         surface = player.physical_surface,
         target = e,
         target_offset = { 0, -2.6 },
@@ -2328,7 +2328,7 @@ local countdown_tick = Token.register(function(params)
     
     -- 显示倒计时文字
     rendering.draw_text{
-        text = "神赐之手: " .. seconds_left .. "s", -- 显示文字，增加单位s
+        text = {'amap.shencizhishou_countdown', seconds_left}, -- 显示文字，增加单位s
         surface = player.surface,
         target = player.character,           -- 绑定在触发者角色身上
         target_offset = {0, -2.5},          -- 偏移量：显示在头顶上方
@@ -2503,15 +2503,15 @@ local function shoujiao_wuqi(player, entity, q_idx)
     
     -- 提示玩家获得物品
     local item_names = {
-        ['firearm-magazine'] = '红子弹',
-        ['uranium-rounds-magazine'] = '贫铀弹',
-        ['shotgun-shell'] = '霰弹',
-        ['piercing-shotgun-shell'] = '穿甲霰弹',
-        ['rocket'] = '火箭弹',
-        ['explosive-rocket'] = '爆裂导弹'
+        ['firearm-magazine'] = 'firearm-magazine',
+        ['uranium-rounds-magazine'] = 'uranium-rounds-magazine',
+        ['shotgun-shell'] = 'shotgun-shell',
+        ['piercing-shotgun-shell'] = 'piercing-shotgun-shell',
+        ['rocket'] = 'rocket',
+        ['explosive-rocket'] = 'explosive-rocket'
     }
     
-    new_print(player, { 'tianfu.shoujiao_wuqi_over', item_count, item_names[selected_item] })
+    new_print(player, { 'tianfu.shoujiao_wuqi_over', item_count, { 'item-name.' .. item_names[selected_item] } })
     
     return true
 end
