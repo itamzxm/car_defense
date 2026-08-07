@@ -385,7 +385,7 @@ local function draw_talent_tab(player, frame)
         local is_enabled = not (this.tianfu_enabled[player.index] and 
                               this.tianfu_enabled[player.index][talent_id] == false)
         
-        local status_text = is_blacklisted and "重要天赋" or 
+        local status_text = is_blacklisted and {'amap.talent_important'} or 
                            (is_enabled and {'amap.talent_enabled'} or {'amap.talent_disabled'})
         local status_tooltip = is_blacklisted and {'amap.talent_blacklisted_tip'} or 
                               (is_enabled and {'amap.talent_enabled_tip'} or {'amap.talent_disabled_tip'})
@@ -405,7 +405,7 @@ local function draw_talent_tab(player, frame)
         local toggle_button = flow.add({
             type = "button",
             name = CONST.TALENT_TOGGLE_BUTTON_PREFIX .. talent_id,
-            caption = is_blacklisted and "不可禁用" or 
+            caption = is_blacklisted and {'amap.talent_cannot_disable'} or 
                      (is_enabled and {'amap.talent_close'} or {'amap.talent_open'}),
             tooltip = is_blacklisted and {'amap.talent_blacklisted_tip'} or 
                      (is_enabled and {'amap.disable_talent'} or {'amap.enable_talent'})
@@ -495,7 +495,7 @@ local function draw_skill_tab(player, frame)
     if not (this.upgrade_spell[p_index] and next(this.upgrade_spell[p_index])) then
         local empty = skill_flow.add({
             type = "label", 
-            caption = "暂无技能数据，请先升级技能"
+            caption = {'amap.skill_no_data'}
         })
         empty.style.font_color = {150, 150, 150}
         return
@@ -634,7 +634,7 @@ local function draw_cooldown_tab(player, frame)
         type = 'sprite-button', 
         name = 'tianfu_frame_button', 
         sprite = 'item/heat-interface', 
-        tooltip = '打开/关闭 冷却监控窗口'
+        tooltip = {'amap.cooldown_window_toggle'}
     })
 end
 
@@ -686,7 +686,7 @@ local function draw_other_players_tab(player, frame)
         local talents = tianfu_names(online_player)
         local count_label = info_flow.add({
             type = "label", 
-            caption = " (" .. #talents .. "个天赋)"
+            caption = {'amap.talent_count', #talents}
         })
         count_label.style.font_color = CONST.COLORS.GREY
         
@@ -742,7 +742,7 @@ local function draw_world_bonus_tab(player, frame)
     if not map_data.world_bonus then
         frame.add({
             type = "label",
-            caption = "世界加成数据未初始化"
+            caption = {'amap.world_bonus_not_initialized'}
         })
         return
     end
@@ -824,7 +824,7 @@ local function draw_world_bonus_tab(player, frame)
     -- 添加世界加成列表
     frame.add({
         type = "label",
-        caption = "世界加成列表",
+        caption = {'amap.world_bonus_list'},
         style = "caption_label"
     })
     
@@ -1334,9 +1334,11 @@ local function update_single_tianfu_cooling(player, index, skill, nap, left_time
             
             -- 简单工具提示
             if ratio <= 0 then
-                bar.tooltip = "冷却就绪"
+                bar.tooltip = {'amap.cooldown_ready'}
             else
-                bar.tooltip = string.format("冷却中: %.0f秒 / %.0f秒", left_time / 60, nap / 60)
+                local remain_sec = math.floor(left_time / 60 + 0.5)
+                local total_sec = math.floor(nap / 60 + 0.5)
+                bar.tooltip = {'amap.cooldown_in_progress', remain_sec, total_sec}
             end
         end
     end
@@ -1455,14 +1457,14 @@ local function tianfu_lengque_gui(player)
             talent_idx = 1
         end
         local talent_key = keys[talent_idx] or ""
-        local talent_name = talent_key ~= "" and {'tianfu.' .. talent_key} or "未选择"
+        local talent_name = talent_key ~= "" and {'tianfu.' .. talent_key} or {'amap.cooldown_not_selected'}
         
         -- 天赋名称列（白色字体，带工具提示，字体缩小）
         local name_label = table_element.add({
             type = 'label',
             name = 'tianfu_name_' .. i,
             caption = talent_name,
-            tooltip = talent_key ~= "" and {'tianfu.' .. talent_key .. '_tip', table.unpack(TianfuQuality.tip_args(talent_key, 1))} or "未选择天赋"
+            tooltip = talent_key ~= "" and {'tianfu.' .. talent_key .. '_tip', table.unpack(TianfuQuality.tip_args(talent_key, 1))} or {'amap.cooldown_not_selected_tip'}
         })
         name_label.style.minimal_width = 80
         name_label.style.maximal_width = 80
