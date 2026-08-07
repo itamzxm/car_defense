@@ -471,12 +471,6 @@ local function charge_turret(turret)
         if turret.electric_buffer_size then
             turret.energy = turret.electric_buffer_size
         end
-        -- 世界15 无真实电网：将 laser/tesla 接入隐藏无限电源，消除「未接电」闪烁图标。
-        -- pcall 兜底：连接失败也不影响上方充能，降级为原有每 tick 补能。
-        local iface = world15_get_power_interface(turret.force)
-        if iface then
-            pcall(function() turret.connect_neighbour(iface) end)
-        end
     elseif n == 'gun-turret' or n == 'rocket-turret' then
         local inv = turret.get_inventory(defines.inventory.turret_ammo)
         local wave = WD.get('wave_number') or 0
@@ -1440,12 +1434,15 @@ local function give_starter_items()
             end)
         end
 
-        -- N-04：炮塔供能分两层。
-        --   ① gun/rocket 由 world15_supply_tick 每 tick 补弹（事件注册式，无区域扫描）。
-        --   ② laser/tesla 是 electric-turret：仍为「无真实电网」设计（不铺 roboport/solar/电线杆，避免额外耗电实体），
-        --      但其「未接电」图标需真实电网连接才能消除。故为每个势力建一个远置、隐藏、无限产能的
-        --      electric-energy-interface 作为专用电源，炮塔建造时 connect_neighbour 接入（见 charge_turret）。
-        --      同时保留每 tick 强制设能量作兜底。玩家如需建设/维修机器人网络，可在市场购买 roboport。
+        -- N-04：炮塔供能分两层（均为事件注册式，无区域扫描）。
+        --   ① 建造即补满：charge_turret 在建造事件里给 laser/tesla 充满能量、给 gun/rocket 装弹。
+        --   ② 周期维护：world15_supply_tick（nth_tick[10]，6 次/秒）遍历已登记炮塔表补能/补弹。
+        -- 世界15 为「无真实电网」设计（不铺 roboport/solar/电线杆，避免额外耗电实体），
+        -- laser/tesla 靠脚本直接写 energy 供能。已实测：引擎不会每 tick 清零未联网电力实体的能量
+        -- （静置 2.5s 仍保留约 83%），故 6 次/秒的补能节奏足以让炮塔常驻满电。
+        -- 注：曾尝试用 electric-energy-interface + connect_neighbour 建「隐藏无限电源」消除未接电图标，
+        -- 实测该 API 在 electric-energy-interface / laser-turret 上均不存在（LuaEntity doesn't contain key），
+        -- 方案不可行，相关代码已于 2026-08-06 移除。玩家如需建设/维修机器人网络，可在市场购买 roboport。
     end
 
     if not this.world15_player_gold then
@@ -1686,7 +1683,9 @@ local function world15_supply_tick()
         if turret and turret.valid then
             local n = turret.name
             if n == 'laser-turret' or n == 'tesla-turret' then
-                if turret.electric_buffer_size then
+                -- 实测：未联网 electric-turret 能量不会每 tick 被引擎清零（静置 2.5s 仍保留 ~83%），
+                -- 故供能循环已降到 nth_tick[10]；此处仅在未满时补满，避免冗余 engine write。
+                if turret.electric_buffer_size and turret.energy < turret.electric_buffer_size then
                     turret.energy = turret.electric_buffer_size
                 end
             elseif n == 'gun-turret' or n == 'rocket-turret' then
@@ -1761,57 +1760,6 @@ local function world15_is_player_in_dungeon(player)
     if not this or not this.dungeons then return false end
     local d = this.dungeons[player.index]
     return d and d.active or false
-end
-
--- 世界15 无真实电网：laser/tesla 炮塔是 electric-turret，手动填充 energy 无法使其「接入电网」，
--- 引擎每 tick 会把未联网电力实体的能量清零，导致「未接电」图标闪烁。
--- 为每个势力创建一个远置、隐藏、无限产能的 electric-energy-interface 作为专用电源，
--- 炮塔建造时通过 connect_neighbour（铜线=电网连接）接入该网络 → 图标消失。
--- 仅世界15 生效，零框架改动；电源按 force 缓存复用。pcall 全程兜底，任意环节失败都不影响主流程。
-local function world15_get_power_interface(force)
-    local this = WPT.get()
-    if not this or not force then return nil end
-    if not this.world15_power_interfaces then this.world15_power_interfaces = {} end
-    local key = force.name
-    local sf = world15_get_surface()
-    if not sf then return nil end
-
-    -- 已创建则复用（校验有效性）
-    local unit = this.world15_power_interfaces[key]
-    if unit then
-        local existing = sf.find_entity_by_unit_number(unit)
-        if existing and existing.valid then return existing end
-    end
-
-    -- 远置候选点（避开出生点与可建区，尽量落在陆地），任一成功即用
-    local candidates = {
-        {x = 0,   y = -1000},
-        {x = 0,   y = -900},
-        {x = 100, y = -1000},
-        {x = -100, y = -1000},
-    }
-    local iface = nil
-    for _, pos in ipairs(candidates) do
-        pcall(function()
-            iface = sf.create_entity({
-                name = 'electric-energy-interface',
-                position = pos,
-                force = force,
-                create_build_effect_smoke = false,
-            })
-        end)
-        if iface and iface.valid then break end
-    end
-
-    if iface and iface.valid then
-        iface.destructible = false
-        iface.minable_flag = false
-        iface.operable = false
-        pcall(function() iface.power_production = 100000000 end)  -- 100MW，远超全图炮塔需求
-        this.world15_power_interfaces[key] = iface.unit_number
-        return iface
-    end
-    return nil
 end
 
 -- 抽 3 张升级卡（从 8 张池随机不重复）
@@ -2559,10 +2507,14 @@ World.register(15, {
 
     nth_tick = {
         [1] = {
-            -- N-03/N-04：每 tick 遍历已登记炮塔表，laser/tesla 补电、gun/rocket 补弹（无区域扫描）
-            world15_supply_tick,
             -- 四通道清剿奖励：虫巢重铺的分帧批处理（无任务时首行即返回，常态零开销）
             world15_nest_refill_tick,
+        },
+        [10] = {
+            -- N-03/N-04：遍历已登记炮塔表补电/补弹。原 nth_tick[1]=每 tick 60/s，炮塔多时成为 tick 海啸；
+            -- 实测未联网 electric-turret 能量不会每 tick 被引擎清零（静置 2.5s 仍保留 ~83%），
+            -- 降到 [10]=6/s 即可维持炮塔满电，遍历频率降至 1/10（60/s → 6/s）。
+            world15_supply_tick,
         },
         [60] = {
             on_tick,                    -- 主循环：胜利检测 / 通关记录 / world_bonus
