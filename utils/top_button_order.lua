@@ -5,10 +5,12 @@
 --   - 难度按钮（difficulty_gui）当前隐藏（HIDE_DIFFICULTY_BUTTON=true），不显示也不影响顺序；
 --   - 未列入顺序的按钮（如 minimap_button）排在最后；
 --   - 波防条（wave_defense）在 mod_gui_top_frame 外（gui.top 右侧），不参与本排序。
+-- 无延迟重排：本模块在 control.lua 最后加载（位于所有按钮创建模块之后），玩家加入时全部按钮
+-- 已由各模块 on_player_joined_game / on_player_created handler 创建完毕，立即重排即可生效。
+-- （旧版曾用 120 tick 延迟重排兜底，已移除：延迟回调在按钮可能被清理/重建的时间窗口外执行，
+--   且玩家加入后即时重排已覆盖全部按钮，无需兜底。）
 local Event = require 'utils.event'
 local Gui = require 'utils.gui'
-local Token = require 'utils.token'
-local Task = require 'utils.task'
 local Poll = require 'comfy_panel.poll'
 local RPG = require 'modules.rpg.table'
 local Pet = require 'modules.pet_system.table'
@@ -64,20 +66,10 @@ local function reorder_top_buttons(player)
     end
 end
 
--- 延迟重排：部分按钮（宠物等）在玩家加入后才创建，立即重排会漏掉，
--- 延迟 120 tick（2 秒）等所有按钮创建完再重排
-local delayed_reorder = Token.register(function(event)
-    local player = game.get_player(event.player_index)
-    if player and player.valid then
-        reorder_top_buttons(player)
-    end
-end)
-
 Event.add(defines.events.on_player_joined_game, function(event)
     local player = game.players[event.player_index]
     if player and player.valid then
         reorder_top_buttons(player)
-        Task.set_timeout_in_ticks(120, delayed_reorder, {player_index = player.index})
     end
 end)
 
@@ -85,7 +77,6 @@ Event.add(defines.events.on_player_created, function(event)
     local player = game.players[event.player_index]
     if player and player.valid then
         reorder_top_buttons(player)
-        Task.set_timeout_in_ticks(120, delayed_reorder, {player_index = player.index})
     end
 end)
 

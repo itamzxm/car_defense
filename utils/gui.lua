@@ -47,8 +47,14 @@ local top_elements = {}
 -- 折叠时始终可见的顶栏元素（register_always_visible_top_element 注册）
 local always_visible_top_elements = {}
 
+-- uid 名登记表：模块加载期 Gui.uid_name() 调用登记，供玩家加入时清理
+-- 存档 GUI 中残留的旧 uid 名元素（见 cleanup_legacy_top_gui 根因注释）
+local known_uid_names = {}
+
 function Gui.uid_name()
-    return tostring(Token.uid())
+    local name = tostring(Token.uid())
+    known_uid_names[name] = true
+    return name
 end
 
 function Gui.uid()
@@ -461,6 +467,31 @@ local function cleanup_legacy_top_gui(player)
             end
         end
     end
+
+    -- 清理 mod_gui 大框（mod_gui_top_frame）内全部子元素：
+    -- 根因：按钮名 = Token.uid() 数字，uid 序列依赖模块加载顺序（require 链）。
+    -- 代码版本切换（模块增减 / require 顺序变化）后 uid 序列改变，存档恢复的旧 uid 按钮
+    -- 无法被各模块"同名幂等检查"识别（旧数字名常与当前代码其他元素的 uid 名撞车），
+    -- 玩家重连时新按钮追加，造成重复按钮（实测：宠物按钮 161+162、地图信息按钮 192+193 双份并存）。
+    -- 策略：清空 mod_gui_top_frame（含 mod_gui_inner_frame 按钮流），mod-gui lualib 会在下次
+    -- get_button_flow 调用时惰性重建按钮流容器；各模块 on_player_joined_game / on_player_created
+    -- handler 按注册顺序幂等重建全部按钮（顶栏按钮模块均在玩家加入时重建；MAIN_FRAME 地图信息条
+    -- 由点击地图信息按钮时重建）。固定名按钮（comfy_panel_top_button / poll_button / tianfu /
+    -- charging_station / auto_stash / minimap_button 等）不受 uid 错位影响，同样由各自模块重建。
+    -- legacy 结构：老版 mod-gui 的按钮流可能挂在 gui.top.mod_gui_button_flow（get_button_flow 的
+    -- legacy 分支），一并删除，让 get_button_flow 回到 mod_gui_top_frame.mod_gui_inner_frame 主路径。
+    local top_frame = player.gui.top.mod_gui_top_frame
+    if top_frame then
+        for _, child in pairs(top_frame.children) do
+            Gui.remove_data_recursively(child)
+            child.destroy()
+        end
+    end
+    local legacy_flow = player.gui.top['mod_gui_button_flow']
+    if legacy_flow and legacy_flow.valid then
+        Gui.remove_data_recursively(legacy_flow)
+        legacy_flow.destroy()
+    end
     local screen = player.gui.screen
     if screen then
         for _, child in pairs(screen.children) do
@@ -532,6 +563,7 @@ if _DEBUG then
         local line = info.currentline
 
         local token = tostring(Token.uid())
+        known_uid_names[token] = true
 
         local name = concat {token, ' - ', filepath, ':line:', line}
         names[token] = name
