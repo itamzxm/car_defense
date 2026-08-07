@@ -229,7 +229,7 @@ local create_gulag_surface = function()
         end
 
         rendering.draw_text {
-            text = 'The pit of despair ☹',
+            text = {'amap.comfy_jail_gulag_text'},
             surface = surface,
             target = {0, -50},
             color = {r = 0.98, g = 0.66, b = 0.22},

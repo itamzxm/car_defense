@@ -680,7 +680,7 @@ function Gui.add_main_frame_with_toolbar(player, align, frame_name, close_button
                 sprite = 'utility/close',
                 hovered_sprite = 'utility/close_fat',
                 clicked_sprite = 'utility/close_fat',
-                tooltip = 'Close'
+                tooltip = {'amap.comfy_toolbar_close'}
             }
         )
     end
