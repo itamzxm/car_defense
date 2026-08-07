@@ -74,7 +74,7 @@ local function spaghett_deny_building(event)
         {
             name = 'flying-text',
             position = entity.position,
-            text = 'Spaghett Mode Active!',
+            text = {'amap.comfy_spaghett_active'},
             color = {r = 0.98, g = 0.66, b = 0.22}
         }
     )
@@ -419,7 +419,7 @@ local function build_config_gui(data)
     scroll_style.right_padding = 2
     scroll_style.top_padding = 2
 
-    label = scroll_pane.add({type = 'label', caption = 'Player Settings'})
+    label = scroll_pane.add({type = 'label', caption = {'amap.comfy_settings_player'}})
     label.style.font = 'default-bold'
     label.style.padding = 0
     label.style.left_padding = 10
@@ -437,8 +437,8 @@ local function build_config_gui(data)
         scroll_pane,
         switch_state,
         'comfy_panel_spectator_switch',
-        'SpectatorMode',
-        'Toggles zoom-to-world view noise effect.\nEnvironmental sounds will be based on map view.'
+        {'amap.comfy_settings_spectator'},
+        {'amap.comfy_settings_spectator_desc'}
     )
 
     scroll_pane.add({type = 'line'})
@@ -448,7 +448,7 @@ local function build_config_gui(data)
         if storage.auto_hotbar_enabled[player.index] then
             switch_state = 'left'
         end
-        add_switch(scroll_pane, switch_state, 'comfy_panel_auto_hotbar_switch', 'AutoHotbar', 'Automatically fills your hotbar with placeable items.')
+        add_switch(scroll_pane, switch_state, 'comfy_panel_auto_hotbar_switch', {'amap.comfy_settings_autohotbar'}, {'amap.comfy_settings_autohotbar_desc'})
         scroll_pane.add({type = 'line'})
     end
 
@@ -463,14 +463,14 @@ local function build_config_gui(data)
             scroll_pane,
             switch_state,
             'comfy_panel_poll_no_notify_toggle',
-            'Notify on polls',
-            'Receive a message when new polls are created and popup the poll.'
+            {'amap.comfy_settings_poll_notify'},
+            {'amap.comfy_settings_poll_notify_desc'}
         )
         scroll_pane.add({type = 'line'})
     end
 
     if BottomFrame.is_custom_buttons_enabled() then
-        label = scroll_pane.add({type = 'label', caption = 'Bottom Buttons Settings'})
+        label = scroll_pane.add({type = 'label', caption = {'amap.comfy_settings_bottom'}})
         label.style.font = 'default-bold'
         label.style.padding = 0
         label.style.left_padding = 10
@@ -490,8 +490,8 @@ local function build_config_gui(data)
             scroll_pane,
             switch_state,
             'comfy_panel_bottom_location',
-            'Position - bottom',
-            'Toggle to select if you want the bottom button on the left side or the right side.'
+            {'amap.comfy_settings_pos_bottom'},
+            {'amap.comfy_settings_pos_bottom_desc'}
         )
 
         scroll_pane.add({type = 'line'})
@@ -504,8 +504,8 @@ local function build_config_gui(data)
             scroll_pane,
             switch_state,
             'comfy_panel_middle_location',
-            'Position - middle',
-            'Toggle to select if you want the bottom button above the quickbar or the side of the quickbar.'
+            {'amap.comfy_settings_pos_middle'},
+            {'amap.comfy_settings_pos_middle_desc'}
         )
 
         scroll_pane.add({type = 'line'})
@@ -518,14 +518,14 @@ local function build_config_gui(data)
             scroll_pane,
             switch_state,
             'comfy_panel_portable_button',
-            'Position - portable',
-            'Toggle to select if you want the bottom button to be portable or not.'
+            {'amap.comfy_settings_pos_portable'},
+            {'amap.comfy_settings_pos_portable_desc'}
         )
         scroll_pane.add({type = 'line'})
     end
 
     if admin then
-        label = scroll_pane.add({type = 'label', caption = 'Admin Settings'})
+        label = scroll_pane.add({type = 'label', caption = {'amap.comfy_settings_admin'}})
         label.style.font = 'default-bold'
         label.style.padding = 0
         label.style.left_padding = 10
@@ -540,7 +540,7 @@ local function build_config_gui(data)
         if game.permissions.get_group('Default').allows_action(defines.input_action.open_blueprint_library_gui) then
             switch_state = 'left'
         end
-        add_switch(scroll_pane, switch_state, 'comfy_panel_blueprint_toggle', 'Blueprint Library', 'Toggles the usage of blueprint strings and the library.')
+        add_switch(scroll_pane, switch_state, 'comfy_panel_blueprint_toggle', {'amap.comfy_settings_blueprint'}, {'amap.comfy_settings_blueprint_desc'})
 
         scroll_pane.add({type = 'line'})
 
@@ -548,7 +548,7 @@ local function build_config_gui(data)
         if Gui.get_disable_clear_invalid_data() then
             switch_state = 'left'
         end
-        add_switch(scroll_pane, switch_state, 'disable_cleaning', 'Gui Data Cleaning', 'Toggles the Gui data cleaning.')
+        add_switch(scroll_pane, switch_state, 'disable_cleaning', {'amap.comfy_settings_gui_clean'}, {'amap.comfy_settings_gui_clean_desc'})
 
         scroll_pane.add({type = 'line'})
 
@@ -560,8 +560,8 @@ local function build_config_gui(data)
             scroll_pane,
             switch_state,
             'comfy_panel_spaghett_toggle',
-            'Spaghett Mode',
-            'Disables the Logistic System research.\nRequester, buffer or active-provider containers can not be built.'
+            {'amap.comfy_settings_spaghett'},
+            {'amap.comfy_settings_spaghett_desc'}
         )
 
         if poll then
@@ -570,19 +570,19 @@ local function build_config_gui(data)
             if this.gui_config.poll_trusted then
                 switch_state = 'left'
             end
-            add_switch(scroll_pane, switch_state, 'comfy_panel_poll_trusted_toggle', 'Poll mode', 'Disables non-trusted plebs to create polls.')
+            add_switch(scroll_pane, switch_state, 'comfy_panel_poll_trusted_toggle', {'amap.comfy_settings_poll_mode'}, {'amap.comfy_settings_poll_mode_desc'})
 
             -- 仅 trusted 可投票开关（默认关=人人可投）
             switch_state = 'right'
             if this.gui_config.poll_vote_trusted then
                 switch_state = 'left'
             end
-            add_switch(scroll_pane, switch_state, 'comfy_panel_poll_vote_trusted_toggle', 'Poll vote trusted', 'Only trusted players can vote on polls.')
+            add_switch(scroll_pane, switch_state, 'comfy_panel_poll_vote_trusted_toggle', {'amap.comfy_settings_poll_vote'}, {'amap.comfy_settings_poll_vote_desc'})
         end
 
         scroll_pane.add({type = 'line'})
 
-        label = scroll_pane.add({type = 'label', caption = 'Antigrief Settings'})
+        label = scroll_pane.add({type = 'label', caption = {'amap.comfy_settings_antigrief'}})
         label.style.font = 'default-bold'
         label.style.padding = 0
         label.style.left_padding = 10
@@ -595,11 +595,11 @@ local function build_config_gui(data)
         if AG.enabled then
             switch_state = 'left'
         end
-        add_switch(scroll_pane, switch_state, 'comfy_panel_disable_antigrief', 'Antigrief', 'Toggle antigrief function.')
+        add_switch(scroll_pane, switch_state, 'comfy_panel_disable_antigrief', {'amap.comfy_settings_antigrief_toggle'}, {'amap.comfy_settings_antigrief_toggle_desc'})
         scroll_pane.add({type = 'line'})
 
         if is_loaded('maps.biter_battles_v2.main') then
-            label = scroll_pane.add({type = 'label', caption = 'Biter Battles Settings'})
+            label = scroll_pane.add({type = 'label', caption = {'amap.comfy_settings_bb'}})
             label.style.font = 'default-bold'
             label.style.padding = 0
             label.style.left_padding = 10
@@ -619,8 +619,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 team_balancing_state,
                 'bb_team_balancing_toggle',
-                'Team Balancing',
-                'Players can only join a team that has less or equal players than the opposing.'
+                {'amap.comfy_settings_bb_balance'},
+                {'amap.comfy_settings_bb_balance_desc'}
             )
             if not admin then
                 switch.ignored_by_interaction = true
@@ -637,8 +637,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 only_admins_vote_state,
                 'bb_only_admins_vote',
-                'Admin Vote',
-                'Only admins can vote for map difficulty. Clears all currently existing votes.'
+                {'amap.comfy_settings_bb_vote'},
+                {'amap.comfy_settings_bb_vote_desc'}
             )
             if not admin then
                 only_admins_vote_switch.ignored_by_interaction = true
@@ -648,7 +648,7 @@ local function build_config_gui(data)
         end
 
         if is_loaded('maps.mountain_fortress_v3.main') then
-            label = scroll_pane.add({type = 'label', caption = 'Mountain Fortress Settings'})
+            label = scroll_pane.add({type = 'label', caption = {'amap.comfy_settings_fortress'}})
             label.style.font = 'default-bold'
             label.style.padding = 0
             label.style.left_padding = 10
@@ -667,8 +667,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_disable_fullness',
-                'Inventory Fullness',
-                'On = Enables inventory fullness.\nOff = Disables inventory fullness.'
+                {'amap.comfy_settings_fullness'},
+                {'amap.comfy_settings_fullness_desc'}
             )
 
             scroll_pane.add({type = 'line'})
@@ -683,8 +683,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_offline_players',
-                'Offline Players',
-                'On = Enables offline player inventory drop.\nOff = Disables offline player inventory drop.'
+                {'amap.comfy_settings_offline'},
+                {'amap.comfy_settings_offline_desc'}
             )
 
             scroll_pane.add({type = 'line'})
@@ -697,8 +697,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_collapse_grace',
-                'Collapse',
-                'On = Enables collapse after wave 100.\nOff = Disables collapse - you must breach the first zone for collapse to occur.'
+                {'amap.comfy_settings_collapse'},
+                {'amap.comfy_settings_collapse_desc'}
             )
 
             scroll_pane.add({type = 'line'})
@@ -711,8 +711,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_spill_items_to_surface',
-                'Spill Ores',
-                'On = Enables ore spillage to surface when mining.\nOff = Disables ore spillage to surface when mining.'
+                {'amap.comfy_settings_spill'},
+                {'amap.comfy_settings_spill_desc'}
             )
             scroll_pane.add({type = 'line'})
 
@@ -724,8 +724,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_void_or_tile',
-                'Void Tiles',
-                'On = Changes the tiles to out-of-map.\nOff = Changes the tiles to lab-dark-2'
+                {'amap.comfy_settings_void'},
+                {'amap.comfy_settings_void_desc'}
             )
             scroll_pane.add({type = 'line'})
 
@@ -737,8 +737,8 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_trusted_only_car_tanks',
-                'Market Purchase',
-                'On = Allows only trusted people to buy car/tanks.\nOff = Allows everyone to buy car/tanks.'
+                {'amap.comfy_settings_market'},
+                {'amap.comfy_settings_market_desc'}
             )
             scroll_pane.add({type = 'line'})
 
@@ -750,14 +750,14 @@ local function build_config_gui(data)
                 scroll_pane,
                 switch_state,
                 'comfy_panel_allow_decon',
-                'Deconstruct',
-                'On = Allows decon on car/tanks/trains.\nOff = Disables decon on car/tanks/trains.'
+                {'amap.comfy_settings_decon'},
+                {'amap.comfy_settings_decon_desc'}
             )
             scroll_pane.add({type = 'line'})
             if Module.christmas_mode then
                 switch_state = 'left'
             end
-            add_switch(scroll_pane, switch_state, 'comfy_panel_christmas_mode', 'Wintery Mode', 'On = Enables wintery mode.\nOff = Disables wintery mode.')
+            add_switch(scroll_pane, switch_state, 'comfy_panel_christmas_mode', {'amap.comfy_settings_wintery'}, {'amap.comfy_settings_wintery_desc'})
             scroll_pane.add({type = 'line'})
         end
     end
