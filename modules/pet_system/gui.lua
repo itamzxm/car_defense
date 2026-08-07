@@ -205,9 +205,9 @@ local function draw_detail_panel(detail_frame, player, pet, pet_index)
         local btn_name = detail_frame_name .. '_book_' .. tier.key .. '_' .. pet_index
         local btn_caption
         if count > 0 then
-            btn_caption = {'', tier.label, '（有', count, '个）'}
+            btn_caption = {'', tier.label, {'amap.pet_system_book_have', count}}
         else
-            btn_caption = {'', tier.label, '（', tier.price, '）'}
+            btn_caption = {'', tier.label, {'amap.pet_system_book_price', tier.price}}
         end
         add_action_button(book_table, btn_caption, btn_name, ({'pet_system.' .. tier.locale_key}))
     end
@@ -421,17 +421,17 @@ local function draw_pet_card_v2(parent, pet, index, player)
     add_label(card, ({'pet_system.atk_label', pet.attack}), 'default', {255, 180, 80}, card_width - 12, 'center')
 
     -- 技能
-    local skill_text = ''
+    local skill_text = {}
     local slots = Public.get_skill_slots(pet)
     for i = 1, slots do
         local sd = pet.skills[i]
         if sd then
             local name = type(sd) == 'table' and sd.name or tostring(sd)
-            skill_text = skill_text .. '[' .. name .. ']'
+            skill_text[#skill_text + 1] = '[' .. name .. ']'
         else
-            skill_text = skill_text .. '[空]'
+            skill_text[#skill_text + 1] = ({'amap.pet_system_skill_empty'})
         end
-        if i < slots then skill_text = skill_text .. ' ' end
+        if i < slots then skill_text[#skill_text + 1] = ' ' end
     end
     add_label(card, skill_text, 'default', {100, 200, 255}, card_width - 12, 'center', ({'pet_system.skills_tooltip'}))
 

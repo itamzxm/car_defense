@@ -2509,7 +2509,7 @@ skill_defs['虫群召唤'] = {
                     biter.ai_settings.allow_try_return_to_spawner = false
                     biter.ai_settings.allow_destroy_when_commands_fail = true
                     rendering.draw_text({
-                        text = '~' .. player.name .. "'s pet~",
+                        text = {'amap.pet_label', player.name},
                         surface = surface,
                         target = biter,
                         target_offset = {0, -2.6},
