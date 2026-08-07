@@ -124,7 +124,7 @@ end
 local function add_global_stats(frame, player)
     local t = frame.add {type = 'table', column_count = 5}
 
-    local l = t.add {type = 'label', caption = '火箭发射数: '}
+    local l = t.add {type = 'label', caption = {'amap.comfy_score_rockets'}}
     l.style.font = 'default-game'
     l.style.font_color = {r = 175, g = 75, b = 255}
     l.style.minimal_width = 140
@@ -134,7 +134,7 @@ local function add_global_stats(frame, player)
     rocketsLaunched_label.style.font_color = {r = 0.9, g = 0.9, b = 0.9}
     rocketsLaunched_label.style.minimal_width = 123
 
-    local bugs_dead_label = t.add {type = 'label', caption = '杀死的虫子数: '}
+    local bugs_dead_label = t.add {type = 'label', caption = {'amap.comfy_score_biters'}}
     bugs_dead_label.style.font = 'default-game'
     bugs_dead_label.style.font_color = {r = 0.90, g = 0.3, b = 0.3}
     bugs_dead_label.style.minimal_width = 100
@@ -162,11 +162,11 @@ local function show_score(data)
 
     -- Score headers
     local headers = {
-        {name = 'score_player', caption = '玩家'},
-        {column = 'killscore', name = 'score_killscore', caption = '击杀得分'},
-        {column = 'deaths', name = 'score_deaths', caption = '死亡次数'},
-        {column = 'built_entities', name = 'score_built_entities', caption = '建筑数'},
-        {column = 'mined_entities', name = 'score_mined_entities', caption = '挖掘数量'}
+        {name = 'score_player', caption = {'amap.comfy_score_player'}},
+        {column = 'killscore', name = 'score_killscore', caption = {'amap.comfy_score_killscore'}},
+        {column = 'deaths', name = 'score_deaths', caption = {'amap.comfy_score_deaths'}},
+        {column = 'built_entities', name = 'score_built_entities', caption = {'amap.comfy_score_built'}},
+        {column = 'mined_entities', name = 'score_mined_entities', caption = {'amap.comfy_score_mined'}}
     }
 
     local sorting_pref = this.sort_by[player.name]
@@ -176,7 +176,7 @@ local function show_score(data)
         -- Add sorting symbol if any
         if header.column and sorting_pref.column == header.column then
             local symbol = sorting_symbol[sorting_pref.method]
-            cap = symbol .. cap
+            cap = {symbol, cap}
         end
 
         -- Header

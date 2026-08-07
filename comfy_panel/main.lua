@@ -143,7 +143,7 @@ local function main_frame(player)
     local titlebar = frame.add({type = 'flow', name = 'comfy_panel_titlebar', direction = 'horizontal'})
     titlebar.style = 'horizontal_flow'
     titlebar.style.horizontal_spacing = 8
-    titlebar.add({type = 'label', name = 'comfy_panel_title', style = 'frame_title', caption = 'Panel', ignored_by_interaction = true})
+    titlebar.add({type = 'label', name = 'comfy_panel_title', style = 'frame_title', caption = {'amap.comfy_panel_title'}, ignored_by_interaction = true})
 
     local widget = titlebar.add({type = 'empty-widget', style = 'draggable_space', ignored_by_interaction = true})
     widget.style.left_margin = 4
@@ -160,7 +160,7 @@ local function main_frame(player)
             sprite = 'utility/close',
             hovered_sprite = 'utility/close_fat',
             clicked_sprite = 'utility/close_fat',
-            tooltip = 'Close'
+            tooltip = {'amap.comfy_panel_close_tip'}
         }
     )
 
