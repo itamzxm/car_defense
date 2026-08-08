@@ -43,7 +43,7 @@ local function create_button(player)
                 type = 'sprite-button',
                 name = 'minimap_button',
                 sprite = 'utility/map',
-                tooltip = 'Open or close minimap.'
+                tooltip = {'amap.ic_minimap_toggle_tooltip'}
             }
         )
     -- 尺寸由 quick_bar_page_button 统一样式控制（40x40 正方形），不再单独设置
@@ -137,7 +137,7 @@ local function draw_minimap(player, surface, position)
     local player_data = get_player_data(player)
     local frame = player.gui.left.minimap_toggle_frame
     if not frame then
-        frame = player.gui.left.add({type = 'frame', direction = 'vertical', name = 'minimap_toggle_frame', caption = 'Minimap'})
+        frame = player.gui.left.add({type = 'frame', direction = 'vertical', name = 'minimap_toggle_frame', caption = {'amap.ic_minimap_title'}})
     end
     frame.visible = true
     if not frame.ic_auto_switch then
@@ -162,7 +162,7 @@ local function draw_minimap(player, surface, position)
                 position = position,
                 surface_index = surface.index,
                 zoom = player_data.zoom,
-                tooltip = 'LMB: Increase zoom level.\nRMB: Decrease zoom level.\nMMB: Toggle camera size.'
+                tooltip = {'amap.ic_minimap_zoom_tooltip'}
             }
         )
         element.style.margin = 1

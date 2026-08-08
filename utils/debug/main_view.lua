@@ -34,7 +34,12 @@ function Public.open_debug(player)
         return
     end
 
-    frame = screen.add {type = 'frame', name = main_frame_name, caption = 'Debuggertron 3003', direction = 'vertical'}
+    frame = screen.add {
+        type = 'frame',
+        name = main_frame_name,
+        caption = {'amap.debug_main_title'},
+        direction = 'vertical'
+    }
     frame.auto_center = true
     local frame_style = frame.style
     frame_style.height = 600
@@ -65,7 +70,7 @@ function Public.open_debug(player)
         end
     end
 
-    frame.add {type = 'button', name = close_name, caption = 'Close'}
+    frame.add {type = 'button', name = close_name, caption = {'amap.debug_close'}}
 end
 
 Gui.on_click(

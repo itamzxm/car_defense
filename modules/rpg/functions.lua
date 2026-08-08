@@ -1041,7 +1041,7 @@ function Public.create_transfer_gui(player)
     return
   end
   
-  local frame = player.gui.screen.add({type = "frame", name = Public.transfer_frame_name, caption = "选择转移目标玩家", direction = "vertical"})
+  local frame = player.gui.screen.add({type = "frame", name = Public.transfer_frame_name, caption = {'amap.rpg_transfer_title'}, direction = "vertical"})
   frame.auto_center = true
   
   local scroll_pane = frame.add({type = "scroll-pane", direction = "vertical"})
@@ -1057,8 +1057,8 @@ function Public.create_transfer_gui(player)
   
   -- 如果没有其他在线玩家
   if #online_players == 0 then
-    frame.add({type = "label", caption = "当前没有其他在线玩家可以转移给"})
-    local close_button = frame.add({type = "button", caption = "关闭"})
+    frame.add({type = "label", caption = {'amap.rpg_transfer_no_player'}})
+    local close_button = frame.add({type = "button", caption = {'amap.rpg_transfer_close'}})
     close_button.style.font = "default-bold"
     close_button.name = "transfer_cancel_button"
     Gui.on_click("transfer_cancel_button", function(event)
@@ -1092,7 +1092,7 @@ function Public.create_transfer_gui(player)
   end
   
   -- 添加关闭按钮
-  local close_button = frame.add({type = "button", caption = "取消"})
+  local close_button = frame.add({type = "button", caption = {'amap.rpg_transfer_cancel'}})
   close_button.style.font = "default-bold"
   close_button.name = "transfer_cancel_button"
   Gui.on_click("transfer_cancel_button", function(event)

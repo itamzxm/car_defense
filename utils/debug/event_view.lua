@@ -113,9 +113,9 @@ function Public.show(container)
     local main_frame_flow = container.add({type = 'flow', direction = 'vertical'})
 
     local filter_flow = main_frame_flow.add({type = 'flow', direction = 'horizontal'})
-    filter_flow.add({type = 'label', caption = 'filter'})
+    filter_flow.add({type = 'label', caption = {'amap.debug_filter'}})
     local filter_textfield = filter_flow.add({type = 'textfield', name = filter_name, text = filter})
-    local clear_button = filter_flow.add({type = 'button', name = clear_filter_name, caption = 'clear'})
+    local clear_button = filter_flow.add({type = 'button', name = clear_filter_name, caption = {'amap.debug_clear'}})
 
     local scroll_pane = main_frame_flow.add({type = 'scroll-pane'})
     local gui_table = scroll_pane.add({type = 'table', column_count = 3, draw_horizontal_lines = true})

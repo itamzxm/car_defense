@@ -63,6 +63,18 @@ end
 
 local CONST_TOGGLE_BUTTON = Gui.uid_name()
 
+-- 顶栏按钮默认样式（参考经典实现）：
+-- 内置 frame_button（深色 frame 底 40x40）+ 覆盖：浅灰字 heading-2、padding -2
+-- 各模块创建按钮后的后置样式覆盖（font_color/font/padding）优先于本默认值
+local STYLE_TOP_BUTTON = {
+    font_color = {165, 165, 165},
+    font = 'heading-2',
+    minimal_height = 40,
+    maximal_height = 40,
+    minimal_width = 40,
+    padding = -2,
+}
+
 -- Associates data with the LuaGuiElement. If data is nil then removes the data
 function Gui.set_data(element, value)
     local player_index = element.player_index
@@ -302,7 +314,7 @@ end
 -- 展开态 sprite: utility/preset（齿轮图标，暗示"面板/设置"）
 -- 收起态 sprite: utility/expand_dots（三点图标，暗示"展开更多"）
 -- 窄条设计：18px 宽，与其他顶栏按钮区分开（参考 archive/classic-changes 的 top_bar.lua）
--- 样式与其他按钮统一为 quick_bar_page_button（白底），仅宽度收窄
+-- 样式与顶栏默认按钮统一：frame_button 底 + 宽 18、高 40、padding 全 0、default-small-bold
 local function create_toggle_button(player)
     local flow = Gui.get_button_flow(player)
     if flow[CONST_TOGGLE_BUTTON] and flow[CONST_TOGGLE_BUTTON].valid then
@@ -321,10 +333,17 @@ local function create_toggle_button(player)
         name = CONST_TOGGLE_BUTTON,
         sprite = 'utility/preset',
         tooltip = {'amap.gui_toggle_top_buttons'},
-        style = 'mod_gui_button'
+        style = 'frame_button'
     }
     button.style.minimal_width = 18
     button.style.maximal_width = 18
+    button.style.minimal_height = 40
+    button.style.maximal_height = 40
+    button.style.left_padding = 0
+    button.style.top_padding = 0
+    button.style.right_padding = 0
+    button.style.bottom_padding = 0
+    button.style.font = 'default-small-bold'
 
     -- 恢复持久化的折叠状态（玩家重连后保持折叠/展开）
     local state = fold_state[player.index]
@@ -615,10 +634,9 @@ Gui.mod_button = mod_gui.get_button_flow
 --- 统一的顶栏元素创建函数（幂等 + 热重载旧实例清理 + 默认样式兜底）
 -- 热重载安全：自动清理 gui.top 上的旧实例（旧存档按钮在 gui.top 直接子元素位置）
 -- 幂等：同名元素已存在于 get_button_flow 中则直接返回
--- 默认样式：未指定 style 的 button/sprite-button 自动应用 mod_gui_button
---   （Factorio 内置样式，40x40，minimal_width=40 起步、文字按钮可自适应撑宽，无空隙；
---    archive/classic-changes 分支同款样式）
--- 对 frame 类型不做自动样式（与 RedMew 一致）
+-- 默认样式：未指定 style 的 button/sprite-button 自动应用 frame_button
+--   （Factorio 内置样式，深色 frame 底 40x40 + 浅灰字 heading-2）
+-- 对 frame 类型不做自动样式
 function Gui.add_top_element(player, child)
     local old = player.gui.top[child.name]
     if old and old.valid then
@@ -633,7 +651,13 @@ function Gui.add_top_element(player, child)
     end
 
     if (child.type == 'button' or child.type == 'sprite-button') and child.style == nil then
-        child.style = 'mod_gui_button'
+        child.style = 'frame_button'
+        local e = flow.add(child)
+        local s = e.style
+        for k, v in pairs(STYLE_TOP_BUTTON) do
+            s[k] = v
+        end
+        return e
     end
     return flow.add(child)
 end
@@ -680,7 +704,7 @@ function Gui.add_main_frame_with_toolbar(player, align, frame_name, close_button
                 sprite = 'utility/close',
                 hovered_sprite = 'utility/close_fat',
                 clicked_sprite = 'utility/close_fat',
-                tooltip = 'Close'
+                tooltip = {'amap.comfy_toolbar_close'}
             }
         )
     end
