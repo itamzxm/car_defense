@@ -1,7 +1,7 @@
 -- maps/amap/world/worlds/world_15_tower_defense.lua
 -- 世界 15：塔防·四面楚歌
 --
--- 特点：十字海心地形，四路同时进攻，纯塔防金币经济Boss系统
+-- 特点：十字陆地 + 外围虚空地形，四路同时进攻，纯塔防金币经济Boss系统
 -- 权威标准：当前代码实现即为世界15设计依据（原 世界15_设计文档.md 已废弃删除）
 
 local World = require 'maps.amap.world.framework'
@@ -112,7 +112,7 @@ local function terrain_generator(surface, position, seed, get_tile, set_tiles, e
     -- 注意：x/y 是区块内 0..31 的偏移量；世界坐标必须用 position（绝对坐标），否则整图都会被判为陆地
     -- ⚠️ position 是瓦片整数坐标（左上角）。必须用瓦片中心(+0.5)判定，
     -- 与 is_on_cross_land / enforce_initial_terrain 保持同一约定；否则 y=128/x=128
-    -- 边界行会被误判为陆地，海面多出一条草边（自测 sea_ban 捕获：grass-1@*,128）。
+    -- 边界行会被误判为陆地，外围虚空多出一条草边（自测 void_ban 捕获：grass-1@*,128）。
     local abs_x = math.abs(position.x + 0.5)
     local abs_y = math.abs(position.y + 0.5)
 
@@ -128,7 +128,8 @@ local function terrain_generator(surface, position, seed, get_tile, set_tiles, e
     if is_land then
         set_tiles({{name = "grass-1", position = position}})
     else
-        set_tiles({{name = "water", position = position}})
+        -- 外围（十字陆地之外）置为 out-of-map 虚空：不可见、不可通行、不可建造/填海
+        set_tiles({{name = "out-of-map", position = position}})
     end
 end
 
@@ -136,7 +137,7 @@ end
 -- 通道虫巢生成（按区块，仅在十字陆地、且距中心 > NEST_NO_SPAWN_RADIUS）
 --==============================================================================
 
--- 判断某点是否落在十字陆地（与地形生成器同判定，保证与海面/对角线海面一致）
+-- 判断某点是否落在十字陆地（与地形生成器同判定，保证与外围虚空一致）
 local function is_on_cross_land(x, y)
     local abs_x = math.abs(x)
     local abs_y = math.abs(y)
@@ -148,7 +149,7 @@ end
 -- @param cx,cy 候选格中心的世界坐标；@param r2 中心禁生成半径的平方
 -- @return boolean 是否真的建出了一座虫巢
 local function try_spawn_nest_at(surface, cx, cy, r2)
-    -- 仅限十字陆地（中心正方形 + 4 通道），海面 / 对角线海域禁止
+    -- 仅限十字陆地（中心正方形 + 4 通道），外围虚空禁止
     if not is_on_cross_land(cx, cy) then return false end
 
     -- 距中心半径内禁止（与中心正方形保持距离）
@@ -348,17 +349,17 @@ local function clear_rocks_in_chunk(event)
 end
 
 --==============================================================================
--- 海面禁刷：禁止在海面（十字陆地之外）出现陆地方块与虫子
+-- 外围禁刷：禁止在十字陆地之外（＝out-of-map 虚空）出现陆地方块与虫子
 --==============================================================================
 -- 说明：
---   1) 地形残留（海面陆地方块）——根因是开局 soft_reset 里 request_to_generate_chunks
+--   1) 地形残留（虚空外的陆地方块）——根因是开局 soft_reset 里 request_to_generate_chunks
 --      在 active_surface_index 赋值前生成初始区块，那批区块跳过了 world_main 的
---      terrain_generator，保留了默认草地。用一次性全表面地形校正修复（只在开局跑一次，
---      在玩家填海之前，故不会破坏用户后续的合法填海——landfill_allowed=true 保留）。
---   2) 海面虫子——唯一能把敌人放到十字外的动态来源是 enemy_expansion（自然扩张）。
---      运行期只清怪、绝不改地块，从而保留玩家填海成果。
+--      terrain_generator，保留了默认草地。用一次性全表面地形校正修复（只在开局跑一次）。
+--      现外围已为 out-of-map 虚空（引擎保证不可通行/不可建造），此条已基本冗余。
+--   2) 虚空虫子——唯一可能把敌人放到十字外的动态来源是 enemy_expansion（自然扩张）；
+--      但 out-of-map 虚空无合法落脚瓦片，敌人无法生成/进入。本清理仅作防御性兜底。
 
--- 移除区域内落在海面（非十字陆地）的敌方实体（Boss 除外，Boss 可能被 find_non_colliding 微调）
+-- 移除区域内落在外围虚空（非十字陆地）的敌方实体（Boss 除外，Boss 可能被 find_non_colliding 微调）
 local function purge_sea_enemies_in_area(surface, area)
     local enemies = surface.find_entities_filtered({area = area, force = "enemy"})
     for _, e in pairs(enemies) do
@@ -369,7 +370,7 @@ local function purge_sea_enemies_in_area(surface, area)
     end
 end
 
--- 区块生成时：清除该区块内落在海面的敌方单位/虫巢/虫塔（廉价，仅清怪不改地块）
+-- 区块生成时：清除该区块内落在外围虚空的敌方单位/虫巢/虫塔（廉价，仅清怪不改地块）
 local function cleanup_sea_enemies_in_chunk(event)
     local this = WPT.get()
     if (this and this.world_number or 0) ~= 15 then return end
@@ -380,7 +381,7 @@ local function cleanup_sea_enemies_in_chunk(event)
 end
 
 -- 一次性开局地形校正：修复 active_surface_index 赋值前生成的初始区块（跳过了 terrain_generator）
--- 将十字陆地强制 grass-1、其余强制 water，并清除海面残留敌人。只跑一次（world15_terrain_fixed）。
+-- 将十字陆地强制 grass-1、其余强制 out-of-map 虚空，并清除外围残留陆地/虫子。只跑一次（world15_terrain_fixed）。
 local function enforce_initial_terrain()
     local this = WPT.get()
     if not this or this.world_number ~= 15 then return end
@@ -398,7 +399,7 @@ local function enforce_initial_terrain()
                 local px, py = lt.x + dx, lt.y + dy
                 n = n + 1
                 tiles[n] = {
-                    name = is_on_cross_land(px + 0.5, py + 0.5) and "grass-1" or "water",
+                    name = is_on_cross_land(px + 0.5, py + 0.5) and "grass-1" or "out-of-map",
                     position = {x = px, y = py},
                 }
             end
@@ -409,10 +410,10 @@ local function enforce_initial_terrain()
     end
 
     this.world15_terrain_fixed = true
-    game.print("[世界15] 已校正开局地形并清除海面残留陆地/虫子", {r = 0.5, g = 1, b = 0.5})
+    game.print("[世界15] 已校正开局地形并清除外围虚空残留陆地/虫子", {r = 0.5, g = 1, b = 0.5})
 end
 
--- 运行期安全网：每 10 秒清除整表面海面上的敌人（Boss 除外）。绝不改地块，保留玩家填海。
+-- 运行期安全网：每 10 秒清除整表面外围虚空上的敌人（Boss 除外）。绝不改地块。
 local function cleanup_sea_enemies_periodic()
     local this = WPT.get()
     if not this or this.world_number ~= 15 then return end
@@ -597,7 +598,7 @@ local function on_built_entity(event)
     if not player then return end
 
     local pos = entity.position
-    -- 建筑限制：仅中心正方形可建造（|x|<=ARM_HALF_WIDTH 且 |y|<=ARM_HALF_WIDTH），通道与海水均禁止
+    -- 建筑限制：仅中心正方形可建造（|x|<=ARM_HALF_WIDTH 且 |y|<=ARM_HALF_WIDTH），通道与外围虚空均禁止
     local abs_x = math.abs(pos.x)
     local abs_y = math.abs(pos.y)
     local on_land = (abs_x <= ARM_HALF_WIDTH and abs_y <= ARM_HALF_WIDTH)
@@ -2277,7 +2278,7 @@ World.register(15, {
         width = 2560,
         height = 2560,
         starting_area = 0.6,
-        -- 十字海心为纯塔防平地：禁用悬崖，避免 cliff 实体盖在十字地形上
+        -- 十字陆地为纯塔防平地：禁用悬崖，避免 cliff 实体盖在十字地形上
         cliff_settings = {cliff_elevation_interval = 0, cliff_elevation_0 = 0},
         -- 自然进化系统：开启（time / destruction / pollution 三因子）
         -- 注意：wave_defense 每 90 tick 会用 wave_number*0.001 覆盖 evolution_factor，
@@ -2340,7 +2341,7 @@ World.register(15, {
     -- 开局解锁科技统一由框架 main.lua reset_map 经 on_world_start 钩子调用 init_technologies 处理（见下方 on_world_start 字段）
     unlocked_technologies = {},
 
-    -- 填海：允许（用户要求不限制）
+    -- 填海：保留 true（历史：用户要求不限制）；现外围为 out-of-map 虚空不可填海，开关实际无作用
     landfill_allowed = true,
 
     -- 通关奖励（框架 world_bonus·线性增长模式）：初始生命值。
@@ -2368,6 +2369,11 @@ World.register(15, {
 
     -- 天赋间隔：每 15 级 +1 天赋（与竞技场一致；默认 35，由 tianfu.lua 经 World 配置表读取）
     tianfu_jiange = 15,
+
+    -- 过量杀虫惩罚：世界15 关闭。清虫巢够快（nest_kills_per_minute>=25）也不放火/雷/裂隙/烟雾魔法，
+    --   也不给虫群贴加速 buff。全局惩罚在 modules/wave_defense/threat_events.lua，
+    --   经 World.get_field(world_number,'disable_nest_kill_punish') 查表跳过（无 world_number==XX 特判）。
+    disable_nest_kill_punish = true,
 
 
     -- 汽车内禁止生成矿物 / 禁止暂停波防（纯塔防无矿设计）
@@ -2497,7 +2503,7 @@ World.register(15, {
         -- 建筑限制：仅中心正方形（玩家 / 施工机器人同规则）
         [defines.events.on_built_entity] = on_built_entity,
         [defines.events.on_robot_built_entity] = on_robot_built_entity,
-        -- 区块加载：通道虫巢生成（仅十字陆地、距中心 > 384 tile）+ 清岩石 + 清海面怪
+        -- 区块加载：通道虫巢生成（仅十字陆地、距中心 > 384 tile）+ 清岩石 + 清外围虚空怪
         [defines.events.on_chunk_generated] = {spawn_nests_in_chunk, clear_rocks_in_chunk, cleanup_sea_enemies_in_chunk},
         -- 卡片1 全服强化投票：卡片点击
         [defines.events.on_gui_click] = on_world15_vote_click,
@@ -2528,7 +2534,7 @@ World.register(15, {
         },
         [600] = {
             boss_watchdog,               -- Boss 卡住检测 + 重新下令攻中心（每10秒）
-            cleanup_sea_enemies_periodic,-- 海面禁刷：清除海面上的敌人（Boss除外）
+            cleanup_sea_enemies_periodic,-- 外围禁刷：清除外围虚空上的敌人（Boss除外）
         },
     },
 })
