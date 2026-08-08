@@ -176,7 +176,7 @@ local function show_score(data)
         -- Add sorting symbol if any
         if header.column and sorting_pref.column == header.column then
             local symbol = sorting_symbol[sorting_pref.method]
-            cap = {symbol, cap}
+            cap = {'', symbol, cap}
         end
 
         -- Header
