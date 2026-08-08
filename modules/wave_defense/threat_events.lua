@@ -7,6 +7,7 @@ local WPT = require 'maps.amap.table'
 local Token = require 'utils.token'
 local Task = require 'utils.task'
 local BiterClass = require 'maps.amap.biter_class'
+local World = require 'maps.amap.world.framework'
 
 -- ============================================================
 -- 更新2：过量杀虫惩罚系统
@@ -307,9 +308,13 @@ function(data)
   local active_biters = WD.get('active_biters')
   local tick = game.tick
 
+  -- 世界15 关闭「过量杀虫惩罚」（含虫群加速 buff）：经 World 配置表查表跳过，共享模块零 world_number==XX 特判
+  local wd_tbl = WPT.get()
+  local nest_kill_punish_disabled = World.get_field(wd_tbl and wd_tbl.world_number, 'disable_nest_kill_punish')
+
   for _, biter in ipairs(created_units) do
     local nest_kills = WD.get('nest_kills_per_minute')
-    if nest_kills >= 25 then
+    if nest_kills >= 25 and not nest_kill_punish_disabled then
       biter.surface.create_entity({
         name = 'bioflux-speed-regen-sticker',
         position = biter.position,
@@ -683,8 +688,10 @@ local function spawn_unit_spawner_inhabitants(entity, cause)
   }
   
   -- 过量杀虫惩罚（更新2）：每次巢穴生成事件触发一次
+  -- 世界15 经 World 配置表 disable_nest_kill_punish 关闭（火/雷/裂隙/烟雾全禁），其他世界照常
   local nk = WD.get('nest_kills_per_minute')
-  if nk >= 25 then
+  local wd_tbl2 = WPT.get()
+  if nk >= 25 and not World.get_field(wd_tbl2 and wd_tbl2.world_number, 'disable_nest_kill_punish') then
     -- 初始 20%，每多杀 1 个虫巢 +1%，nk=80 时封顶 100%
     local over = nk - 25
     local chance = 0.2 + over * 0.01
