@@ -213,7 +213,7 @@ Gui.on_click(
         if selected_player_index then
             input_text_box.text = concat {'storage.tokens[', Gui.token, '].data[', selected_player_index, '][', element_index, ']'}
         else
-            input_text_box.text = {'amap.debug_missing_player'}
+            input_text_box.placeholder = {'amap.debug_missing_player'}
         end
 
         local content = dump(stored_data) or 'nil'
