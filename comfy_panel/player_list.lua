@@ -205,10 +205,12 @@ local function get_formatted_playtime(x)
         m = tostring(m)
 
         if h == '0' then
-            local str = {'amap.comfy_players_minutes', m}
+            local str = m .. ' minutes'
             return str
         else
-            local str = {'amap.comfy_players_hours', h, ' ', {'amap.comfy_players_minutes', m}}
+            local str = h .. ' hours '
+            str = str .. m
+            str = str .. ' minutes'
             return str
         end
     else
@@ -231,10 +233,12 @@ local function get_formatted_playtime(x)
         m = tostring(m)
 
         if h == '0' then
-            local str = {'amap.comfy_players_days', m}
+            local str = m .. ' days'
             return str
         else
-            local str = {'amap.comfy_players_days', h, ' ', {'amap.comfy_players_hours', m}}
+            local str = h .. ' days '
+            str = str .. m
+            str = str .. ' hours'
             return str
         end
     end
@@ -450,50 +454,45 @@ local function player_list_show(data)
         headers = {
             [1] = '[color=0.1,0.7,0.1]' .. -- green
                 tostring(#game.connected_players) .. '[/color]',
-            [2] = {
-                {'amap.comfy_players_online'},
-                ' / ',
-                '[color=0.7,0.1,0.1]', -- red
-                tostring(#game.players - #game.connected_players),
-                '[/color]',
-                ' ',
-                {'amap.comfy_players_offline'}
-            },
-            [3] = {'amap.comfy_players_rpg_level'},
-            [4] = {'amap.comfy_players_total_time'},
-            [5] = {'amap.comfy_players_current_time'},
-            [6] = {'amap.comfy_players_poke'}
+            [2] = 'Online' ..
+                ' / ' ..
+                    '[color=0.7,0.1,0.1]' .. -- red
+                        tostring(#game.players - #game.connected_players) .. '[/color]' .. ' Offline',
+            [3] = 'RPG level',
+            [4] = 'Total Time',
+            [5] = 'Current Time',
+            [6] = 'Poke'
         }
         header_modifier = {
             ['name_asc'] = function(h)
-                h[2] = {h[2], symbol_asc}
+                h[2] = h[2] .. symbol_asc
             end,
             ['name_desc'] = function(h)
-                h[2] = {h[2], symbol_desc}
+                h[2] = h[2] .. symbol_desc
             end,
             ['rpg_asc'] = function(h)
-                h[3] = {h[3], symbol_asc}
+                h[3] = h[3] .. symbol_asc
             end,
             ['rpg_desc'] = function(h)
-                h[3] = {h[3], symbol_desc}
+                h[3] = h[3] .. symbol_desc
             end,
             ['total_time_played_asc'] = function(h)
-                h[4] = {h[4], symbol_asc}
+                h[4] = h[4] .. symbol_asc
             end,
             ['total_time_played_desc'] = function(h)
-                h[4] = {h[4], symbol_desc}
+                h[4] = h[4] .. symbol_desc
             end,
             ['time_played_asc'] = function(h)
-                h[5] = {h[5], symbol_asc}
+                h[5] = h[5] .. symbol_asc
             end,
             ['time_played_desc'] = function(h)
-                h[5] = {h[5], symbol_desc}
+                h[5] = h[5] .. symbol_desc
             end,
             ['pokes_asc'] = function(h)
-                h[6] = {h[6], symbol_asc}
+                h[6] = h[6] .. symbol_asc
             end,
             ['pokes_desc'] = function(h)
-                h[6] = {h[6], symbol_desc}
+                h[6] = h[6] .. symbol_desc
             end
         }
     else
@@ -521,43 +520,38 @@ local function player_list_show(data)
         headers = {
             [1] = '[color=0.1,0.7,0.1]' .. -- green
                 tostring(#game.connected_players) .. '[/color]',
-            [2] = {
-                {'amap.comfy_players_online'},
-                ' / ',
-                '[color=0.7,0.1,0.1]', -- red
-                tostring(#game.players - #game.connected_players),
-                '[/color]',
-                ' ',
-                {'amap.comfy_players_offline'}
-            },
-            [3] = {'amap.comfy_players_total_time'},
-            [4] = {'amap.comfy_players_current_time'},
-            [5] = {'amap.comfy_players_poke'}
+            [2] = 'Online' ..
+                ' / ' ..
+                    '[color=0.7,0.1,0.1]' .. -- red
+                        tostring(#game.players - #game.connected_players) .. '[/color]' .. ' Offline',
+            [3] = 'Total Time',
+            [4] = 'Current Time',
+            [5] = 'Poke'
         }
         header_modifier = {
             ['name_asc'] = function(h)
-                h[2] = {symbol_asc, h[2]}
+                h[2] = symbol_asc .. h[2]
             end,
             ['name_desc'] = function(h)
-                h[2] = {symbol_desc, h[2]}
+                h[2] = symbol_desc .. h[2]
             end,
             ['total_time_played_asc'] = function(h)
-                h[3] = {symbol_asc, h[3]}
+                h[3] = symbol_asc .. h[3]
             end,
             ['total_time_played_desc'] = function(h)
-                h[3] = {symbol_desc, h[3]}
+                h[3] = symbol_desc .. h[3]
             end,
             ['time_played_asc'] = function(h)
-                h[4] = {symbol_asc, h[4]}
+                h[4] = symbol_asc .. h[4]
             end,
             ['time_played_desc'] = function(h)
-                h[4] = {symbol_desc, h[4]}
+                h[4] = symbol_desc .. h[4]
             end,
             ['pokes_asc'] = function(h)
-                h[5] = {symbol_asc, h[5]}
+                h[5] = symbol_asc .. h[5]
             end,
             ['pokes_desc'] = function(h)
-                h[5] = {symbol_desc, h[5]}
+                h[5] = symbol_desc .. h[5]
             end
         }
     end
@@ -624,21 +618,21 @@ local function player_list_show(data)
 
         local trusted = ''
         local tooltip = ''
-        local minimap = {'\n', {'amap.comfy_players_minimap_tip'}, ' '}
+        local minimap = '\nLeft-click to show this person on map! '
 
 
         if game.players[player_list[i].name].admin then
             trusted = '[color=red][A][/color]' .. trusted
-            tooltip = {'amap.comfy_players_admin_tip', minimap, tooltip}
+            tooltip = 'This player is an admin of this server.' .. minimap .. tooltip
         elseif jailed[player_list[i].name] then
             trusted = '[color=orange][J][/color]' .. trusted
-            tooltip = {'amap.comfy_players_jailed_tip', minimap, tooltip}
+            tooltip = 'This player is currently jailed.' .. minimap .. tooltip
         elseif play_table[player_list[i].name] then
             trusted = '[color=green][T][/color]' .. trusted
-            tooltip = {'amap.comfy_players_trusted_tip', minimap, tooltip}
+            tooltip = 'This player is trusted.' .. minimap .. tooltip
         else
             trusted = '[color=black][U][/color]' .. trusted
-            tooltip = {'amap.comfy_players_untrusted_tip', minimap, tooltip}
+            tooltip = 'This player is not trusted.' .. minimap .. tooltip
         end
 
         local caption
@@ -710,7 +704,7 @@ local function player_list_show(data)
         flow.add {type = 'label', name = 'button_spacer_' .. i, caption = ''}
         local button = flow.add {type = 'button', name = 'poke_player_' .. player_list[i].name, caption = player_list[i].pokes}
         button.style.font = 'default'
-        button.tooltip = {'amap.comfy_players_poke_tip', player_list[i].name}
+        button.tooltip = 'Poke ' .. player_list[i].name .. ' with a random message!'
         label.style.font_color = {r = 0.83, g = 0.83, b = 0.83}
         button.style.minimal_height = 30
         button.style.minimal_width = 30
