@@ -140,9 +140,9 @@ local function build_group_gui(data)
 
     local frame2 = frame.add({type = 'frame', name = 'frame2'})
     t = frame2.add({type = 'table', name = 'group_table', column_count = 3})
-    local textfield = t.add({type = 'textfield', name = 'new_group_name', text = {'amap.comfy_group_name_ph'}})
+    local textfield = t.add({type = 'textfield', name = 'new_group_name', placeholder = {'amap.comfy_group_name_ph'}})
     textfield.style.minimal_width = 200
-    textfield = t.add({type = 'textfield', name = 'new_group_description', text = {'amap.comfy_group_desc_ph'}})
+    textfield = t.add({type = 'textfield', name = 'new_group_description', placeholder = {'amap.comfy_group_desc_ph'}})
     textfield.style.minimal_width = 400
     local b = t.add({type = 'button', name = 'create_new_group', caption = {'amap.comfy_group_create'}})
     b.style.minimal_width = 150
@@ -219,10 +219,7 @@ local function on_gui_click(event)
 
         local new_group_name = frame.frame2.group_table.new_group_name.text
         local new_group_description = frame.frame2.group_table.new_group_description.text
-        local placeholder_name = game.get_localised_string({'amap.comfy_group_name_ph'})
-        local placeholder_desc = game.get_localised_string({'amap.comfy_group_desc_ph'})
-        if new_group_name ~= '' and new_group_name ~= placeholder_name
-            and new_group_description ~= placeholder_desc then
+        if new_group_name ~= '' and new_group_description ~= '' then
       
 
             if string.len(new_group_name) > 64 then
@@ -250,8 +247,8 @@ local function on_gui_click(event)
             game.print('>> ' .. new_group_name, {r = 0.98, g = 0.66, b = 0.22})
             game.print(new_group_description, {r = 0.85, g = 0.85, b = 0.85})
 
-            frame.frame2.group_table.new_group_name.text = {'amap.comfy_group_name_ph'}
-            frame.frame2.group_table.new_group_description.text = {'amap.comfy_group_desc_ph'}
+            frame.frame2.group_table.new_group_name.text = ''
+            frame.frame2.group_table.new_group_description.text = ''
             refresh_gui()
             return
         end
