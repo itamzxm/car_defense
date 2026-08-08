@@ -760,8 +760,8 @@ function Public.draw_top_button(player)
         caption = ({'pet_system.top_button'}),
         tooltip = ({'pet_system.top_button_tip'}),
     })
-    -- 默认字体色（深灰，浅灰按钮底上清晰）
-    b.style.font_color = {28, 29, 28}
+    -- 默认字体色 #8F8F8F
+    b.style.font_color = {143, 143, 143}
     -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
     b.style.left_padding = 4
     b.style.right_padding = 4
