@@ -1096,7 +1096,7 @@ function Public.reduce_player_damage_over_time()
     if  this.player_damage_reduction_count>=20 then 
         local wave_number = WD.get('wave_number')
         local player_count = calc_players()
-        local wave_multiplier = 0.7 + math.floor(wave_number / 500) * 0.5
+        local wave_multiplier = 0.7 + math.floor(wave_number / 500) * 0.4
         local reduction_percent = (1 + math.floor((player_count - 1) / 2)) * wave_multiplier
         Public.set_force_damage_modifier(game.forces.player, -reduction_percent / 100,true)
         this.player_damage_reduction_count=0

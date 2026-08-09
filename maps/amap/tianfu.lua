@@ -1287,10 +1287,8 @@ local function on_gui_click(event)
             this.player_time_skills[player.name][skill_name] = true
 
             -- ★ 方案 C：学习 time_skill 后，登记第一次到期到 due_buckets
-            -- 这样 on_tick 会在 game.tick + cooldown 时第一次调用该技能
-            local cooldown = time_skills[skill_name].time or 60
-            if cooldown <= 0 then cooldown = 1 end
-            local next_tick = game.tick + cooldown
+            -- 所有 time_skill 学习后下一 tick 立即首次触发，之后按冷却循环
+            local next_tick = game.tick + 1
             if not this.due_buckets then this.due_buckets = {} end
             local next_bucket = this.due_buckets[next_tick]
             if not next_bucket then
