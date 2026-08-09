@@ -106,7 +106,7 @@ end
 
 local function tame_unit_effects(player, entity)
     rendering.draw_text {
-        text = '~' .. player.name .. "'s pet~",
+        text = {'amap.pet_label', player.name},
         surface = player.physical_surface,
         target = entity,
         target_offset = {0, -2.6},
@@ -1282,7 +1282,7 @@ function Public.advanced_fishing(position, surface, player, times)
     player.insert({name = 'raw-fish', count = fish_count})
 
     player.create_local_flying_text({
-        text = '钓到了 ' .. fish_count .. ' 条鱼！',
+        text = {'amap.rpg_fishing_got', fish_count},
         position = position,
         color = {r = 0.2, g = 0.8, b = 1.0},
         speed = 0.8
@@ -1348,7 +1348,7 @@ function Public.xiao_jingling(position, surface, player, times)
 
                 if spirit_entity and spirit_entity.valid then
                     rendering.draw_text {
-                        text = '虫子法师',
+                        text = {'amap.rpg_xiao_jingling_overhead'},
                         surface = player.physical_surface,
                         target = {
                             entity = spirit_entity,

@@ -10,6 +10,17 @@ local Token = require 'utils.token'
 local lower = string.lower
 local module_name = 'Admin'
 
+local HISTORY_KEYS = {
+    ['amap.comfy_admin_hist_capsule'] = 'Capsule History',
+    ['amap.comfy_admin_hist_message'] = 'Message History',
+    ['amap.comfy_admin_hist_ff'] = 'Friendly Fire History',
+    ['amap.comfy_admin_hist_mining'] = 'Mining History',
+    ['amap.comfy_admin_hist_override'] = 'Mining Override History',
+    ['amap.comfy_admin_hist_landfill'] = 'Landfill History',
+    ['amap.comfy_admin_hist_corpse'] = 'Corpse Looting History',
+    ['amap.comfy_admin_hist_craft'] = 'Cancel Crafting History'
+}
+
 local function admin_only_message(str)
     for _, player in pairs(game.connected_players) do
         if player.admin == true then
@@ -240,7 +251,14 @@ local function draw_events(data)
     local frame = data.frame
     local antigrief = data.antigrief
     local search_text = data.search_text or nil
-    local history = frame['admin_history_select'].items[frame['admin_history_select'].selected_index]
+    local history_select = frame['admin_history_select']
+    local selected_history = history_select.items[history_select.selected_index]
+    local history
+    if type(selected_history) == 'table' then
+        history = HISTORY_KEYS[selected_history[1]]
+    else
+        history = selected_history
+    end
 
     local history_index = {
         ['Capsule History'] = antigrief.capsule_history,
@@ -271,10 +289,10 @@ local function draw_events(data)
         scroll_pane.style.minimal_width = 790
     end
 
-    local tooltip = 'Click to open mini camera.'
+    local tooltip = {'amap.comfy_admin_history_tip'}
 
     local target_player_name = frame['admin_player_select'].items[frame['admin_player_select'].selected_index]
-    if game.players[target_player_name] then
+    if type(target_player_name) == 'string' and game.players[target_player_name] then
         if not history_index or not history_index[history] or #history_index[history] <= 0 then
             return
         end
@@ -315,7 +333,7 @@ local function draw_events(data)
                 {
                     type = 'label',
                     caption = history_index[history][i],
-                    tooltip = 'Click to open mini camera.'
+                    tooltip = {'amap.comfy_admin_history_tip'}
                 }
             )
             ::continue::
@@ -367,7 +385,7 @@ local function create_admin_panel(data)
     for _, p in pairs(game.connected_players) do
         table.insert(player_names, tostring(p.name))
     end
-    table.insert(player_names, 'Select Player')
+    table.insert(player_names, {'amap.comfy_admin_select_player'})
 
     local selected_index = #player_names
     if storage.admin_panel_selected_player_index then
@@ -388,61 +406,75 @@ local function create_admin_panel(data)
         t.add(
             {
                 type = 'button',
-                caption = 'Jail',
+                caption = {'amap.comfy_admin_jail'},
                 name = 'jail',
-                tooltip = 'Jails the player, they will no longer be able to perform any actions except writing in chat.'
+                tooltip = {'amap.comfy_admin_jail_tip'}
             }
         ),
-        t.add({type = 'button', caption = 'Free', name = 'free', tooltip = 'Frees the player from jail.'}),
         t.add(
             {
                 type = 'button',
-                caption = 'Bring Player',
+                caption = {'amap.comfy_admin_free'},
+                name = 'free',
+                tooltip = {'amap.comfy_admin_free_tip'}
+            }
+        ),
+        t.add(
+            {
+                type = 'button',
+                caption = {'amap.comfy_admin_bring'},
                 name = 'bring_player',
-                tooltip = 'Teleports the selected player to your position.'
+                tooltip = {'amap.comfy_admin_bring_tip'}
             }
         ),
         t.add(
             {
                 type = 'button',
-                caption = 'Make Enemy',
+                caption = {'amap.comfy_admin_enemy'},
                 name = 'enemy',
-                tooltip = 'Sets the selected players force to enemy_players.          DO NOT USE IN PVP MAPS!!'
+                tooltip = {'amap.comfy_admin_enemy_tip'}
             }
         ),
         t.add(
             {
                 type = 'button',
-                caption = 'Make Ally',
+                caption = {'amap.comfy_admin_ally'},
                 name = 'ally',
-                tooltip = 'Sets the selected players force back to the default player force.           DO NOT USE IN PVP MAPS!!'
+                tooltip = {'amap.comfy_admin_ally_tip'}
             }
         ),
         t.add(
             {
                 type = 'button',
-                caption = 'Go to Player',
+                caption = {'amap.comfy_admin_goto'},
                 name = 'go_to_player',
-                tooltip = 'Teleport yourself to the selected player.'
+                tooltip = {'amap.comfy_admin_goto_tip'}
             }
         ),
         t.add(
             {
                 type = 'button',
-                caption = 'Spank',
+                caption = {'amap.comfy_admin_spank'},
                 name = 'spank',
-                tooltip = 'Hurts the selected player with minor damage. Can not kill the player.'
+                tooltip = {'amap.comfy_admin_spank_tip'}
             }
         ),
         t.add(
             {
                 type = 'button',
-                caption = 'Damage',
+                caption = {'amap.comfy_admin_damage'},
                 name = 'damage',
-                tooltip = 'Damages the selected player with greater damage. Can not kill the player.'
+                tooltip = {'amap.comfy_admin_damage_tip'}
             }
         ),
-        t.add({type = 'button', caption = 'Kill', name = 'kill', tooltip = 'Kills the selected player instantly.'})
+        t.add(
+            {
+                type = 'button',
+                caption = {'amap.comfy_admin_kill'},
+                name = 'kill',
+                tooltip = {'amap.comfy_admin_kill_tip'}
+            }
+        )
     }
     for _, button in pairs(buttons) do
         button.style.font = 'default-bold'
@@ -455,23 +487,23 @@ local function create_admin_panel(data)
     line.style.top_margin = 8
     line.style.bottom_margin = 8
 
-    frame.add({type = 'label', caption = 'Global Actions:'})
+    frame.add({type = 'label', caption = {'amap.comfy_admin_global_actions'}})
     local actionTable = frame.add({type = 'table', column_count = 2})
     local bottomButtons = {
         actionTable.add(
             {
                 type = 'button',
-                caption = 'Destroy global speakers',
+                caption = {'amap.comfy_admin_speakers'},
                 name = 'turn_off_global_speakers',
-                tooltip = 'Destroys all speakers that are set to play sounds globally.'
+                tooltip = {'amap.comfy_admin_speakers_tip'}
             }
         ),
         actionTable.add(
             {
                 type = 'button',
-                caption = 'Delete blueprints',
+                caption = {'amap.comfy_admin_del_bp'},
                 name = 'delete_all_blueprints',
-                tooltip = 'Deletes all placed blueprints on the map.'
+                tooltip = {'amap.comfy_admin_del_bp_tip'}
             }
         )
         ---	t.add({type = "button", caption = "Cancel all deconstruction orders", name = "remove_all_deconstruction_orders"})
@@ -488,28 +520,28 @@ local function create_admin_panel(data)
 
     local histories = {}
     if antigrief.capsule_history then
-        table.insert(histories, 'Capsule History')
+        table.insert(histories, {'amap.comfy_admin_hist_capsule'})
     end
     if antigrief.message_history then
-        table.insert(histories, 'Message History')
+        table.insert(histories, {'amap.comfy_admin_hist_message'})
     end
     if antigrief.friendly_fire_history then
-        table.insert(histories, 'Friendly Fire History')
+        table.insert(histories, {'amap.comfy_admin_hist_ff'})
     end
     if antigrief.mining_history then
-        table.insert(histories, 'Mining History')
+        table.insert(histories, {'amap.comfy_admin_hist_mining'})
     end
     if antigrief.whitelist_mining_history then
-        table.insert(histories, 'Mining Override History')
+        table.insert(histories, {'amap.comfy_admin_hist_override'})
     end
     if antigrief.landfill_history then
-        table.insert(histories, 'Landfill History')
+        table.insert(histories, {'amap.comfy_admin_hist_landfill'})
     end
     if antigrief.corpse_history then
-        table.insert(histories, 'Corpse Looting History')
+        table.insert(histories, {'amap.comfy_admin_hist_corpse'})
     end
     if antigrief.cancel_crafting_history then
-        table.insert(histories, 'Cancel Crafting History')
+        table.insert(histories, {'amap.comfy_admin_hist_craft'})
     end
 
     if #histories == 0 then
@@ -517,7 +549,7 @@ local function create_admin_panel(data)
     end
 
     local search_table = frame.add({type = 'table', column_count = 2})
-    search_table.add({type = 'label', caption = 'Search: '})
+    search_table.add({type = 'label', caption = {'amap.comfy_admin_search'}})
     local search_text = search_table.add({type = 'textfield'})
     search_text.style.width = 140
 
@@ -672,7 +704,7 @@ local function on_gui_click(event)
         if not target_player_name then
             return
         end
-        if target_player_name == 'Select Player' then
+        if type(target_player_name) ~= 'string' then
             player.print('No target player selected.', {r = 0.88, g = 0.88, b = 0.88})
             return
         end

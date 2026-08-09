@@ -37,9 +37,9 @@ local function build_group_gui(data)
 
     local t = frame.add({type = 'table', column_count = 5})
     local headings = {
-        {'Title', group_name_width},
-        {'Description', description_width},
-        {'Members', members_width * member_columns},
+        {{'amap.comfy_group_title'}, group_name_width},
+        {{'amap.comfy_group_desc'}, description_width},
+        {{'amap.comfy_group_members'}, members_width * member_columns},
         {'', actions_width}
     }
     for _, h in pairs(headings) do
@@ -115,18 +115,18 @@ local function build_group_gui(data)
 
             tt = t.add({type = 'table', name = group.name, column_count = 1})
             if group.name ~= this.player_group[player.name] then
-                local b = tt.add({type = 'button', caption = 'Join'})
+                local b = tt.add({type = 'button', name = 'group_join', caption = {'amap.comfy_group_join'}})
                 b.style.font = 'default-bold'
                 b.style.minimal_width = actions_width
                 b.style.maximal_width = actions_width
             else
-                local b = tt.add({type = 'button', caption = 'Leave'})
+                local b = tt.add({type = 'button', name = 'group_leave', caption = {'amap.comfy_group_leave'}})
                 b.style.font = 'default-bold'
                 b.style.minimal_width = actions_width
                 b.style.maximal_width = actions_width
             end
             if player.admin == true or group.founder == player.name then
-                local b = tt.add({type = 'button', caption = 'Delete'})
+                local b = tt.add({type = 'button', name = 'group_delete', caption = {'amap.comfy_group_delete'}})
                 b.style.font = 'default-bold'
                 b.style.minimal_width = actions_width
                 b.style.maximal_width = actions_width
@@ -140,11 +140,11 @@ local function build_group_gui(data)
 
     local frame2 = frame.add({type = 'frame', name = 'frame2'})
     t = frame2.add({type = 'table', name = 'group_table', column_count = 3})
-    local textfield = t.add({type = 'textfield', name = 'new_group_name', text = 'Name'})
+    local textfield = t.add({type = 'textfield', name = 'new_group_name', placeholder = {'amap.comfy_group_name_ph'}})
     textfield.style.minimal_width = 200
-    textfield = t.add({type = 'textfield', name = 'new_group_description', text = 'Description'})
+    textfield = t.add({type = 'textfield', name = 'new_group_description', placeholder = {'amap.comfy_group_desc_ph'}})
     textfield.style.minimal_width = 400
-    local b = t.add({type = 'button', name = 'create_new_group', caption = 'Create'})
+    local b = t.add({type = 'button', name = 'create_new_group', caption = {'amap.comfy_group_create'}})
     b.style.minimal_width = 150
     b.style.font = 'default-bold'
 end
@@ -219,7 +219,7 @@ local function on_gui_click(event)
 
         local new_group_name = frame.frame2.group_table.new_group_name.text
         local new_group_description = frame.frame2.group_table.new_group_description.text
-        if new_group_name ~= '' and new_group_name ~= 'Name' and new_group_description ~= 'Description' then
+        if new_group_name ~= '' and new_group_description ~= '' then
       
 
             if string.len(new_group_name) > 64 then
@@ -247,8 +247,8 @@ local function on_gui_click(event)
             game.print('>> ' .. new_group_name, {r = 0.98, g = 0.66, b = 0.22})
             game.print(new_group_description, {r = 0.85, g = 0.85, b = 0.85})
 
-            frame.frame2.group_table.new_group_name.text = 'Name'
-            frame.frame2.group_table.new_group_description.text = 'Description'
+            frame.frame2.group_table.new_group_name.text = ''
+            frame.frame2.group_table.new_group_description.text = ''
             refresh_gui()
             return
         end
@@ -266,7 +266,7 @@ local function on_gui_click(event)
                 return
             end
 
-            if element.type == 'button' and element.caption == 'Join' then
+            if element.type == 'button' and element.name == 'group_join' then
                 this.player_group[player.name] = element.parent.name
                 local str = '[' .. element.parent.name
                 str = str .. ']'
@@ -285,7 +285,7 @@ local function on_gui_click(event)
                 return
             end
 
-            if element.type == 'button' and element.caption == 'Delete' then
+            if element.type == 'button' and element.name == 'group_delete' then
                 for _, players in pairs(game.players) do
                     if this.player_group[players.name] then
                         if this.player_group[players.name] == element.parent.name then
@@ -300,7 +300,7 @@ local function on_gui_click(event)
                 return
             end
 
-            if element.type == 'button' and element.caption == 'Leave' then
+            if element.type == 'button' and element.name == 'group_leave' then
                 this.player_group[player.name] = '[Group]'
                 player.tag = ''
                 refresh_gui()

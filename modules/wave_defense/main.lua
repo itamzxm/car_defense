@@ -1273,7 +1273,7 @@ local function spawn_player_biters_against_enemy_roboport()
     unit.ai_settings.allow_try_return_to_spawner = false
                             unit_group.add_member(unit)
                                 rendering.draw_text {
-        text = '联军',
+        text = {'amap.wave_defense_ally_label'},
         surface = unit.surface,
         target = unit,
         target_offset = {0, -2.6},

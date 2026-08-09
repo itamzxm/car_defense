@@ -115,17 +115,17 @@ end
 local function do_remaining_time(poll, remaining_time_label)
     local end_tick = poll.end_tick
     if end_tick == -1 then
-        remaining_time_label.caption = 'Endless Poll.'
+        remaining_time_label.caption = {'amap.comfy_poll_endless'}
         return true
     end
 
     local ticks = end_tick - game.tick
     if ticks < 0 then
-        remaining_time_label.caption = 'Poll Finished.'
+        remaining_time_label.caption = {'amap.comfy_poll_finished'}
         return false
     else
         local time = math.ceil(ticks / 60)
-        remaining_time_label.caption = 'Remaining Time: ' .. time
+        remaining_time_label.caption = {'amap.comfy_poll_remaining', time}
         return true
     end
 end
@@ -192,17 +192,17 @@ local function redraw_poll_viewer_content(data)
     local created_by_player = poll.created_by
     local created_by_text
     if created_by_player then
-        created_by_text = ' Created by ' .. created_by_player
+        created_by_text = {'amap.comfy_poll_created_by', created_by_player}
     else
         created_by_text = ''
     end
 
     local top_flow = poll_viewer_content.add {type = 'flow', direction = 'vertical'}
-    top_flow.add {type = 'label', caption = table.concat {'Poll #', poll.id, created_by_text}}
+    top_flow.add {type = 'label', caption = {'', {'amap.comfy_poll_number', poll.id}, created_by_text}}
 
     local edited_by_players = poll.edited_by
     if next(edited_by_players) then
-        local edit_names = {'Edited by '}
+        local edit_names = {}
         for pi, _ in pairs(edited_by_players) do
             local p = Game.get_player_by_index(pi)
             if p and p.valid then
@@ -212,7 +212,7 @@ local function redraw_poll_viewer_content(data)
         end
 
         table.remove(edit_names)
-        local edit_text = table.concat(edit_names)
+        local edit_text = {'amap.comfy_poll_edited_by', table.concat(edit_names)}
 
         local top_flow_label = top_flow.add {type = 'label', caption = edit_text, tooltip = edit_text}
         top_flow_label.style.single_line = false
@@ -229,7 +229,7 @@ local function redraw_poll_viewer_content(data)
                 type = 'sprite-button',
                 name = poll_view_edit_name,
                 sprite = 'utility/rename_icon',
-                tooltip = 'Edit Poll.'
+                tooltip = {'amap.comfy_poll_edit_tip'}
             }
 
         local edit_button_style = edit_button.style
@@ -300,9 +300,9 @@ local function update_poll_viewer(data)
     data.poll_index = poll_index
 
     if poll_index == 0 then
-        poll_index_label.caption = 'No Polls'
+        poll_index_label.caption = {'amap.comfy_poll_none'}
     else
-        poll_index_label.caption = table.concat {'Poll ', poll_index, ' / ', #polls}
+        poll_index_label.caption = {'amap.comfy_poll_index', poll_index, #polls}
     end
 
     back_button.enabled = poll_index > 1
@@ -313,7 +313,14 @@ end
 
 local function draw_main_frame(left, player)
     local trusted = session.get_trusted_table()
-    local frame = Gui.add_main_frame_with_toolbar(player, 'left', main_frame_name, poll_close_button_name, 'Polls')
+    local frame =
+        Gui.add_main_frame_with_toolbar(
+        player,
+        'left',
+        main_frame_name,
+        poll_close_button_name,
+        {'amap.comfy_poll_title'}
+    )
 
     local poll_viewer_top_flow = frame.add {type = 'table', column_count = 5}
     poll_viewer_top_flow.style.horizontal_spacing = 0
@@ -362,15 +369,15 @@ local function draw_main_frame(left, player)
     local comfy_panel_config = Config.get('gui_config')
 
     if (trusted[player.name] or player.admin) or comfy_panel_config.poll_trusted == false then
-        local create_poll_button = right_flow.add {type = 'button', name = create_poll_button_name, caption = 'Create Poll'}
+        local create_poll_button = right_flow.add {type = 'button', name = create_poll_button_name, caption = {'amap.comfy_poll_create'}}
         apply_button_style(create_poll_button)
     else
         local create_poll_button =
             right_flow.add {
             type = 'button',
-            caption = 'Create Poll',
+            caption = {'amap.comfy_poll_create'},
             enabled = false,
-            tooltip = 'Sorry, you need to be trusted to create polls.'
+            tooltip = {'amap.comfy_poll_create_tip'}
         }
         apply_button_style(create_poll_button)
     end
@@ -426,9 +433,9 @@ local function update_duration(slider)
     slider_data.data.duration = value * tick_duration_step
 
     if value == 0 then
-        label.caption = 'Endless Poll.'
+        label.caption = {'amap.comfy_poll_endless'}
     else
-        label.caption = value * duration_step .. ' seconds.'
+        label.caption = {'amap.comfy_poll_seconds', value * duration_step}
     end
 end
 
@@ -442,8 +449,8 @@ local function redraw_create_poll_content(data)
     grid.add {type = 'flow'}
     grid.add {
         type = 'label',
-        caption = 'Duration:',
-        tooltip = 'Pro tip: Use mouse wheel or arrow keys for more fine control.'
+        caption = {'amap.comfy_poll_duration'},
+        tooltip = {'amap.comfy_poll_duration_tip'}
     }
 
     local duration_flow = grid.add {type = 'flow', direction = 'horizontal'}
@@ -466,7 +473,7 @@ local function redraw_create_poll_content(data)
     update_duration(duration_slider)
 
     grid.add {type = 'flow'}
-    local question_label = grid.add({type = 'flow'}).add {type = 'label', name = create_poll_label_name, caption = 'Question:'}
+    local question_label = grid.add({type = 'flow'}).add {type = 'label', name = create_poll_label_name, caption = {'amap.comfy_poll_question'}}
 
     local question_textfield = grid.add({type = 'flow'}).add {type = 'textfield', name = create_poll_question_name, text = data.question}
     question_textfield.style.width = 170
@@ -485,7 +492,7 @@ local function redraw_create_poll_content(data)
                 type = 'sprite-button',
                 name = create_poll_delete_answer_name,
                 sprite = 'utility/trash',
-                tooltip = 'Delete answer field.'
+                tooltip = {'amap.comfy_poll_del_answer_tip'}
             }
             delete_button.style.height = 26
             delete_button.style.width = 26
@@ -499,7 +506,7 @@ local function redraw_create_poll_content(data)
             label_flow.add {
             type = 'label',
             name = create_poll_label_name,
-            caption = table.concat {'Answer #', count, ':'}
+            caption = {'amap.comfy_poll_answer', count}
         }
 
         local textfield_flow = grid.add {type = 'flow'}
@@ -544,12 +551,12 @@ local function draw_create_poll_frame(parent, player, previous_data)
     end
 
     if edit_mode then
-        title_text = 'Edit Poll #' .. previous_data.id
-        confirm_text = 'Edit Poll'
+        title_text = {'amap.comfy_poll_edit_title', previous_data.id}
+        confirm_text = {'amap.comfy_poll_edit'}
         confirm_name = create_poll_edit_name
     else
-        title_text = 'New Poll'
-        confirm_text = 'Create Poll'
+        title_text = {'amap.comfy_poll_new'}
+        confirm_text = {'amap.comfy_poll_create'}
         confirm_name = create_poll_confirm_name
     end
 
@@ -580,7 +587,7 @@ local function draw_create_poll_frame(parent, player, previous_data)
         scroll_pane.add {
         type = 'button',
         name = create_poll_add_answer_name,
-        caption = 'Add Answer'
+        caption = {'amap.comfy_poll_add_answer'}
     }
     apply_button_style(add_answer_button)
     Gui.set_data(add_answer_button, data)
@@ -591,11 +598,21 @@ local function draw_create_poll_frame(parent, player, previous_data)
     left_flow.style.horizontal_align = 'left'
     left_flow.style.horizontally_stretchable = true
 
-    local close_button = left_flow.add {type = 'button', name = create_poll_close_name, caption = 'Close'}
+    local close_button =
+        left_flow.add {
+        type = 'button',
+        name = create_poll_close_name,
+        caption = {'amap.comfy_poll_close'}
+    }
     apply_button_style(close_button)
     Gui.set_data(close_button, frame)
 
-    local clear_button = left_flow.add {type = 'button', name = create_poll_clear_name, caption = 'Clear'}
+    local clear_button =
+        left_flow.add {
+        type = 'button',
+        name = create_poll_clear_name,
+        caption = {'amap.comfy_poll_clear'}
+    }
     apply_button_style(clear_button)
     Gui.set_data(clear_button, data)
 
@@ -603,7 +620,12 @@ local function draw_create_poll_frame(parent, player, previous_data)
     right_flow.style.horizontal_align = 'right'
 
     if edit_mode then
-        local delete_button = right_flow.add {type = 'button', name = create_poll_delete_name, caption = 'Delete'}
+        local delete_button =
+            right_flow.add {
+            type = 'button',
+            name = create_poll_delete_name,
+            caption = {'amap.comfy_poll_delete'}
+        }
         apply_button_style(delete_button)
         Gui.set_data(delete_button, data)
     end
@@ -797,7 +819,7 @@ local function player_joined(event)
                 type = 'sprite-button',
                 name = main_button_name,
                 sprite = 'item/programmable-speaker',
-                tooltip = 'Let your question be heard!'
+                tooltip = {'amap.comfy_poll_top_tip'}
             }
         )
     end

@@ -75,7 +75,7 @@ function Public.show(container)
         type = 'sprite-button',
         name = refresh_name,
         sprite = 'utility/reset',
-        tooltip = 'refresh'
+        tooltip = {'amap.debug_refresh'}
     }
     local refresh_button_style = refresh_button.style
     refresh_button_style.width = 32
@@ -213,7 +213,7 @@ Gui.on_click(
         if selected_player_index then
             input_text_box.text = concat {'storage.tokens[', Gui.token, '].data[', selected_player_index, '][', element_index, ']'}
         else
-            input_text_box.text = 'missing player'
+            input_text_box.placeholder = {'amap.debug_missing_player'}
         end
 
         local content = dump(stored_data) or 'nil'

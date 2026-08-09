@@ -840,7 +840,7 @@ end
 
 local function tame_unit_effects(player, entity, q_idx)
     rendering.draw_text {
-        text = '~' .. player.name .. "'s pet~",
+        text = {'amap.pet_label', player.name},
         surface = player.physical_surface,
         target = entity,
         target_offset = { 0, -2.6 },
@@ -4161,7 +4161,7 @@ local function haiguanfang(player, q_idx)
                 
                 local tag_id = game.forces.player.add_chart_tag(car_surface, {
                     position = market_position,
-                    text = '资源岛'
+                    text = {'amap.resource_island'}
                 })
                 
                 local island_data = {
@@ -7396,7 +7396,7 @@ local function fumo(player, q_idx)
                 
                 BiterPets.biter_pets_tame_unit(player, enchanted_bug)
                 rendering.draw_text {
-        text = '已附魔',
+        text = {'amap.fumo_enchanted'},
         surface = enchanted_bug.surface,
          target =
             {

@@ -69,7 +69,7 @@ local function updata_gui(player)
     else
         -- 需求2: 如果还没有投票，按钮就显示投票下一张地图 (保持默认文案)
         button.caption = {'amap.next_map'}
-        button.tooltip = "点击投票 / Click to vote"
+        button.tooltip = {'amap.vote_tooltip'}
         -- 默认字体色不变（青绿）
         button.style.font_color = {0, 255, 255}
     end
@@ -112,7 +112,7 @@ local function gui_open(player)
         
         -- 需求4: 投票的时候显示每个地图的票数
         -- caption 格式示例: "世界1 (3)"
-        local button_caption = {'', {'amap.world_name_' .. i}, ' (' .. count .. ')'}
+        local button_caption = {'', {'amap.world_name_' .. i}, {'amap.vote_count', count}}
 
         local button = frame.add {
             type = 'button',
@@ -135,7 +135,7 @@ local function gui_open(player)
     local close_btn = frame.add {
         type = 'button',
         name = 'close_poll_frame',
-        caption = 'Close / 关闭'
+        caption = {'amap.vote_close'}
     }
     close_btn.style.minimal_width = 150
 end

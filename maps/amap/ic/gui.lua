@@ -187,7 +187,7 @@ local function get_players(player, frame, all)
             insert(tbl, tostring(p.name))
         end
     end
-    insert(tbl, 'Select Player')
+    insert(tbl, {'amap.ic_select_player'})
 
     local selected_index = #tbl
 
@@ -320,7 +320,7 @@ local function draw_add_player(player, frame)
     local close_button = left_flow.add({
         type = 'button',
         name = discard_add_player_button_name,
-        caption = 'Discard'
+        caption = {'amap.ic_discard'}
     })
     close_button.style = 'back_button'
     close_button.style.maximal_width = 100
@@ -333,7 +333,7 @@ local function draw_add_player(player, frame)
     local save_button = right_flow.add({
         type = 'button',
         name = save_add_player_button_name,
-        caption = 'Save'
+        caption = {'amap.ic_save'}
     })
     save_button.style = 'confirm_button'
     save_button.style.maximal_width = 100
@@ -395,7 +395,7 @@ local function draw_transfer_car(player, frame)
     local close_button = left_flow.add({
         type = 'button',
         name = discard_transfer_car_button_name,
-        caption = 'Discard'
+        caption = {'amap.ic_discard'}
     })
     close_button.style = 'back_button'
     close_button.style.maximal_width = 100
@@ -408,7 +408,7 @@ local function draw_transfer_car(player, frame)
     local save_button = right_flow.add({
         type = 'button',
         name = save_transfer_car_button_name,
-        caption = 'Save'
+        caption = {'amap.ic_save'}
     })
     save_button.style = 'confirm_button'
     save_button.style.maximal_width = 100
@@ -818,12 +818,12 @@ local function draw_main_frame(player)
 
     local add_player_frame = inside_table.add({
         type = 'button',
-        caption = 'Add Player',
+        caption = {'amap.ic_add_player'},
         name = add_player_name
     })
     local transfer_car_frame = inside_table.add({
         type = 'button',
-        caption = 'Transfer Car',
+        caption = {'amap.ic_transfer_car'},
         name = transfer_car_name
     })
     local allow_anyone_to_enter = inside_table.add({
@@ -1807,7 +1807,7 @@ Gui.on_selection_state_changed(transfer_player_select_name, function(event)
         return
     end
 
-    if selected == 'Select Player' then
+    if type(selected) ~= 'string' then
         player.print({'ic.no_player_selected'}, Color.warning)
         player_gui_data[player.name] = nil
         return
