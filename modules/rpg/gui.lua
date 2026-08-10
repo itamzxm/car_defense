@@ -44,8 +44,8 @@ function Public.draw_gui_char_button(player)
         return
     end
     local b = Gui.add_top_element(player, {type = 'sprite-button', name = draw_main_frame_name, caption = '[RPG]', tooltip = 'RPG'})
-    -- 默认字体色 #8F8F8F；有未分配技能点时 update_char_button 变红提示
-    b.style.font_color = {143, 143, 143}
+    -- 默认浅灰白字；有未分配技能点时 update_char_button 变红提示
+    b.style.font_color = {165, 165, 165}
     -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
     b.style.left_padding = 4
     b.style.right_padding = 4
@@ -60,8 +60,8 @@ function Public.update_char_button(player)
         -- 有未分配技能点：红色提示（保持）
         Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {245, 0, 0}
     else
-        -- 默认字体色 #8F8F8F
-        Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {143, 143, 143}
+        -- 默认浅灰白字
+        Gui.get_button_flow(player)[draw_main_frame_name].style.font_color = {165, 165, 165}
     end
 end
 

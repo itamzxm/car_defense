@@ -21,6 +21,7 @@ local tianfu_blacklist = {
     ['zhs'] = '黑暗召唤',
     ['wlfs'] = '亡灵法师',
     ['wanglingdajun'] = '秽土转生',
+    ['mdt'] = '魔盗团',
     -- ★ 修复（2026-08-01）：以下 3 个是"半吊子禁用"留下的废卡。
     -- 它们已从 tianfu_categories 注释掉（意图禁用），但仍注册在 trigger_skills 表里，
     -- 而 all_skill = time ∪ once ∪ trigger 三表并集 —— 于是「随机」职业玩家依旧能抽到、

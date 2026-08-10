@@ -19,6 +19,25 @@ local main_gui_tabs = {}
 local Public = {}
 local screen_elements = {}
 
+-- tab 标题 locale 映射（模块名 -> locale key；未登记的直接显示模块名）
+local TAB_LOCALE_KEYS = {
+    ['Players']    = 'amap.comfy_tab_players',
+    ['Admin']      = 'amap.comfy_tab_admin',
+    ['Groups']     = 'amap.comfy_tab_groups',
+    ['Config']     = 'amap.comfy_tab_config',
+    ['Scoreboard'] = 'amap.comfy_tab_scoreboard',
+    ['Map Info']   = 'amap.comfy_tab_map_info',
+}
+
+--- tab 显示标题：优先 locale（CFG 双语言），未登记则回退模块名
+local function tab_caption(name)
+    local key = TAB_LOCALE_KEYS[name]
+    if key then
+        return {key}
+    end
+    return name
+end
+
 Gui.allow_player_to_toggle_top_element_visibility('comfy_panel_top_button')
 
 --- This adds the given gui to the main gui.
@@ -170,7 +189,7 @@ local function main_frame(player)
         if func.only_server_sided then
             local secs = Server.get_current_time()
             if secs then
-                local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name})
+                local tab = tabbed_pane.add({type = 'tab', caption = tab_caption(name), name = 'tab_' .. name})
                 local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical'})
                 name_frame.style.minimal_height = 480
                 name_frame.style.maximal_height = 480
@@ -180,7 +199,7 @@ local function main_frame(player)
             end
         elseif func.admin == true then
             if player.admin then
-                local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name})
+                local tab = tabbed_pane.add({type = 'tab', caption = tab_caption(name), name = 'tab_' .. name})
                 local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical'})
                 name_frame.style.minimal_height = 480
                 name_frame.style.maximal_height = 480
@@ -189,7 +208,7 @@ local function main_frame(player)
                 tabbed_pane.add_tab(tab, name_frame)
             end
         else
-            local tab = tabbed_pane.add({type = 'tab', caption = name, name = 'tab_' .. name})
+            local tab = tabbed_pane.add({type = 'tab', caption = tab_caption(name), name = 'tab_' .. name})
             local name_frame = tabbed_pane.add({type = 'frame', name = name, direction = 'vertical'})
             name_frame.style.minimal_height = 480
             name_frame.style.maximal_height = 480
@@ -212,7 +231,7 @@ function Public.comfy_panel_call_tab(player, name)
     main_frame(player)
     local tabbed_pane = player.gui.left.comfy_panel.tabbed_pane
     for key, v in pairs(tabbed_pane.tabs) do
-        if v.tab.caption == name then
+        if v.tab.name == 'tab_' .. name then
             tabbed_pane.selected_tab_index = key
             Public.comfy_panel_refresh_active_tab(player)
         end

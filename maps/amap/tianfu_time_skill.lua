@@ -4161,7 +4161,7 @@ local function haiguanfang(player, q_idx)
                 
                 local tag_id = game.forces.player.add_chart_tag(car_surface, {
                     position = market_position,
-                    text = {'amap.resource_island'}
+                    text = 'Resource Island'
                 })
                 
                 local island_data = {

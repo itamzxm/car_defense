@@ -317,6 +317,16 @@ end
 -- 样式与顶栏默认按钮统一：frame_button 底 + 宽 18、高 40、padding 全 0、default-small-bold
 local function create_toggle_button(player)
     local flow = Gui.get_button_flow(player)
+
+    -- 顶栏大框纯黑底（黑底白字统一风格）：mod_gui_top_frame 外层 + inner 内层
+    local top_frame = flow.parent
+    if top_frame and top_frame.valid then
+        top_frame.style.background_color = {0, 0, 0}
+    end
+    if flow.valid then
+        flow.style.background_color = {0, 0, 0}
+    end
+
     if flow[CONST_TOGGLE_BUTTON] and flow[CONST_TOGGLE_BUTTON].valid then
         return
     end
