@@ -812,6 +812,19 @@ function Public.conjure_items()
         enabled = true,
         sprite = 'virtual-signal/signal-Z'
     }
+    spells[#spells + 1] = {
+        name = {'spells.bullet_supply_tower'},
+        itam_code = true,
+        entityName = 'bullet_supply_tower',
+        target = true,
+        force = 'player',
+        level = 10,
+        type = 'special',
+        mana_cost = 100,
+        tick = 100,
+        enabled = true,
+        sprite = 'entity/passive-provider-chest'
+    }
 
     return spells
 end
@@ -838,6 +851,7 @@ Public.itam_spell = {
     ['xiao_jingling'] = {max_range = 36, tick_speed = 1, need_times = 50, bonus = 1, base = 1},
     ['huanxing_huoshan_penfa'] = {max_range = 36, tick_speed = 1, need_times = 50, bonus = 1, base = 1},
     ['diankuang'] = {max_range = 36, tick_speed = 1, need_times = 50, bonus = 1, base = 1},
+    ['bullet_supply_tower'] = {max_range = 36, tick_speed = 1, need_times = 50, bonus = 1, base = 1},
 }
 
 -- ============================================
@@ -1629,6 +1643,49 @@ function Public.diankuang(position, surface, player, times)
     return true
 end
 
+-- 子弹补给塔（bullet_supply_tower）：创建永久补给塔，每 3 秒用箱内子弹给半径 3 格内己方 gun-turret 补弹
+-- 只自动填弹，不生成弹药；每玩家最多 3 座
+function Public.bullet_supply_tower(position, surface, player, times)
+    if not player or not player.valid then return false end
+    if not position then return false end
+
+    local PseudoBuilding = require 'maps.amap.pseudo_building.main'
+
+    -- 每玩家最多 3 座（按 module 统计）
+    local owned = PseudoBuilding.get_by_owner(player.index)
+    local count = 0
+    for _, entry in pairs(owned) do
+        if entry.opts and entry.opts.module == 'bullet_supply' then
+            count = count + 1
+        end
+    end
+    if count >= 3 then
+        player.print(({'itam_spells.bullet_supply_limit'}), {r = 255, g = 150, b = 100})
+        return false
+    end
+
+    local pos = {x = position.x, y = position.y}
+    local entry, err = PseudoBuilding.create_storage(surface, pos, {
+        name = '子弹补给塔',
+        show_ring = true,
+        ring_radius = 3,
+        ring_color = {0.3, 0.7, 1, 0.7},
+        icon = 'entity/passive-provider-chest',
+        lifespan = 0,                -- 不限时
+        timed = true,
+        interval = 180,              -- 每 3 秒
+        operable = true,             -- 玩家可打开箱子放入子弹
+        force_side = 'player',
+        owner_player = player.index,
+        module = 'bullet_supply',
+    })
+    if not entry then
+        player.print(({'itam_spells.bullet_supply_fail', err}), {r = 255, g = 150, b = 100})
+        return false
+    end
+    return true
+end
+
 -- ============================================
 -- handlers 表：special 技能调度（统一签名 position, surface, player, daoju）
 -- main.lua 中 on_player_used_capsule 通过 Public.handlers[entityName] 调用
@@ -1650,6 +1707,7 @@ Public.handlers = {
     ['xiao_jingling'] = Public.xiao_jingling,
     ['huanxing_huoshan_penfa'] = Public.huanxing_huoshan_penfa,
     ['diankuang'] = Public.diankuang,
+    ['bullet_supply_tower'] = Public.bullet_supply_tower,
 }
 
 -- 延迟绑定：由 table.lua 在 require 后调用，解决循环依赖 + 运行时 require 限制

@@ -568,7 +568,8 @@ function M.check_victory(player, data)
 
     -- 胜利检测
     if check_victory_state(md.blocks, md.exit_row, md.exit_col) then
-        Instance.set_reward_multiplier(player, md.reward_multiplier or 1.0)
+        -- 奖励系数固定 1.0（2026-08-10 用户决策）
+        Instance.set_reward_multiplier(player, 1.0)
         return 'victory'
     end
 

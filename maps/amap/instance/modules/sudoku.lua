@@ -791,8 +791,8 @@ function M.check_victory(player, data)
         return nil  -- 有冲突，未完成
     end
 
-    -- 3. 完成！设置奖励系数（按难度）
-    Instance.set_reward_multiplier(player, md.reward_multiplier or 1.0)
+    -- 3. 完成！奖励系数固定 1.0（2026-08-10 用户决策）
+    Instance.set_reward_multiplier(player, 1.0)
     return 'victory'
 end
 

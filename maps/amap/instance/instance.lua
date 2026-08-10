@@ -1090,6 +1090,9 @@ end
 --   - 0：不给任何奖励
 --   - >0：弹 3 选 1 GUI，奖励内容不变，数值按系数缩放
 -- 副本不调用此接口时，默认系数为 0（不给奖励）
+-- 注意：2026-08-10 用户决策「全部副本固定奖励系数 1」——本接口强制固定为 1.0，
+--       忽略传入的 multiplier（模块层已同步去除加成计算，双保险）。
+--       后续新增玩法模块无需再关心系数计算，直接调用本接口即可。
 function Public.set_reward_multiplier(player, multiplier)
     if not player or not player.valid then return end
     local this = WPT.get()
@@ -1097,9 +1100,7 @@ function Public.set_reward_multiplier(player, multiplier)
     local data = this.dungeons[player.index]
     if not data.active then return end
 
-    local mult = tonumber(multiplier) or 0
-    if mult < 0 then mult = 0 end
-    data.reward_multiplier = mult
+    data.reward_multiplier = 1.0
 end
 
 --==============================================================================

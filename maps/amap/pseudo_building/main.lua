@@ -174,6 +174,7 @@ require 'maps.amap.pseudo_building.buildings.repair_tower'
 require 'maps.amap.pseudo_building.buildings.build_tower'
 require 'maps.amap.pseudo_building.buildings.supply_tower'
 require 'maps.amap.pseudo_building.buildings.ammo_tower'
+require 'maps.amap.pseudo_building.buildings.bullet_supply_tower'
 
 --==============================================================================
 -- 调试命令：/pb <类型> [side]   在玩家脚下创建对应伪建筑

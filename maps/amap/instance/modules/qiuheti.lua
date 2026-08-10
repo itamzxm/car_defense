@@ -515,8 +515,8 @@ function M.on_gui_click(player, event)
 
     -- 判定胜负
     if max_tier(md) >= md.target then
-        local mult = md.reward_base * (md.score > md.target_score_base * 1.5 and 1.2 or 1.0)
-        Instance.set_reward_multiplier(player, mult)
+        -- 奖励系数固定 1.0（2026-08-10 用户决策）
+        Instance.set_reward_multiplier(player, 1.0)
         md.result = 'victory'
         local target_name = TIER_CHAR[md.target] or '?'
         player.print({'amap.qiuheti_win', target_name}, {r = 0, g = 1, b = 0})

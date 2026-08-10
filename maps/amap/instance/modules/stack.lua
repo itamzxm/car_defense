@@ -464,14 +464,8 @@ function M.on_gui_click(player, event)
     if #md.layers >= md.target then
         md.moving_active = false
         md.moving = nil
-        -- 计算平均宽度比，决定奖励
-        local total_w = 0
-        for _, layer in ipairs(md.layers) do
-            total_w = total_w + layer.width
-        end
-        local avg_ratio = (total_w / #md.layers) / md.tower_width
-        local mul = md.reward_base * (avg_ratio >= 0.6 and 1.3 or 1.0)
-        Instance.set_reward_multiplier(player, mul)
+        -- 奖励系数固定 1.0（2026-08-10 用户决策）
+        Instance.set_reward_multiplier(player, 1.0)
         md.result = 'victory'
         player.print({'amap.stack_win', #md.layers}, {r = 0, g = 1, b = 0})
         Task.set_timeout_in_ticks(2, delayed_exit_token, {player_index = player.index, reason = 'victory'})

@@ -37,6 +37,9 @@ require 'maps.amap.instance.modules.suika'
 require 'maps.amap.instance.modules.match3'
 require 'maps.amap.instance.modules.stack'
 require 'maps.amap.instance.modules.potato_survival'
+-- 休闲小游戏副本（2026-08-10 追加）
+require 'maps.amap.instance.modules.whack_a_mole'
+require 'maps.amap.instance.modules.farm'
 
 -- 引入内置奖励（require 触发 Rewards.register）
 require 'maps.amap.instance.rewards.builtin'

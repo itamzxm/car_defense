@@ -881,9 +881,8 @@ function M.check_victory(player, data)
     if md.player_died then return 'defeat' end
 
     if game.tick - data.start_tick >= SURVIVAL_TIME then
-        local kills = md.kills or 0
-        local kill_bonus = 1.0 + math.min(kills * 0.15, 1.5)
-        Instance.set_reward_multiplier(player, 2.0 * kill_bonus)
+        -- 奖励系数固定 1.0（2026-08-10 用户决策）
+        Instance.set_reward_multiplier(player, 1.0)
         return 'victory'
     end
 

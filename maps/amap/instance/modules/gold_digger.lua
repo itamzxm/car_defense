@@ -338,11 +338,8 @@ function M.check_victory(player, data)
 
     if md.finished then
         if md.victory then
-            -- 奖励：剩余时间越多奖励越高
-            local remaining = math.max(0, md.end_tick - game.tick)
-            local ratio = remaining / (md.end_tick - md.start_tick)
-            local mult = 1.5 + ratio * 0.5
-            Instance.set_reward_multiplier(player, mult)
+            -- 奖励系数固定 1.0（2026-08-10 用户决策）
+            Instance.set_reward_multiplier(player, 1.0)
             return 'victory'
         else
             return 'defeat'
