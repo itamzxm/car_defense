@@ -1289,10 +1289,6 @@ local function tick()
     for _, player in pairs(players) do
       auto_skill(player)
     end
-    -- 清理过期的小精灵
-    Spells.cleanup_fairy_spirits()
-    -- 在主循环中直接触发精灵闪电链
-    Spells.trigger_all_fairy_lightning(players)
   end
 end
 

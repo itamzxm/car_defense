@@ -135,9 +135,6 @@ this.gun_turret={}
   -- 玩家手搓经验倍数
   this.crafting_exp_multiplier = {}
   this.need_chest=nil
-  
-  -- 精灵数据存储（从RPG模块迁移过来）
-  this.fairy_spirits = {}
 
   this.last_stop_time =0
   this.allow_deconst_list["cliff"] = true
