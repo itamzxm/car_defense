@@ -233,6 +233,7 @@ this.bio_labs = {}
   -- 史诗木箱系统数据（地形随机生成 + 200波后定时投递，同时存在上限5个）
   this.epic_chests = nil                 -- 数组形式：epic_chests[1..5] = entity（参考 magic_wood_chests 注册模式）
   this.epic_chest_total = 0              -- 累计生成总数（重置地图时归零，上限25）
+  this.lounge_bindings = nil             -- 休息室绑定表：unit_number -> {surface_name, entity, tag, created_tick}（重置时清理，surface 随重置流程删除）
   this.mw_global_investments = nil       -- 玩家总投资金额（重置地图时必须清零，否则投资会累积到下一局）
   this.mw_player_gui = nil               -- 玩家当前打开的 GUI 状态（select/upgrade + chest_un）
   this.mw_allow_inventory = nil          -- 允许直接打开仓库标记（从"打开仓库"按钮过来时放行）

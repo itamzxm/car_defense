@@ -129,6 +129,7 @@ local function get_data(player_index)
             rewards_granted = {},        -- 已发放奖励记录
             victory_state = nil,         -- nil / 'ongoing' / 'victory' / 'defeat'
             epic_chest_unit_number = nil, -- 玩家从哪个史诗木箱进入副本（用于进入后删除该木箱）
+            lounge_unit_number = nil,     -- 休息室：绑定的主世界木箱 unit_number（木箱不删除、转绑定）
         }
     end
     return this.dungeons[player_index]
@@ -136,19 +137,79 @@ end
 
 Public.get_data = get_data
 
--- 判断 surface 是否为副本 surface（格式 dungeon_<digits>）
--- 供主世界模块未来做反向隔离使用（当前未启用反向隔离）
+-- 判断 surface 是否为副本 surface
+-- 格式：dungeon_<digits>（一对一）或休息室 lounge_<unit_number>（多玩家共享）
+-- 供主世界模块做反向隔离使用（副本 surface 上的虫子死亡不触发主世界亡语刷怪等）
 local function is_dungeon_surface(surface_name)
     if type(surface_name) ~= 'string' then return false end
-    return string.find(surface_name, "^dungeon_%d+$") ~= nil
+    return string.find(surface_name, "^(dungeon_|lounge_)%d+$") ~= nil
 end
 
 Public.is_dungeon_surface = is_dungeon_surface
 
 -- 从副本 surface 名提取 player_index
+-- 仅对 dungeon_ 前缀解析（一对一归属）；lounge_ 为共享 surface，返回 nil（走 find_active_dungeons_on_surface 共享分发）
 local function parse_player_index_from_surface(surface_name)
     if not is_dungeon_surface(surface_name) then return nil end
     return tonumber(string.match(surface_name, "^dungeon_(%d+)$"))
+end
+
+-- 查找 surface 上的所有 active 副本玩家（共享 surface 分发用）
+-- 休息室（lounge_<unit_number>）允许多玩家共享同一 surface：
+-- 事件按 surface 归属循环分发，而非按单一 player_index
+-- 返回数组：{ {player_index = ..., data = ...}, ... }，无则空表
+local function find_active_dungeons_on_surface(surface_name)
+    local result = {}
+    local this = WPT.get()
+    if not this.dungeons then return result end
+    for player_index, data in pairs(this.dungeons) do
+        if data.active and data.surface_name == surface_name then
+            result[#result + 1] = {
+                player_index = player_index,
+                data = data
+            }
+        end
+    end
+    return result
+end
+
+--==============================================================================
+-- 休息室绑定表（lounge_bindings）
+--==============================================================================
+
+-- 获取休息室绑定表
+-- 结构：this.lounge_bindings[unit_number] = {surface_name, entity, tag, created_tick}
+--   unit_number = 绑定木箱（主世界史诗木箱）的 unit_number
+-- 绑定木箱保留在 epic_chests 注册数组（继续占同时上限名额），转为玩家可摧毁；
+-- 绑定木箱被摧毁 → destroy_lounge 强制清理整个休息室副本
+local function get_lounge_bindings()
+    local this = WPT.get()
+    if not this.lounge_bindings then
+        this.lounge_bindings = {}
+    end
+    return this.lounge_bindings
+end
+
+-- 判断实体是否为休息室绑定木箱（在绑定表中）
+local function is_lounge_binding_entity(entity)
+    if not entity or not entity.valid then return false end
+    if not entity.unit_number then return false end
+    return get_lounge_bindings()[entity.unit_number] ~= nil
+end
+
+-- 按 unit_number 查找休息室绑定（过滤实体已失效的记录）
+-- 返回 {surface_name, entity, tag, created_tick} 或 nil
+function Public.find_lounge_binding(unit_number)
+    if not unit_number then return nil end
+    local binding = get_lounge_bindings()[unit_number]
+    if not binding then return nil end
+    if not binding.entity or not binding.entity.valid then return nil end
+    return binding
+end
+
+-- 获取全部休息室绑定表（外部只读遍历用）
+function Public.get_lounge_bindings()
+    return get_lounge_bindings()
 end
 
 --==============================================================================
@@ -400,129 +461,17 @@ local DIFFICULTY_COLOR = {
 -- 难度顺序（保证卡片固定按 easy→normal→hard 排列）
 local DIFFICULTY_ORDER = {'easy', 'normal', 'hard'}
 
-function Public.show_difficulty_selection_gui(player, type_name, cache_key)
-    if not player or not player.valid then return end
-
-    -- type_name 参数仅为向后兼容，新版每张卡片单独随机副本类型，不再使用统一 type_name
-    -- 但若 instance_order 为空则提前返回
-    if not instance_order or #instance_order == 0 then
-        player.print({'amap.instance_no_module'}, {r = 1, g = 0.5, b = 0})
-        return
-    end
-
-    local screen = player.gui.screen
-
-    -- 若之前打开了玩法选择框，先关闭
-    if screen[GUI_INSTANCE_SELECTION_FRAME] then
-        screen[GUI_INSTANCE_SELECTION_FRAME].destroy()
-    end
-
-    if screen[GUI_DIFFICULTY_FRAME] then
-        screen[GUI_DIFFICULTY_FRAME].destroy()
-        return
-    end
-
-    local frame = screen.add({
-        type = 'frame',
-        name = GUI_DIFFICULTY_FRAME,
-        caption = {'amap.dungeon_difficulty_title'},
-        direction = 'vertical'
-    })
-    frame.force_auto_center()
-
-    local hint = frame.add({
-        type = 'label',
-        caption = {'amap.instance_card_hint'}
-    })
-    hint.style.font = 'default-bold'
-    hint.style.font_color = {1, 0.84, 0}
-
-    -- 关闭按钮：玩家可放弃进入副本（不扣任何东西，对应史诗木箱不会被删除）
-    local close_flow = frame.add({type = 'flow', direction = 'horizontal'})
-    close_flow.style.horizontal_align = 'right'
-    close_flow.style.horizontally_stretchable = true
-    local close_btn = close_flow.add({
-        type = 'button',
-        name = GUI_DIFFICULTY_CLOSE_BUTTON,
-        caption = {'amap.instance_close_btn'}
-    })
-    close_btn.style.minimal_width = 80
-
-    -- 横向卡片布局（参考 tianfu.lua choise_skill 第 943-949 行）
-    local cards_flow = frame.add({
-        type = 'flow',
-        name = 'dungeon_cards_flow',
-        direction = 'horizontal'
-    })
-    cards_flow.style.horizontal_spacing = 8
-    cards_flow.style.vertical_align = 'top'
-
-    local player_data = Public.get_data(player.index)
-    -- 选项缓存机制：同个木箱（cache_key = unit_number）重复点开时复用上次生成的选项，
-    -- 防止玩家关掉 GUI 重新刷选项；玩家点 enter 进入副本后会删除木箱，缓存也跟着失效
-    if not player_data.epic_chest_options_cache then
-        player_data.epic_chest_options_cache = {}
-    end
-
-    local cached_options = cache_key and player_data.epic_chest_options_cache[cache_key] or nil
-    local options  -- 三张卡片的预抽结果数组
-
-    if cached_options then
-        -- 复用缓存：用上次生成的选项渲染卡片（玩家无法通过关掉 GUI 重开来刷新选项）
-        options = cached_options
-    else
-        -- 首次点开此木箱：生成 3 张卡片选项，每张独立随机副本 + 难度 + 奖励
-        options = {}
-        for _ = 1, 3 do
-            -- 1. 随机副本类型
-            local random_type = instance_order[math.random(#instance_order)]
-            local def = instance_registry[random_type]
-            if not def then goto continue end
-
-            -- 2. 随机难度（从该副本支持的难度中随机选一个）
-            local diff_settings = def.difficulty_settings or {}
-            local available_diffs = {}
-            for _, dk in ipairs(DIFFICULTY_ORDER) do
-                if diff_settings[dk] then
-                    table.insert(available_diffs, dk)
-                end
-            end
-            if #available_diffs == 0 then goto continue end
-            local difficulty_key = available_diffs[math.random(#available_diffs)]
-
-            -- 3. 按该难度从对应奖励池随机 1 个奖励
-            local choices = Rewards.roll_choices(difficulty_key, 1, player)
-            local preview_reward_id = nil
-            local preview_info = nil
-            if choices and #choices > 0 then
-                preview_reward_id = choices[1].id
-                preview_info = choices[1].preview
-            end
-
-            options[#options + 1] = {
-                instance_type = random_type,
-                difficulty = difficulty_key,
-                reward_id = preview_reward_id,
-                params = preview_info and preview_info.params or nil,
-                -- 缓存 preview_info 用于卡片渲染（display_key/display_args 不参与 enter 流程）
-                preview_info = preview_info
-            }
-            ::continue::
-        end
-
-        -- 缓存到玩家数据（若提供了 cache_key）
-        if cache_key then
-            player_data.epic_chest_options_cache[cache_key] = options
-        end
-    end
-
+-- 渲染副本卡片（三选一与休息室单卡共用）
+-- options: 卡片选项数组 [{instance_type, difficulty, reward_id, params, preview_info}]
+-- 渲染前同步到 player_data.previewed_rewards（on_gui_click 按 card_index 取出）
+local function render_instance_cards(cards_flow, options, player_data)
     -- 把 options 同步到 previewed_rewards（on_gui_click 按 card_index 取出）
     player_data.previewed_rewards = {}
     for i, opt in ipairs(options) do
         player_data.previewed_rewards[i] = opt
     end
 
-    -- 渲染三张卡片
+    -- 渲染卡片
     for card_index, opt in ipairs(options) do
         local def = instance_registry[opt.instance_type]
         if not def then goto continue end
@@ -669,6 +618,192 @@ function Public.show_difficulty_selection_gui(player, type_name, cache_key)
     end
 end
 
+function Public.show_difficulty_selection_gui(player, type_name, cache_key)
+    if not player or not player.valid then return end
+
+    -- type_name 参数仅为向后兼容，新版每张卡片单独随机副本类型，不再使用统一 type_name
+    -- 但若 instance_order 为空则提前返回
+    if not instance_order or #instance_order == 0 then
+        player.print({'amap.instance_no_module'}, {r = 1, g = 0.5, b = 0})
+        return
+    end
+
+    local screen = player.gui.screen
+
+    -- 若之前打开了玩法选择框，先关闭
+    if screen[GUI_INSTANCE_SELECTION_FRAME] then
+        screen[GUI_INSTANCE_SELECTION_FRAME].destroy()
+    end
+
+    if screen[GUI_DIFFICULTY_FRAME] then
+        screen[GUI_DIFFICULTY_FRAME].destroy()
+        return
+    end
+
+    local frame = screen.add({
+        type = 'frame',
+        name = GUI_DIFFICULTY_FRAME,
+        caption = {'amap.dungeon_difficulty_title'},
+        direction = 'vertical'
+    })
+    frame.force_auto_center()
+
+    local hint = frame.add({
+        type = 'label',
+        caption = {'amap.instance_card_hint'}
+    })
+    hint.style.font = 'default-bold'
+    hint.style.font_color = {1, 0.84, 0}
+
+    -- 关闭按钮：玩家可放弃进入副本（不扣任何东西，对应史诗木箱不会被删除）
+    local close_flow = frame.add({type = 'flow', direction = 'horizontal'})
+    close_flow.style.horizontal_align = 'right'
+    close_flow.style.horizontally_stretchable = true
+    local close_btn = close_flow.add({
+        type = 'button',
+        name = GUI_DIFFICULTY_CLOSE_BUTTON,
+        caption = {'amap.instance_close_btn'}
+    })
+    close_btn.style.minimal_width = 80
+
+    -- 横向卡片布局（参考 tianfu.lua choise_skill 第 943-949 行）
+    local cards_flow = frame.add({
+        type = 'flow',
+        name = 'dungeon_cards_flow',
+        direction = 'horizontal'
+    })
+    cards_flow.style.horizontal_spacing = 8
+    cards_flow.style.vertical_align = 'top'
+
+    local player_data = Public.get_data(player.index)
+    -- 选项缓存机制：同个木箱（cache_key = unit_number）重复点开时复用上次生成的选项，
+    -- 防止玩家关掉 GUI 重新刷选项；玩家点 enter 进入副本后会删除木箱，缓存也跟着失效
+    if not player_data.epic_chest_options_cache then
+        player_data.epic_chest_options_cache = {}
+    end
+
+    local cached_options = cache_key and player_data.epic_chest_options_cache[cache_key] or nil
+    local options  -- 三张卡片的预抽结果数组
+
+    if cached_options then
+        -- 复用缓存：用上次生成的选项渲染卡片（玩家无法通过关掉 GUI 重开来刷新选项）
+        options = cached_options
+    else
+        -- 首次点开此木箱：生成 3 张卡片选项，每张独立随机副本 + 难度 + 奖励
+        options = {}
+        for _ = 1, 3 do
+            -- 1. 随机副本类型
+            local random_type = instance_order[math.random(#instance_order)]
+            local def = instance_registry[random_type]
+            if not def then goto continue end
+
+            -- 2. 随机难度（从该副本支持的难度中随机选一个）
+            local diff_settings = def.difficulty_settings or {}
+            local available_diffs = {}
+            for _, dk in ipairs(DIFFICULTY_ORDER) do
+                if diff_settings[dk] then
+                    table.insert(available_diffs, dk)
+                end
+            end
+            if #available_diffs == 0 then goto continue end
+            local difficulty_key = available_diffs[math.random(#available_diffs)]
+
+            -- 3. 按该难度从对应奖励池随机 1 个奖励
+            -- 无奖励玩法（def.no_reward，如休息室）跳过预抽：卡片奖励行显示「暂无奖励」
+            local preview_reward_id = nil
+            local preview_info = nil
+            if not def.no_reward then
+                local choices = Rewards.roll_choices(difficulty_key, 1, player)
+                if choices and #choices > 0 then
+                    preview_reward_id = choices[1].id
+                    preview_info = choices[1].preview
+                end
+            end
+
+            options[#options + 1] = {
+                instance_type = random_type,
+                difficulty = difficulty_key,
+                reward_id = preview_reward_id,
+                params = preview_info and preview_info.params or nil,
+                -- 缓存 preview_info 用于卡片渲染（display_key/display_args 不参与 enter 流程）
+                preview_info = preview_info
+            }
+            ::continue::
+        end
+
+        -- 缓存到玩家数据（若提供了 cache_key）
+        if cache_key then
+            player_data.epic_chest_options_cache[cache_key] = options
+        end
+    end
+
+    -- 渲染卡片（渲染前同步 previewed_rewards 供 on_gui_click 按 card_index 取出）
+    render_instance_cards(cards_flow, options, player_data)
+end
+
+--==============================================================================
+-- GUI - 休息室绑定木箱单卡（唯一选项 = 休息室）
+--==============================================================================
+
+-- 绑定木箱点开：单卡确认界面（无随机、无奖励预抽、无选项缓存）
+-- 卡片难度固定 easy（永久档），奖励行显示「暂无奖励」；点击卡片即进入休息室
+function Public.show_lounge_card_gui(player, unit_number)
+    if not player or not player.valid then return end
+
+    local screen = player.gui.screen
+    if screen[GUI_DIFFICULTY_FRAME] then
+        screen[GUI_DIFFICULTY_FRAME].destroy()
+        return
+    end
+
+    local frame = screen.add({
+        type = 'frame',
+        name = GUI_DIFFICULTY_FRAME,
+        caption = {'amap.dungeon_difficulty_title'},
+        direction = 'vertical'
+    })
+    frame.force_auto_center()
+
+    local hint = frame.add({
+        type = 'label',
+        caption = {'amap.lounge_card_hint'}
+    })
+    hint.style.font = 'default-bold'
+    hint.style.font_color = {1, 0.84, 0}
+
+    -- 关闭按钮：玩家可放弃进入（绑定木箱不删除）
+    local close_flow = frame.add({type = 'flow', direction = 'horizontal'})
+    close_flow.style.horizontal_align = 'right'
+    close_flow.style.horizontally_stretchable = true
+    local close_btn = close_flow.add({
+        type = 'button',
+        name = GUI_DIFFICULTY_CLOSE_BUTTON,
+        caption = {'amap.instance_close_btn'}
+    })
+    close_btn.style.minimal_width = 80
+
+    -- 横向卡片布局（与三选一一致）
+    local cards_flow = frame.add({
+        type = 'flow',
+        name = 'dungeon_cards_flow',
+        direction = 'horizontal'
+    })
+    cards_flow.style.horizontal_spacing = 8
+    cards_flow.style.vertical_align = 'top'
+
+    -- 唯一选项：休息室（easy 永久档，无奖励）
+    local options = {{
+        instance_type = 'lounge',
+        difficulty = 'easy',
+        reward_id = nil,
+        params = nil,
+        preview_info = nil
+    }}
+
+    local player_data = Public.get_data(player.index)
+    render_instance_cards(cards_flow, options, player_data)
+end
+
 --==============================================================================
 -- 进入副本
 --==============================================================================
@@ -689,30 +824,46 @@ function Public.enter(player, type_name, difficulty, previewed_reward_id, previe
     local player_index = player.index
     local data = get_data(player_index)
 
-    -- 玩家通过史诗木箱进入副本 → 立即删除对应木箱（不看玩家是否通关）
-    -- 放在所有 return 之前，保证只要 enter 被调用就一定删箱子
-    -- 同时支持两种史诗木箱：
-    --   1. 系统生成（在 epic_chests 数组中）→ 调用 remove_epic_chest 同步销毁地图标签
-    --   2. 玩家手动放（不在数组中）→ 直接 entity.destroy()
-    if data.epic_chest_entity then
-        local ent = data.epic_chest_entity
-        if ent and ent.valid then
-            -- 先尝试 remove_epic_chest（同步销毁地图标签 + 从数组移除）
-            -- 如果不在数组中（玩家手动放），remove_epic_chest 会无操作，再直接 destroy
-            Public.remove_epic_chest(ent)
-            if ent.valid then
-                -- remove_epic_chest 没匹配到（玩家手动放的木箱），直接销毁
-                ent.destroy()
-            end
-        end
-        data.epic_chest_entity = nil
-        data.epic_chest_unit_number = nil
-    end
-
+    -- 玩法定义提前获取：史诗木箱处理段需要判断 def.lounge_binding（休息室不删木箱、转绑定）
     local def = instance_registry[type_name]
     if not def then
         player.print({'amap.instance_unknown_type', tostring(type_name)}, {r = 1, g = 0, b = 0})
         return
+    end
+
+    -- 史诗木箱处理（放在所有 return 之前，保证只要 enter 被调用就一定处理箱子）：
+    --   1. 普通副本：立即删除对应木箱（不看玩家是否通关）
+    --      同时支持两种史诗木箱：
+    --      a. 系统生成（在 epic_chests 数组中）→ 调用 remove_epic_chest 同步销毁地图标签
+    --      b. 玩家手动放（不在数组中）→ 直接 entity.destroy()
+    --   2. 休息室（def.lounge_binding）：木箱不删除、转为玩家可摧毁，
+    --      绑定为专属入口 + 传送目标（首次进入写入绑定表，之后复用）
+    local lounge_bind_entity = nil  -- 休息室首次进入：待写入绑定表的木箱实体引用
+    if data.epic_chest_entity then
+        local ent = data.epic_chest_entity
+        if ent and ent.valid then
+            if def.lounge_binding then
+                -- 绑定木箱：保留在 epic_chests 注册数组（继续占同时上限名额），转为可摧毁
+                -- （玩家挖掉绑定木箱 → on_player_mined_entity 检测 → destroy_lounge 强制清理整个休息室）
+                ent.destructible = true
+                ent.minable_flag = true
+                data.lounge_unit_number = ent.unit_number
+                if not get_lounge_bindings()[ent.unit_number] then
+                    -- 首次进入：记录实体引用，surface 创建后写入绑定表（需要 surface_name）
+                    lounge_bind_entity = ent
+                end
+            else
+                -- 先尝试 remove_epic_chest（同步销毁地图标签 + 从数组移除）
+                -- 如果不在数组中（玩家手动放），remove_epic_chest 会无操作，再直接 destroy
+                Public.remove_epic_chest(ent)
+                if ent.valid then
+                    -- remove_epic_chest 没匹配到（玩家手动放的木箱），直接销毁
+                    ent.destroy()
+                end
+            end
+        end
+        data.epic_chest_entity = nil
+        data.epic_chest_unit_number = nil
     end
 
     if data.active then
@@ -795,14 +946,39 @@ function Public.enter(player, type_name, difficulty, previewed_reward_id, previe
     end
 
     -- 创建 surface
+    -- 休息室（已绑定）：复用绑定记录的 surface（副本空间常驻，再次进入回到同一区域）
     local surface_name = "dungeon_" .. player_index
+    local surface_is_new = true
+    if def.lounge_binding and data.lounge_unit_number then
+        local binding = get_lounge_bindings()[data.lounge_unit_number]
+        if binding and binding.surface_name then
+            surface_name = binding.surface_name
+            -- 已有 surface 直接复用（地形/钢箱不重建）；surface 丢失（异常态）则重建
+            surface_is_new = game.surfaces[surface_name] == nil
+        else
+            -- 绑定记录缺失（如地图重置后绑定表清空）：按木箱重建专属命名 surface
+            surface_name = "lounge_" .. data.lounge_unit_number
+        end
+    end
     local surface = create_dungeon_surface(surface_name)
     force.set_spawn_position({0, 0}, surface)
 
     data.surface_name = surface_name
 
+    -- 休息室首次进入：写入绑定表（surface 名在创建后才确定）
+    if lounge_bind_entity and lounge_bind_entity.valid then
+        get_lounge_bindings()[lounge_bind_entity.unit_number] = {
+            surface_name = surface_name,
+            entity = lounge_bind_entity,
+            tag = nil,            -- 预留：绑定后地图标签保持既有 'Epic Dungeon'，不重建
+            created_tick = game.tick
+        }
+        player.print({'amap.lounge_bound_msg'}, {r = 0, g = 1, b = 0})
+    end
+
     -- 调用玩法的 on_surface_init（生成地形、矿脉、市场、回收箱等）
-    if def.on_surface_init then
+    -- 注意：休息室复用已有 surface 时跳过（地形/中心钢箱只生成一次）
+    if def.on_surface_init and surface_is_new then
         def.on_surface_init(surface, player, data, difficulty_key)
     end
 
@@ -812,9 +988,11 @@ function Public.enter(player, type_name, difficulty, previewed_reward_id, previe
                                   {DUNGEON_HALF_SIZE,  DUNGEON_HALF_SIZE}})
 
     -- 创建新 character，切换 controller
+    -- 休息室中心 (0,0) 被钢箱占据：找非碰撞位置兜底（失败退回 {0,0}）
+    local spawn_position = surface.find_non_colliding_position('character', {0, 0}, 4, 1, true) or {0, 0}
     local new_character = surface.create_entity({
         name = "character",
-        position = {0, 0},
+        position = spawn_position,
         force = force
     })
 
@@ -913,6 +1091,13 @@ function Public.exit(player, reason)
         def.on_exit(player, data, reason)
     end
 
+    -- 休息室特殊处理：绑定未被摧毁（reason ~= lounge_destroyed）且绑定记录仍存在时，
+    -- 保留副本空间（surface 不删除），玩家下次从绑定木箱进入回到同一区域
+    local keep_surface = false
+    if def and def.lounge_binding and reason ~= "lounge_destroyed" and data.lounge_unit_number then
+        keep_surface = get_lounge_bindings()[data.lounge_unit_number] ~= nil
+    end
+
     -- 转移背包到原角色
     transfer_inventory_to_original(data)
 
@@ -966,16 +1151,16 @@ function Public.exit(player, reason)
     -- 框架级钩子：on_surface_about_to_delete
     -- 在 surface 删除前触发，让玩法模块抢救数据（如统计产出、记录成就）
     -- 注意：此时玩家已切回原角色，但 surface 和 data 仍然可用
-    local def = instance_registry[data.instance_type]
+    -- 休息室保留副本空间时（keep_surface）不触发（surface 未删除）
     if def and def.on_surface_about_to_delete then
         local surface = game.surfaces[data.surface_name]
-        if surface then
+        if surface and not keep_surface then
             def.on_surface_about_to_delete(player, data, surface)
         end
     end
 
-    -- 删除 surface
-    if data.surface_name then
+    -- 删除 surface（休息室保留副本空间时跳过，下次进入复用同一 surface）
+    if data.surface_name and not keep_surface then
         local surface = game.surfaces[data.surface_name]
         if surface then
             game.delete_surface(data.surface_name)
@@ -1016,6 +1201,9 @@ function Public.exit(player, reason)
         player.print({'amap.dungeon_victory_msg'}, {r = 0, g = 1, b = 0})
     elseif reason == "defeat" then
         player.print({'amap.dungeon_defeat_msg'}, {r = 1, g = 0.3, b = 0.3})
+    elseif reason == "lounge_destroyed" then
+        -- 休息室绑定木箱被摧毁：副本空间被强制删除
+        player.print({'amap.lounge_destroyed_msg'}, {r = 1, g = 0.4, b = 0.4})
     else
         player.print({'amap.dungeon_success_msg', earned_coins}, {r = 0, g = 1, b = 0})
     end
@@ -1078,6 +1266,65 @@ function Public.exit(player, reason)
         game.print({'amap.dungeon_result_defeat',
                     player.name, {instance_name_key}, {difficulty_name_key}},
                    {r = 1, g = 0.3, b = 0.3})
+    end
+end
+
+--==============================================================================
+-- 休息室：绑定木箱被摧毁 → 强制清理整个副本
+--==============================================================================
+
+-- 绑定木箱被摧毁（玩家挖掘 / 机器人挖掘 / 爆炸 / 虫子）时调用：
+--   1. 删除绑定表记录（先删再 remove_epic_chest：后者会 destroy 实体，需先解除绑定）
+--   2. remove_epic_chest 同步清理 epic_chests 注册数组 + 地图标签（实体可能已失效，需容忍）
+--   3. 遍历 dungeons，把在该 surface 上的玩家逐个 Public.exit(player, 'lounge_destroyed')（强制删 surface）
+--   4. 兜底 game.delete_surface（存在才删）
+function Public.destroy_lounge(unit_number)
+    if not unit_number then return end
+    local bindings = get_lounge_bindings()
+    local binding = bindings[unit_number]
+    if not binding then return end
+
+    local surface_name = binding.surface_name
+
+    -- 1. 先删除绑定记录，再清理 epic_chest 注册（remove_epic_chest 内部会 destroy 实体）
+    bindings[unit_number] = nil
+
+    -- 2. 同步清理 epic_chests 数组 + 地图标签（实体可能已失效：remove_epic_chest 已容忍）
+    if binding.entity then
+        Public.remove_epic_chest(binding.entity)
+    end
+
+    -- 3. 遍历所有副本，把在该 surface 上的玩家逐个强制退出
+    local this = WPT.get()
+    if this.dungeons then
+        for player_index, data in pairs(this.dungeons) do
+            if data.active and data.surface_name == surface_name then
+                local player = game.players[player_index]
+                if player and player.valid then
+                    Public.exit(player, 'lounge_destroyed')
+                else
+                    -- 玩家不在线：强制清理（还原 force 仅在玩家对象有效时执行，同 on_nth_tick_timeout 分支）
+                    if player and player.valid and data.original_force then
+                        local original_force = game.forces[data.original_force]
+                        if original_force and original_force.valid then
+                            player.force = original_force
+                        else
+                            player.force = game.forces.player
+                        end
+                    end
+                    if data.dungeon_force then
+                        cleanup_force(data.dungeon_force)
+                    end
+                    this.dungeons[player_index] = nil
+                end
+            end
+        end
+    end
+
+    -- 4. 兜底删除 surface（exit 的 lounge_destroyed 路径已删，此处容错）
+    local surface = game.surfaces[surface_name]
+    if surface then
+        game.delete_surface(surface_name)
     end
 end
 
@@ -1253,8 +1500,10 @@ end
 
 -- 删除指定史诗木箱（按 entity 引用）并从注册表中移除
 -- 同时销毁对应的地图标签（ChartTag）
+-- 注意：容忍实体已失效（如休息室绑定木箱被摧毁后 destroy_lounge 清理时）——
+--       失效实体仍可按引用匹配并移除注册数组项 + 销毁地图标签
 function Public.remove_epic_chest(entity)
-    if not entity or not entity.valid then return end
+    if not entity then return end
     local this = WPT.get()
     if not this.epic_chests then return end
     for i = #this.epic_chests, 1, -1 do
@@ -1380,12 +1629,18 @@ local function on_nth_tick()
             local remaining = (data.time_limit or DEFAULT_TIME_LIMIT) - elapsed
 
             if remaining > 0 then
-                -- 通用计时器更新
+                local def = instance_registry[data.instance_type]
+
+                -- 通用计时器更新（无时限玩法如休息室显示「无限」）
                 local timer_label = player.gui.top[GUI_TIMER]
                 if timer_label then
-                    local minutes = math.floor(remaining / 3600)
-                    local seconds = math.floor((remaining % 3600) / 60)
-                    timer_label.caption = {'amap.dungeon_time_remaining', minutes, seconds}
+                    if def and def.no_time_limit then
+                        timer_label.caption = {'amap.dungeon_time_forever'}
+                    else
+                        local minutes = math.floor(remaining / 3600)
+                        local seconds = math.floor((remaining % 3600) / 60)
+                        timer_label.caption = {'amap.dungeon_time_remaining', minutes, seconds}
+                    end
                 end
 
                 -- 通用金币显示更新
@@ -1400,7 +1655,6 @@ local function on_nth_tick()
                 dispatch_to_module(player_index, 'on_tick', player, data)
 
                 -- 通关检测
-                local def = instance_registry[data.instance_type]
                 if def and def.check_victory then
                     local result = def.check_victory(player, data)
                     if result == 'victory' then
@@ -1545,31 +1799,34 @@ local function on_built_entity(event)
 end
 
 -- 机器人建造实体：仅当实体在副本 surface 上时分发
+-- 共享 surface（lounge_）通过 find_active_dungeons_on_surface 循环分发
 local function on_robot_built_entity(event)
     local entity = event.entity
     if not entity or not entity.valid then return end
 
     local surface_name = entity.surface.name
-    if not string.find(surface_name, "^dungeon_%d+$") then return end
+    if not is_dungeon_surface(surface_name) then return end
 
-    local player_index = tonumber(string.match(surface_name, "^dungeon_(%d+)$"))
-    if not player_index then return end
-
-    local this = WPT.get()
-    if not this.dungeons or not this.dungeons[player_index] then return end
-    local data = this.dungeons[player_index]
-    if not data.active then return end
-
-    local player = game.players[player_index]
-    if not (player and player.valid) then return end
-
-    dispatch_to_module(player_index, 'on_robot_built_entity', player, event)
+    local dungeons = find_active_dungeons_on_surface(surface_name)
+    for _, d in ipairs(dungeons) do
+        local player = game.players[d.player_index]
+        if player and player.valid then
+            dispatch_to_module(d.player_index, 'on_robot_built_entity', player, event)
+        end
+    end
 end
 
 -- 玩家挖实体：仅当玩家在副本里时分发
+-- 注意：休息室绑定木箱被玩家挖掉 → 先强制清理整个休息室副本（绑定检查放在最开头）
 local function on_player_mined_entity(event)
     local player = game.players[event.player_index]
     if not player or not player.valid then return end
+
+    local entity = event.entity
+    if entity and entity.valid and is_lounge_binding_entity(entity) then
+        Public.destroy_lounge(entity.unit_number)
+        return
+    end
 
     local this = WPT.get()
     if not this.dungeons or not this.dungeons[player.index] then return end
@@ -1579,6 +1836,18 @@ local function on_player_mined_entity(event)
     if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_player_mined_entity', player, event)
+end
+
+-- 机器人挖实体：仅处理休息室绑定木箱被挖掉 → 强制清理整个休息室副本
+-- （普通副本模块未监听此事件，其余实体不做分发）
+local function on_robot_mined_entity(event)
+    local entity = event.entity
+    if not entity or not entity.valid then return end
+
+    if is_lounge_binding_entity(entity) then
+        Public.destroy_lounge(entity.unit_number)
+        return
+    end
 end
 
 -- 玩家挖资源：仅当玩家在副本里时分发
@@ -1597,25 +1866,21 @@ local function on_pre_player_mined_item(event)
 end
 
 -- 机器人预挖：仅当实体在副本 surface 上时分发
+-- 共享 surface（lounge_）通过 find_active_dungeons_on_surface 循环分发
 local function on_robot_pre_mined(event)
     local entity = event.entity
     if not entity or not entity.valid then return end
 
     local surface_name = entity.surface.name
-    if not string.find(surface_name, "^dungeon_%d+$") then return end
+    if not is_dungeon_surface(surface_name) then return end
 
-    local player_index = tonumber(string.match(surface_name, "^dungeon_(%d+)$"))
-    if not player_index then return end
-
-    local this = WPT.get()
-    if not this.dungeons or not this.dungeons[player_index] then return end
-    local data = this.dungeons[player_index]
-    if not data.active then return end
-
-    local player = game.players[player_index]
-    if not (player and player.valid) then return end
-
-    dispatch_to_module(player_index, 'on_robot_pre_mined', player, event)
+    local dungeons = find_active_dungeons_on_surface(surface_name)
+    for _, d in ipairs(dungeons) do
+        local player = game.players[d.player_index]
+        if player and player.valid then
+            dispatch_to_module(d.player_index, 'on_robot_pre_mined', player, event)
+        end
+    end
 end
 
 --==============================================================================
@@ -1646,25 +1911,27 @@ local function on_player_setup_blueprint(event)
 end
 
 -- 实体死亡：仅当实体在副本 surface 上时分发
+-- 注意：休息室绑定木箱被摧毁（爆炸/虫子等）→ 先强制清理整个休息室副本（绑定检查放在最开头）
 local function on_entity_died(event)
     local entity = event.entity
     if not entity or not entity.valid then return end
 
+    if is_lounge_binding_entity(entity) then
+        Public.destroy_lounge(entity.unit_number)
+        return
+    end
+
     local surface_name = entity.surface.name
     if not is_dungeon_surface(surface_name) then return end
 
-    local player_index = parse_player_index_from_surface(surface_name)
-    if not player_index then return end
-
-    local this = WPT.get()
-    if not this.dungeons or not this.dungeons[player_index] then return end
-    local data = this.dungeons[player_index]
-    if not data.active then return end
-
-    local player = game.players[player_index]
-    if not (player and player.valid) then return end
-
-    dispatch_to_module(player_index, 'on_entity_died', player, event)
+    -- 共享 surface（lounge_）通过 find_active_dungeons_on_surface 循环分发
+    local dungeons = find_active_dungeons_on_surface(surface_name)
+    for _, d in ipairs(dungeons) do
+        local player = game.players[d.player_index]
+        if player and player.valid then
+            dispatch_to_module(d.player_index, 'on_entity_died', player, event)
+        end
+    end
 end
 
 -- 玩家复活：仅当玩家有 active 副本时分发
@@ -1681,23 +1948,19 @@ local function on_player_respawned(event)
 end
 
 -- 雷达扫描：仅当实体在副本 surface 上时分发
+-- 共享 surface（lounge_）通过 find_active_dungeons_on_surface 循环分发
 local function on_sector_scanned(event)
     if not event.surface then return end
     local surface_name = event.surface.name
     if not is_dungeon_surface(surface_name) then return end
 
-    local player_index = parse_player_index_from_surface(surface_name)
-    if not player_index then return end
-
-    local this = WPT.get()
-    if not this.dungeons or not this.dungeons[player_index] then return end
-    local data = this.dungeons[player_index]
-    if not data.active then return end
-
-    local player = game.players[player_index]
-    if not (player and player.valid) then return end
-
-    dispatch_to_module(player_index, 'on_sector_scanned', player, event)
+    local dungeons = find_active_dungeons_on_surface(surface_name)
+    for _, d in ipairs(dungeons) do
+        local player = game.players[d.player_index]
+        if player and player.valid then
+            dispatch_to_module(d.player_index, 'on_sector_scanned', player, event)
+        end
+    end
 end
 
 -- 科技研发完成：仅当副本 force 研发完成时分发
@@ -1816,6 +2079,7 @@ local function on_player_ammo_inventory_changed(event)
 end
 
 -- 玩家旋转实体：仅当实体在副本 surface 上时分发
+-- 共享 surface（lounge_）通过 find_active_dungeons_on_surface 循环分发
 local function on_player_rotated_entity(event)
     local entity = event.entity
     if not entity or not entity.valid then return end
@@ -1823,18 +2087,13 @@ local function on_player_rotated_entity(event)
     local surface_name = entity.surface.name
     if not is_dungeon_surface(surface_name) then return end
 
-    local player_index = parse_player_index_from_surface(surface_name)
-    if not player_index then return end
-
-    local this = WPT.get()
-    if not this.dungeons or not this.dungeons[player_index] then return end
-    local data = this.dungeons[player_index]
-    if not data.active then return end
-
-    local player = game.players[event.player_index]
-    if not (player and player.valid) then return end
-
-    dispatch_to_module(event.player_index, 'on_player_rotated_entity', player, event)
+    local dungeons = find_active_dungeons_on_surface(surface_name)
+    for _, d in ipairs(dungeons) do
+        local player = game.players[d.player_index]
+        if player and player.valid then
+            dispatch_to_module(d.player_index, 'on_player_rotated_entity', player, event)
+        end
+    end
 end
 
 -- 玩家切换 force：若切到/切出副本 force，通知玩法模块
@@ -1950,9 +2209,16 @@ local function on_entity_clicked(event)
     -- 记录玩家从哪个木箱点开，Public.enter 成功后删除该木箱
     -- 同时保存 entity 引用：玩家手动放的史诗木箱不在 epic_chests 注册数组中，
     -- 不能靠 find_epic_chest_by_unit_number 查找；直接用保存的引用 destroy 更可靠
+    -- （休息室绑定场景同样记录，供 enter 读取绑定 unit_number）
     local player_data = Public.get_data(player.index)
     player_data.epic_chest_unit_number = entity.unit_number
     player_data.epic_chest_entity = entity
+
+    -- 休息室绑定木箱：单卡确认界面（唯一选项 = 休息室，无随机、无选项缓存）
+    if is_lounge_binding_entity(entity) then
+        Public.show_lounge_card_gui(player, entity.unit_number)
+        return
+    end
 
     -- 弹出副本选择面板：3 张卡片，每张单独随机副本 + 难度 + 奖励
     -- 用 unit_number 作为 cache_key，同个木箱重复点开时复用上次选项（防止玩家关掉 GUI 刷选项）
@@ -2003,6 +2269,7 @@ Event.add(defines.events.on_player_died, on_player_died)
 Event.add(defines.events.on_built_entity, on_built_entity)
 Event.add(defines.events.on_robot_built_entity, on_robot_built_entity)
 Event.add(defines.events.on_player_mined_entity, on_player_mined_entity)
+Event.add(defines.events.on_robot_mined_entity, on_robot_mined_entity)
 Event.add(defines.events.on_pre_player_mined_item, on_pre_player_mined_item)
 Event.add(defines.events.on_robot_pre_mined, on_robot_pre_mined)
 

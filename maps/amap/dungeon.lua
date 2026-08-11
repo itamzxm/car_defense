@@ -37,6 +37,8 @@ require 'maps.amap.instance.modules.suika'
 require 'maps.amap.instance.modules.match3'
 require 'maps.amap.instance.modules.stack'
 require 'maps.amap.instance.modules.potato_survival'
+-- 休息室特殊副本（2026-08-11 追加）
+require 'maps.amap.instance.modules.lounge'
 -- 休闲小游戏副本（2026-08-10 追加）
 require 'maps.amap.instance.modules.whack_a_mole'
 require 'maps.amap.instance.modules.farm'
