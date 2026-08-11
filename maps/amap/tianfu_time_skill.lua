@@ -19,6 +19,8 @@ local Public = {}
 
 -- 黏土炸弹亡语系统（独立模块，自带 on_entity_died 事件注册）
 local ClayBomb = require 'maps.amap.tianfu_clay_bomb'
+-- 建造师视觉反馈：黄色机械臂建造动画（辅助手天赋触发时播放）
+local BuilderArm = require 'maps.amap.builder_arm_fx'
 
 -- 品质系数表（Phase B 方案2）：核心数值 ≤10 用 LOW，>10 用 REG
 local COEFF_LOW = {1, 1.2, 1.4, 1.6, 1.8}
@@ -2112,6 +2114,29 @@ local function ylsgd(player, q_idx)
     end
 end
 
+-- 辅助手批量复活：由机械臂动画的 on_exec 回调在"抓取时刻"调用（前摇→执行→后摇 视觉同步）
+-- 幽灵引用在动画实例闭包内捕获（内存态），无持久化问题；失效幽灵跳过
+local function revive_pending_ghosts(player, ghosts)
+    if not (player and player.valid) then return end
+
+    local built_count = 0
+    for _, ghost in ipairs(ghosts) do
+        -- 前摇期间幽灵可能已被其他途径建造/清理，失效则跳过
+        if ghost.valid and ghost.name == 'entity-ghost' then
+            -- revive 返回 (溢出物品数组, 实体, ...)，实体是第 2 个返回值；
+            -- revive 后 ghost 引用立即失效，绝不能再访问 ghost
+            local _, revived = ghost.revive({raise_revive = true})
+            if revived and revived.valid then
+                built_count = built_count + 1
+            end
+        end
+    end
+
+    if built_count > 0 then
+        new_print(player, { 'tianfu.fuzhushou_over', built_count })
+    end
+end
+
 local function fuzhushou(player, q_idx)
     if check_tick(player, 'fuzhushou') then
         if player.force.name~='player' then
@@ -2150,7 +2175,7 @@ local function fuzhushou(player, q_idx)
         local total_value = math.floor((base_value + agility_bonus) * COEFF_LOW[q_idx])
 
         local used_value = 0
-        local built_count = 0
+        local pending_ghosts = {}   -- 待复活幽灵（延迟到机械臂抓取时刻复活，实现"先动画后实体"的视觉同步）
         local surface = player.physical_surface -- 缓存一下提高性能
 
         -- 查找玩家附近的实体幽灵
@@ -2177,32 +2202,39 @@ local function fuzhushou(player, q_idx)
             if used_value >= total_value then
                 break
             end
-            
+
             if ghost.valid then
                 local g_name = ghost.ghost_name
-                
+
                 -- 检查是否在价值表中
                 if item_values[g_name] then
                     local item_value = item_values[g_name]
 
                     -- 检查剩余价值是否足够
                     if (used_value + item_value) <= total_value then
-                        
-                        -- 【核心修改】：尝试复活实体
-                        -- 不需要 create_entity，revive 会自动处理所有类型（地下、管道、筛选器等）
-                        -- raise_revive = true 保证其他Mod能检测到这个建造事件
-                        if  validate_ghost(ghost, g_name) then
-                        ghost.revive({raise_revive = true})
-                         used_value = used_value + item_value
-                         built_count = built_count + 1
-                    end
+
+                        -- 只收集不复活：复活延迟到机械臂动画"抓取"时刻（见下方 token 回调）
+                        if validate_ghost(ghost, g_name) then
+                            pending_ghosts[#pending_ghosts + 1] = ghost
+                            used_value = used_value + item_value
+                        end
                     end
                 end
             end
         end
 
-        if built_count > 0 then
-            new_print(player, { 'tianfu.fuzhushou_over', built_count })
+        if #pending_ghosts > 0 then
+            -- 前摇→执行→后摇：机械臂动画先伸出（前摇），"抓取"时刻 on_exec 回调执行真实建造（revive），
+            -- 之后动画继续播收回+闪光（后摇）——实体出现与抓取动作严格同步
+            local first_ghost = pending_ghosts[1]
+            if first_ghost and first_ghost.valid then
+                BuilderArm.spawn_builder_arm(player, first_ghost.position, function()
+                    revive_pending_ghosts(player, pending_ghosts)
+                end)
+            else
+                -- 无动画目标（异常态）：退化为立即复活
+                revive_pending_ghosts(player, pending_ghosts)
+            end
         end
 
         return true

@@ -1,6 +1,9 @@
 -- ============================================================
 -- 宠物技能辅助（从 skills.lua 拆分）：Token + 文本显示函数
--- 供 skill_defs_*.lua 定义文件引用；quality_index 留在 skills.lua（调度器也用）
+-- 供 skill_defs_*.lua 定义文件引用（Helpers.QSPRITE 等）
+-- 注意：quality_index 实际定义在 skills.lua（调度器 get_pet_skills 与
+-- get_skill_description 均在本文件之外调用），本文件下方同名函数为
+-- 历史残留（local，无引用），请勿在新增代码中依赖。
 -- ============================================================
 
 local Token = require 'utils.token'

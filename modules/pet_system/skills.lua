@@ -30,6 +30,19 @@ local Public = {}
 local pet_table = require 'modules.pet_system.table'
 local RPG = require 'modules.rpg.core'
 
+-- 品质顺序索引（整数 1..5，官方对照：1普通 2精良 3稀有 4史诗 5传说）
+local quality_order = {'普通', '精良', '稀有', '史诗', '传说'}
+-- 品质 → 品质下标（数字原样返回，中文名查表，未知默认 1）
+-- 注意：本函数必须定义在本文件内（调度器与描述文本均在此调用），
+-- skill_helpers.lua 中同名函数仅为历史残留，勿在此引用全局。
+local function quality_index(q)
+    if type(q) == 'number' then return q end
+    for i, n in ipairs(quality_order) do
+        if n == q then return i end
+    end
+    return 1
+end
+
 
 -- ============================================================
 -- 技能定义组装（已从本文件拆分为 skill_defs_*.lua 定义文件）

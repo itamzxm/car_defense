@@ -421,7 +421,9 @@ local function draw_pet_card_v2(parent, pet, index, player)
     add_label(card, ({'pet_system.atk_label', pet.attack}), 'default', {255, 180, 80}, card_width - 12, 'center')
 
     -- 技能
-    local skill_text = {}
+    -- 注意：LocalisedString 表首元素必须是 ''（空 key，纯文本模式）或有效 locale key，
+    -- 否则首元素纯文本会被当成 locale key 解析 → 显示 Unknown key
+    local skill_text = {''}
     local slots = Public.get_skill_slots(pet)
     for i = 1, slots do
         local sd = pet.skills[i]
