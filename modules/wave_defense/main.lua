@@ -309,7 +309,7 @@ local function refresh_active_unit_threat()
 end
 
 local function time_out_biters()
-    process_active_biters(false)
+    process_active_biters(true)
 end
 
 

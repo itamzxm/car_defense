@@ -42,6 +42,8 @@ local CONST = {
     -- 天赋开关相关
     TALENT_TOGGLE_BUTTON_PREFIX = 'tianfu_toggle_',
     TALENT_STATUS_LABEL_PREFIX = 'tianfu_status_',
+    TALENT_ENABLE_ALL_BUTTON = 'tianfu_enable_all',
+    TALENT_DISABLE_ALL_BUTTON = 'tianfu_disable_all',
     
     -- 天赋黑名单（不能被禁用的天赋）
     TALENT_BLACKLIST = {'hd', 'yanshu'},
@@ -343,6 +345,32 @@ local function draw_talent_tab(player, frame)
         return
     end
     
+    -- 一键开启/关闭全部天赋按钮行
+    local btn_flow = frame.add({
+        type = "flow",
+        direction = "horizontal"
+    })
+    btn_flow.style.horizontal_spacing = 8
+    btn_flow.style.maximal_width = 510
+
+    local btn_enable_all = btn_flow.add({
+        type = "button",
+        name = CONST.TALENT_ENABLE_ALL_BUTTON,
+        caption = {'amap.talent_enable_all'},
+        tooltip = {'amap.talent_enable_all_tip'}
+    })
+    btn_enable_all.style.minimal_width = 110
+    btn_enable_all.style.font_color = CONST.COLORS.BLACK
+
+    local btn_disable_all = btn_flow.add({
+        type = "button",
+        name = CONST.TALENT_DISABLE_ALL_BUTTON,
+        caption = {'amap.talent_disable_all'},
+        tooltip = {'amap.talent_disable_all_tip'}
+    })
+    btn_disable_all.style.minimal_width = 110
+    btn_disable_all.style.font_color = CONST.COLORS.BLACK
+
     local scroll = frame.add({
         type = "scroll-pane", 
         vertical_scroll_policy = 'auto',
@@ -1606,6 +1634,37 @@ local function toggle_talent_state(player, skill_id)
     clear_tianfu_cache(player)
 end
 
+-- 一键开启/关闭所有已学习天赋（跳过重要天赋黑名单）
+local function set_all_talents_state(player, enable)
+    local this = WPT.get()
+    
+    if not this.skill[player.name] then
+        player.print({'amap.no_talent_selected'}, {r = 255, g = 0, b = 0})
+        return
+    end
+    
+    if not this.tianfu_enabled[player.index] then
+        this.tianfu_enabled[player.index] = {}
+    end
+    
+    local count = 0
+    for talent_id, _ in pairs(this.skill[player.name]) do
+        if not is_talent_blacklisted(talent_id) then
+            this.tianfu_enabled[player.index][talent_id] = enable
+            count = count + 1
+        end
+    end
+    
+    refresh_talent_list(player)
+    clear_tianfu_cache(player)
+    
+    if enable then
+        player.print({'amap.talent_enable_all_msg', count}, {r = 0, g = 255, b = 0})
+    else
+        player.print({'amap.talent_disable_all_msg', count}, {r = 255, g = 165, b = 0})
+    end
+end
+
 -- 删除天赋
 local function delete_talent(player, talent_id)
     local this = WPT.get()
@@ -1752,6 +1811,16 @@ local function on_gui_click(event)
     if string.sub(name, 1, #CONST.TALENT_TOGGLE_BUTTON_PREFIX) == CONST.TALENT_TOGGLE_BUTTON_PREFIX then
         local skill_id = string.sub(name, #CONST.TALENT_TOGGLE_BUTTON_PREFIX + 1)
         toggle_talent_state(player, skill_id)
+        return
+    end
+
+    -- 处理一键开启/关闭全部天赋
+    if name == CONST.TALENT_ENABLE_ALL_BUTTON then
+        set_all_talents_state(player, true)
+        return
+    end
+    if name == CONST.TALENT_DISABLE_ALL_BUTTON then
+        set_all_talents_state(player, false)
         return
     end
 

@@ -115,7 +115,6 @@ local function get_data(player_index)
             start_tick = nil,
             time_limit = DEFAULT_TIME_LIMIT,
             player_index = nil,
-            original_invincible = nil,
             coins_earned = 0,
             max_coins = 0,
             recycling_chest = nil,
@@ -919,29 +918,40 @@ function Public.enter(player, type_name, difficulty, previewed_reward_id, previe
 
     if data.original_character then
         data.original_character.destructible = false
-        data.original_invincible = true
         -- Factorio 2.1：物流备份改用 saved_logistic_filters（SavedLogisticFilters 读写）
         data.backup_logistic_filters = player.saved_logistic_filters
     end
 
     -- 创建/复用副本 force
-    local force_name = "dungeon_force_" .. player.name
-    local force = setup_dungeon_force(force_name)
-    data.dungeon_force = force_name
-    player.force = force
-
-    -- 同步科技（仅挖币工厂等「需要主世界科技」的副本开启）
-    -- 其他副本（竞技/解谜/战斗类）一律不继承主世界科技，否则满科技会破坏副本平衡
-    if def.needs_tech_sync then
-        sync_technologies(force)
+    -- 休息室例外（def.lounge_binding）：永久建设区保持玩家原阵营（不切换 force）。
+    -- 原因：休息室没有敌人/平衡约束，切到 dungeon_force_* 反而带来退出/木箱摧毁时
+    -- 阵营还原的残留风险（2026-08-11 修复：从休息室退出后玩家阵营不恢复）。
+    -- 保持原阵营 → 玩家天然拥有主世界全部科技（含机器人科技），无需同步/补开；
+    -- 也跳过危险 recipe 禁用（避免污染主世界 player force）。
+    local force = nil
+    local force_name = nil
+    if not def.lounge_binding then
+        force_name = "dungeon_force_" .. player.name
+        force = setup_dungeon_force(force_name)
+        data.dungeon_force = force_name
+        player.force = force
     end
-    -- 禁用危险 recipe（与科技同步无关，所有副本统一禁用，防止副本内手工搓武器/载具）
-    disable_dangerous_recipes(force)
+
+    if force then
+        -- 同步科技（仅挖币工厂等「需要主世界科技」的副本开启）
+        -- 其他副本（竞技/解谜/战斗类）一律不继承主世界科技，否则满科技会破坏副本平衡
+        if def.needs_tech_sync then
+            sync_technologies(force)
+        end
+        -- 禁用危险 recipe（与科技同步无关，所有副本统一禁用，防止副本内手工搓武器/载具）
+        disable_dangerous_recipes(force)
+    end
 
     -- 框架级钩子：on_force_created
     -- 在科技同步 + 危险 recipe 禁用之后、surface 创建之前
     -- 让玩法模块可以设置 force 属性（如禁用特定科技、设置 modifier）
-    if def.on_force_created then
+    -- 休息室跳过（无 dungeon force，玩家原 force 无需设置）
+    if def.on_force_created and force then
         def.on_force_created(player, data, force)
     end
 
@@ -961,7 +971,10 @@ function Public.enter(player, type_name, difficulty, previewed_reward_id, previe
         end
     end
     local surface = create_dungeon_surface(surface_name)
-    force.set_spawn_position({0, 0}, surface)
+    -- 休息室不设置 spawn position（player force 的重生点不能被改到休息室 surface）
+    if force then
+        force.set_spawn_position({0, 0}, surface)
+    end
 
     data.surface_name = surface_name
 
@@ -989,11 +1002,12 @@ function Public.enter(player, type_name, difficulty, previewed_reward_id, previe
 
     -- 创建新 character，切换 controller
     -- 休息室中心 (0,0) 被钢箱占据：找非碰撞位置兜底（失败退回 {0,0}）
+    -- 休息室无 dungeon force：角色用玩家原 force（player）
     local spawn_position = surface.find_non_colliding_position('character', {0, 0}, 4, 1, true) or {0, 0}
     local new_character = surface.create_entity({
         name = "character",
         position = spawn_position,
-        force = force
+        force = force or player.force
     })
 
     if not new_character or not new_character.valid then
@@ -1303,13 +1317,20 @@ function Public.destroy_lounge(unit_number)
                 if player and player.valid then
                     Public.exit(player, 'lounge_destroyed')
                 else
-                    -- 玩家不在线：强制清理（还原 force 仅在玩家对象有效时执行，同 on_nth_tick_timeout 分支）
-                    if player and player.valid and data.original_force then
-                        local original_force = game.forces[data.original_force]
-                        if original_force and original_force.valid then
-                            player.force = original_force
-                        else
-                            player.force = game.forces.player
+                    -- 玩家不在线：强制清理（还原 force / destructible 仅在玩家对象有效时执行，同 timeout 分支）
+                    if player and player.valid then
+                        if data.original_force then
+                            local original_force = game.forces[data.original_force]
+                            if original_force and original_force.valid then
+                                player.force = original_force
+                            else
+                                player.force = game.forces.player
+                            end
+                        end
+                        -- 还原原角色可摧毁（进入副本时 destructible=false 保护；
+                        -- 离线分支曾漏还原 → 玩家重连后主世界角色永久无敌，2026-08-11 修复）
+                        if data.original_character and data.original_character.valid then
+                            data.original_character.destructible = true
                         end
                     end
                     if data.dungeon_force then
@@ -1592,12 +1613,19 @@ local function on_nth_tick_timeout()
                     -- 玩家不在线，强制清理
                     -- 先还原离线玩家 force（对象仍有效），避免重连后 force 残留 dungeon_force_*，
                     -- 与 Public.exit 的无条件还原保持一致
-                    if player and data.original_force then
-                        local original_force = game.forces[data.original_force]
-                        if original_force and original_force.valid then
-                            player.force = original_force
-                        else
-                            player.force = game.forces.player
+                    if player then
+                        if data.original_force then
+                            local original_force = game.forces[data.original_force]
+                            if original_force and original_force.valid then
+                                player.force = original_force
+                            else
+                                player.force = game.forces.player
+                            end
+                        end
+                        -- 还原原角色可摧毁（进入副本时 destructible=false 保护；
+                        -- 离线分支曾漏还原 → 玩家重连后主世界角色永久无敌，2026-08-11 修复）
+                        if data.original_character and data.original_character.valid then
+                            data.original_character.destructible = true
                         end
                     end
                     if data.dungeon_force then

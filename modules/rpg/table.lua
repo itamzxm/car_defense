@@ -504,9 +504,42 @@ function Public.set_new_spell(tbl)
     end
 end
 
+--- 合并新技能到 rpg_spells（旧存档迁移，幂等）
+-- 场景代码更新后，旧存档 on_load 恢复的 this.rpg_spells 仍是旧表（缺新技能）
+-- 每次 rebuild_spells 时对比全量表补齐缺失条目；保留旧条目的 enabled 状态，不删不改
+local function merge_new_spells()
+    local fresh = Spells.conjure_items()
+    local current = this.rpg_spells
+    if not current then
+        this.rpg_spells = fresh
+        return
+    end
+    local have = {}
+    for i = 1, #current do
+        local e = current[i]
+        if e and e.entityName then
+            have[e.entityName] = true
+        end
+    end
+    local added = 0
+    for i = 1, #fresh do
+        local e = fresh[i]
+        if e and e.entityName and not have[e.entityName] then
+            current[#current + 1] = e
+            have[e.entityName] = true
+            added = added + 1
+        end
+    end
+    if added > 0 then
+        log('[RPG] rpg_spells 合并 ' .. added .. ' 个新技能（旧存档迁移）')
+    end
+end
+
 --- This rebuilds all spells. Make sure to make changes on_init if you don't
 --  want all spells enabled.
 function Public.rebuild_spells(rebuild)
+    merge_new_spells()
+
     local spells = this.rpg_spells
 
     local new_spells = {}

@@ -9,10 +9,10 @@
 --   4. 无限时、无奖励；继承主世界全部科技（含机器人科技）；多玩家可共享同一休息室
 --
 -- 钩子实现：
---   on_force_created  - 补开机器人科技（框架 sync_technologies 排除机器人科技）
 --   on_surface_init   - 生成地形（grass + 水域 + 煤矿 + 随机矿 + 石头树木 + 中心钢箱）
 --   on_enter          - 无初始物品
 --   on_exit           - 无模块级清理（surface 保留由框架 lounge_binding 处理）
+-- 阵营说明：休息室不切换阵营（保持玩家原 force），科技天然继承，无 on_force_created
 -- 全局调度（不依赖玩家在线状态）：
 --   Event.on_nth_tick(600) - 每 10 秒遍历绑定表传送钢箱物品到绑定木箱（无人在线也照常运行）
 
@@ -33,7 +33,8 @@ M.gameplay_desc_key = 'amap.instance_lounge_gameplay'
 M.victory_condition_key = 'amap.instance_lounge_victory'
 M.icon = 'item/steel-chest'
 M.time_limit_default = 10 ^ 12  -- 无限时长（用大数而非 math.huge，避免 UI 计时崩溃）
-M.needs_tech_sync = true
+-- 休息室不切换阵营（保持 player force，见 instance.lua enter 的 lounge_binding 分支）：
+-- 玩家天然拥有主世界全部科技（含机器人科技），无需 tech_sync / on_force_created 补开
 
 -- 特殊标记（仅休息室使用，框架据此调整进入/退出/GUI 行为）
 M.lounge_binding = true        -- 进入不删木箱、转绑定（专属入口 + 传送目标）
@@ -93,8 +94,7 @@ end
 --   - 已解锁废土星（planet-discovery-fulgora）→ 加入 scrap
 -- 判定必须查 game.forces.player（主世界玩家 force）：
 --   星球解锁科技属于主世界进度（与 maps/amap/functions.lua 星球创建判定同源），
---   玩家进入休息室后 force 是 dungeon_force_<name>，但休息室 surface 仅首次创建时
---   生成随机矿，按当时主世界进度决定即可
+--   休息室保持玩家原阵营（player force），且 surface 仅首次创建时生成随机矿，按当时主世界进度决定即可
 local function get_unlocked_ore_pool()
     local pool = {"iron-ore", "stone", "copper-ore"}
 
@@ -131,7 +131,7 @@ local function collect_ore_vein(surface, center_pos, size, max_tiles, occupied)
     local start_key = start.x .. "_" .. start.y
     if not occupied[start_key] and not is_center_zone(start.x, start.y)
        and not is_position_on_resource(surface, start)
-       and not surface.get_tile(start).collides_with("water") then
+       and surface.get_tile(start).name ~= "water" then
         occupied[start_key] = true
         entities[#entities + 1] = {position = start}
     end
@@ -160,7 +160,7 @@ local function collect_ore_vein(surface, center_pos, size, max_tiles, occupied)
                     local pk = p.x .. "_" .. p.y
                     if not occupied[pk] and not is_center_zone(p.x, p.y)
                        and not is_position_on_resource(surface, p)
-                       and not surface.get_tile(p).collides_with("water") then
+                       and surface.get_tile(p).name ~= "water" then
                         position.x = p.x
                         position.y = p.y
                         occupied[pk] = true
@@ -276,7 +276,7 @@ function M.on_surface_init(surface, player, data, difficulty)
     -- 3-4 条不规则矿脉，总格数 ≤ 90，总储量精确 100M（按实际格数均摊）
     local random_ores = {}
     for _, ore_name in ipairs(get_unlocked_ore_pool()) do
-        if game.entity_prototypes[ore_name] then
+        if prototypes.entity[ore_name] then
             random_ores[#random_ores + 1] = ore_name
         end
     end
@@ -302,20 +302,21 @@ function M.on_surface_init(surface, player, data, difficulty)
     end
 
     -- 装饰：岩石（40-60 个）+ 树木（60-100 棵），随机分布，避开中心禁区、水域与已有实体
+    -- 岩石名与主世界生成同源（world_function.lua rock_raffle：big-sand-rock/big-rock/huge-rock）
     local rock_pool = {}
-    for _, rn in ipairs({"rock-big", "rock-medium"}) do
-        if game.entity_prototypes[rn] then
+    for _, rn in ipairs({"big-rock", "big-sand-rock", "huge-rock"}) do
+        if prototypes.entity[rn] then
             rock_pool[#rock_pool + 1] = rn
         end
     end
     local tree_pool = {}
     for i = 1, 9 do
         local tname = "tree-0" .. i
-        if game.entity_prototypes[tname] then
+        if prototypes.entity[tname] then
             tree_pool[#tree_pool + 1] = tname
         end
     end
-    if game.entity_prototypes["dry-tree"] then
+    if prototypes.entity["dry-tree"] then
         tree_pool[#tree_pool + 1] = "dry-tree"
     end
 
@@ -327,10 +328,14 @@ function M.on_surface_init(surface, player, data, difficulty)
             local p = {x = math.random(-48, 48), y = math.random(-48, 48)}
             if not is_center_zone(p.x, p.y) then
                 local tile = surface.get_tile(p)
-                if tile.valid and not tile.collides_with("water")
+                if tile.valid and tile.name ~= "water"
                    and not is_position_on_resource(surface, p) then
-                    local ent = surface.create_entity({name = pool[math.random(#pool)], position = p})
-                    if ent and ent.valid then
+                    -- pcall 防御：实体名缺失/放置失败不中断地形生成（world_15 同因注释）
+                    local ent = nil
+                    local ok = pcall(function()
+                        ent = surface.create_entity({name = pool[math.random(#pool)], position = p})
+                    end)
+                    if ok and ent and ent.valid then
                         placed = placed + 1
                     end
                 end
@@ -380,37 +385,6 @@ function M.on_surface_init(surface, player, data, difficulty)
         icon = {type = 'item', name = 'steel-chest'},
         text = '休息室传送箱'
     })
-end
-
---==============================================================================
--- 机器人科技同步（框架 sync_technologies 排除机器人科技，休息室需自行补开）
---==============================================================================
-
--- 框架在 force 创建后调用（科技同步之后、surface 创建之前）
--- 遍历主世界已研究科技，名字以机器人相关前缀开头的 → 副本 force 同步开启
-function M.on_force_created(player, data, force)
-    local robot_tech_prefixes = {
-        "robotics",
-        "construction-robotics",
-        "logistic-robotics",
-        "personal-roboport",
-        "worker-robots",
-        "auto-character-logistic-trash-slots"
-    }
-    for tech_name, tech in pairs(force.technologies) do
-        local player_tech = game.forces["player"].technologies[tech_name]
-        if player_tech and player_tech.researched then
-            for _, prefix in ipairs(robot_tech_prefixes) do
-                if tech_name:find(prefix, 1, true) == 1 then
-                    -- 判断原型存在（防御：force 表里只有已注册原型）
-                    if game.technology_prototypes[tech_name] then
-                        tech.researched = true
-                    end
-                    break
-                end
-            end
-        end
-    end
 end
 
 --==============================================================================
@@ -504,7 +478,7 @@ end
 
 -- 进入副本：无初始物品（物资需玩家自带；中心钢箱传送只输出）
 function M.on_enter(player, data, difficulty)
-    -- 无初始物品；科技已在 on_force_created 同步
+    -- 无初始物品；科技天然继承（保持玩家原阵营）
 end
 
 -- 退出副本：无模块级 GUI 清理；surface 保留由框架 lounge_binding 处理
