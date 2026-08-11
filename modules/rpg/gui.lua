@@ -29,6 +29,7 @@ local spell2_button_name = Public.spell2_button_name
 local spell3_button_name = Public.spell3_button_name
 local spell_info_button_name = Public.spell_info_button_name
 local spell_info_frame_name = Public.spell_info_frame_name
+local spell_info_close_button_name = Public.spell_info_close_button_name
 local transfer_button_name = Public.transfer_button_name
 
 Gui.allow_player_to_toggle_top_element_visibility(draw_main_frame_name)
@@ -958,7 +959,7 @@ Gui.on_click(
 )
 
 Gui.on_click(
-    spell_info_frame_name .. '_close',
+    spell_info_close_button_name,
     function(event)
         local player = event.player
         if not player or not player.valid then
