@@ -5192,7 +5192,6 @@ local function chuanqibaozang(player, q_idx)
     -- 定义武器类物品列表（基于basic_markets.lua的6个表，保留value和rarity属性）
     local weapon_items = {
         -- 【weapons表】枪械类武器
-        {name = 'pistol', value = 10, rarity = 1},
         {name = 'submachine-gun', value = 50, rarity = 2},
         {name = 'shotgun', value = 40, rarity = 2},
         {name = 'tank-machine-gun', value = 600, rarity = 3},
@@ -5252,7 +5251,10 @@ local function chuanqibaozang(player, q_idx)
         {name = 'gate', value = 8, rarity = 1},
         {name = 'gun-turret', value = 64, rarity = 1},
         {name = 'laser-turret', value = 1024, rarity = 6},
+        {name = 'flamethrower-turret', value = 2048, rarity = 6},
         {name = 'artillery-turret', value = 15192, rarity = 8},
+        {name = 'tesla-turret', value = 30750, rarity = 8},
+        {name = 'rocket-turret', value = 10000, rarity = 8},
     }
     
     -- 获取玩家背包中的所有物品
