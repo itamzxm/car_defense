@@ -611,10 +611,18 @@ function M.on_exit(player, data, reason)
         screen['recycling_prices_frame'].destroy()
     end
 
-    -- 奖励系数固定 1.0（2026-08-10 用户决策）
+    -- 设置奖励系数：按挖到的金币数 / 10000 计算，封顶 2.0
     -- 副本框架在 on_exit 之后会读取 data.reward_multiplier 发放预抽奖励
+    -- 系数 = 0 → 不给奖励；系数 > 0 → 按系数缩放发放
+    -- 对配方产能/阵营加成/伤害加成（固定 3%）：multiplier 仅作为门槛，>0 即发放
+    -- 对商店随机包（10K × multiplier）：multiplier 直接缩放物品总值
     if reason ~= "defeat" and reason ~= "error" then
-        Instance.set_reward_multiplier(player, 1.0)
+        local coins = data.coins_earned or 0
+        if coins > 0 then
+            local mult = coins / 10000
+            if mult > 2.0 then mult = 2.0 end
+            Instance.set_reward_multiplier(player, mult)
+        end
     end
 end
 

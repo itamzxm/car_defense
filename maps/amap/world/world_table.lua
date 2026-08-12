@@ -146,6 +146,19 @@ function Public.reset_table()
       ["trees"] = {frequency = 0, size = 0, richness = 1},
       ["enemy-base"] = {frequency = 0, size = 0, richness = 0}
     },
+    -- 世界19 机械峡谷：铁/铜/石/煤/铀 400% 丰度/分布/大小（标准形态 ×4），
+    -- 石油 200%，污染与虫巢成长同山谷（enemy-base 同 cave），树木同山谷
+    world19 = {
+       ["water"] = {frequency = 0.1, size = 0.1, richness = 0.1},
+      ["coal"] = {frequency = 4, size = 4, richness = 4},
+      ["stone"] = {frequency = 4, size = 4, richness = 4},
+      ["copper-ore"] = {frequency = 4, size = 4, richness = 4},
+      ["iron-ore"] = {frequency = 4, size = 4, richness = 4},
+      ["uranium-ore"] = {frequency = 4, size = 4, richness = 4},
+      ["crude-oil"] = {frequency = 2, size = 2, richness = 2},
+      ["trees"] = {frequency = 1, size = 0.7, richness = 0.7},
+      ["enemy-base"] = {frequency = 3, size = 2, richness = 1}
+    },
     -- 铁路模式 - 高资源密度，无树木
     rail = {
       ["coal"] = {frequency = 2, size = 1, richness = 1},

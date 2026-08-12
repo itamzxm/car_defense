@@ -412,7 +412,19 @@ function Public.apply_world_bonuses()
     local custom_bonus_map = {
         experience_bonus = function(value) this.experience_bonus = (this.experience_bonus or 0) + value end,
         damage_bonus = function(value) Func.set_force_damage_modifier(force, value) end,
-        turret_attack_bonus = function(value) force.set_turret_attack_modifier('gun-turret', force.get_turret_attack_modifier('gun-turret') + value) end
+        turret_attack_bonus = function(value) force.set_turret_attack_modifier('gun-turret', force.get_turret_attack_modifier('gun-turret') + value) end,
+        -- 世界19「机械峡谷」通关奖励：通关（2000波）后起始物资增加传说建造机器人
+        -- （+5，此后每 400 波再多 +1；线性增长不封顶，按历史最高波数计算不叠加，
+        --  每次开图时对所有地图在线玩家发放）
+        starting_legendary_robot = function(value)
+            local count = math.floor(value + 0.5)
+            if count <= 0 then return end
+            for _, p in pairs(game.connected_players) do
+                if p and p.valid and p.character and p.character.valid then
+                    p.insert({name = 'construction-robot', count = count, quality = 'legendary'})
+                end
+            end
+        end,
     }
     
     for world_id, world_data in pairs(map.world_bonus) do

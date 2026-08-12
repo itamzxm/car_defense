@@ -536,8 +536,8 @@ function M.on_gui_click(player, event)
 
     -- 胜利判定（失败由框架时间到处理）
     if md.score >= md.target then
-        -- 奖励系数固定 1.0（2026-08-10 用户决策）
-        Instance.set_reward_multiplier(player, 1.0)
+        local mul = md.reward_base * (md.score >= md.target * 1.5 and 1.3 or 1.0)
+        Instance.set_reward_multiplier(player, mul)
         md.result = 'victory'
         player.print({'amap.match3_win'}, {r = 0, g = 1, b = 0})
         Task.set_timeout_in_ticks(2, delayed_exit_token, {player_index = player.index, reason = 'victory'})

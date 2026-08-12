@@ -111,7 +111,7 @@ end
 
 ## 离线测试方法（本地无头 Factorio）
 
-本地装有 Steam Factorio（`C:/Program Files (x86)/Steam/steamapps/common/Factorio/bin/x64/factorio.exe`），其内嵌 Factorio 定制 Lua 5.2 运行时。无需进游戏即可验证「代码能否加载」以及「纯逻辑是否正确」。
+本地装有 Steam Factorio（`D:/SteamLibrary/steamapps/common/Factorio/bin/x64/factorio.exe`），其内嵌 Factorio 定制 Lua 5.2 运行时。无需进游戏即可验证「代码能否加载」以及「纯逻辑是否正确」。
 
 ### 方法一：无头加载测试（验证能否加载）
 在 `%APPDATA%/Factorio` 下执行：

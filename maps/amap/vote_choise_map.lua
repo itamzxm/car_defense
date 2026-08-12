@@ -37,8 +37,8 @@ local function create_main_button(event)
     })
     -- 宽度自适应内容：改 caption 后按钮自动撑到文字宽度（mod_gui_button 无 maximal_width 限制），
     -- 长地图名（如"帝国竞技场"）会自动撑宽
-    -- 浅灰白字（顶栏统一黑底灰白字）
-    b.style.font_color = {165, 165, 165}
+    -- 青绿文字（mod_gui_button 深色底上清晰），参考 archive/classic-changes 设计
+    b.style.font_color = {0, 255, 255}
     -- 左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
     b.style.left_padding = 4
     b.style.right_padding = 4
@@ -57,8 +57,8 @@ local function updata_gui(player)
     if has_voted then
         -- 需求3: 如果已经投票了，就显示当前领先的地图
         -- 并且鼠标移动上去(Tooltip)，能提示下一张地图是什么
-        -- 已投票：统一浅灰白字（顶栏黑底灰白字）
-        button.style.font_color = {165, 165, 165}
+        -- 已投票：字体色变深灰（默认青绿在选好后切换）
+        button.style.font_color = {28, 29, 28}
         if WPT.vote_map_number ~= nil then
             button.caption = {'amap.world_name_' .. WPT.vote_map_number}
             button.tooltip = {'', {'amap.next_map'}, ': ', {'amap.world_name_' .. WPT.vote_map_number}}
@@ -70,8 +70,8 @@ local function updata_gui(player)
         -- 需求2: 如果还没有投票，按钮就显示投票下一张地图 (保持默认文案)
         button.caption = {'amap.next_map'}
         button.tooltip = {'amap.vote_tooltip'}
-        -- 默认字体色不变（浅灰白）
-        button.style.font_color = {165, 165, 165}
+        -- 默认字体色不变（青绿）
+        button.style.font_color = {0, 255, 255}
     end
 end
 
@@ -90,7 +90,7 @@ local function gui_open(player)
         caption = {'amap.next_map'},
         direction = 'vertical'
     }
-    frame.location = {x = 255, y = 80}
+    frame.location = {x = 255, y = 40}
 
     -- 添加投票选项
     -- World 框架优先：动态查询所有已注册世界；fallback：硬编码列表

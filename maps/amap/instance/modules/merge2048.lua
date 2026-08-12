@@ -512,8 +512,7 @@ function M.on_gui_click(player, event)
 
     if is_win(md) then
         player.print({'amap.merge2048_win', best_tile(md)}, {r = 0, g = 1, b = 0})
-        -- 奖励系数固定 1.0（2026-08-10 用户决策）
-        Instance.set_reward_multiplier(player, 1.0)
+        Instance.set_reward_multiplier(player, md.reward_base or 1.0)
         md.result = 'victory'
         Task.set_timeout_in_ticks(2, delayed_exit_token, {player_index = player.index, reason = 'victory'})
     elseif not has_moves(md) then

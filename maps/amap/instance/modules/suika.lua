@@ -503,8 +503,8 @@ function M.on_gui_click(player, event)
 
     -- 判定胜负
     if max_tier(md) >= md.target then
-        -- 奖励系数固定 1.0（2026-08-10 用户决策）
-        Instance.set_reward_multiplier(player, 1.0)
+        local mul = md.reward_base
+        Instance.set_reward_multiplier(player, mul)
         md.result = 'victory'
         local target_name = TIER_CHAR[md.target] or '?'
         player.print({'amap.suika_win', target_name}, {r = 0, g = 1, b = 0})

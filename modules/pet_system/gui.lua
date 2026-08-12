@@ -421,9 +421,7 @@ local function draw_pet_card_v2(parent, pet, index, player)
     add_label(card, ({'pet_system.atk_label', pet.attack}), 'default', {255, 180, 80}, card_width - 12, 'center')
 
     -- 技能
-    -- 注意：LocalisedString 表首元素必须是 ''（空 key，纯文本模式）或有效 locale key，
-    -- 否则首元素纯文本会被当成 locale key 解析 → 显示 Unknown key
-    local skill_text = {''}
+    local skill_text = {}
     local slots = Public.get_skill_slots(pet)
     for i = 1, slots do
         local sd = pet.skills[i]
@@ -460,7 +458,7 @@ local function draw_main_frame(player, location)
         caption = ({'pet_system.main_title'}),
         direction = 'vertical',
     })
-    main_frame.location = location or {x = 200, y = 80}
+    main_frame.location = location or {x = 200, y = 40}
     main_frame.style.minimal_width = 620
 
     local data = {}
@@ -762,8 +760,8 @@ function Public.draw_top_button(player)
         caption = ({'pet_system.top_button'}),
         tooltip = ({'pet_system.top_button_tip'}),
     })
-    -- 浅灰白字（顶栏统一黑底灰白字）
-    b.style.font_color = {165, 165, 165}
+    -- 默认字体色 #8F8F8F
+    b.style.font_color = {143, 143, 143}
     -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
     b.style.left_padding = 4
     b.style.right_padding = 4

@@ -555,8 +555,7 @@ function M.check_victory(player, data)
     if md.found[md.spangram] then found_count = found_count + 1 end
 
     if found_count >= md.total then
-        -- 奖励系数固定 1.0（2026-08-10 用户决策）
-        Instance.set_reward_multiplier(player, 1.0)
+        Instance.set_reward_multiplier(player, md.reward_multiplier or 1.0)
         return 'victory'
     end
 

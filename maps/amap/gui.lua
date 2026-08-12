@@ -247,8 +247,8 @@ local function create_button(player)
         name = CONST.BTN_TIANFU,
         caption = {'amap.talent'}
     })
-    -- 默认浅灰白字，可学天赋时变绿（update_tianfu_button）
-    talent_button.style.font_color = {165, 165, 165}
+    -- 默认字体色 #8F8F8F，可学天赋时变绿（update_tianfu_button）
+    talent_button.style.font_color = {143, 143, 143}
     -- 文字按钮宽度自适应内容；左右留 4px 空隙（默认继承 button 的 8px，收窄到 4px）
     talent_button.style.left_padding = 4
     talent_button.style.right_padding = 4
@@ -323,8 +323,8 @@ local function update_tianfu_button(player)
         player.print({'amap.new_tianfu'}, {r = 255, b = 0, g = 255})
         clear_tianfu_cache(player)
     else
-        -- 默认浅灰白字
-        button.style.font_color = {165, 165, 165}
+        -- 默认字体色 #8F8F8F
+        button.style.font_color = {143, 143, 143}
     end
 end
 
@@ -345,7 +345,7 @@ local function draw_talent_tab(player, frame)
         return
     end
     
-    -- 一键开启/关闭全部天赋按钮行
+    -- 一键开启/关闭全部天赋按钮组
     local btn_flow = frame.add({
         type = "flow",
         direction = "horizontal"
@@ -370,7 +370,7 @@ local function draw_talent_tab(player, frame)
     })
     btn_disable_all.style.minimal_width = 110
     btn_disable_all.style.font_color = CONST.COLORS.BLACK
-
+    
     local scroll = frame.add({
         type = "scroll-pane", 
         vertical_scroll_policy = 'auto',

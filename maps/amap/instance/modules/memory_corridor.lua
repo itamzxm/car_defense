@@ -512,8 +512,10 @@ function M.check_victory(player, data)
 
     if md.finished then
         if md.victory then
-            -- 奖励系数固定 1.0（2026-08-10 用户决策）
-            Instance.set_reward_multiplier(player, 1.0)
+            -- 奖励：错误越少奖励越高
+            local err_ratio = md.errors / md.max_errors
+            local mult = 1.5 + (1 - err_ratio) * 0.5
+            Instance.set_reward_multiplier(player, mult)
             return 'victory'
         else
             return 'defeat'

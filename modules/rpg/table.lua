@@ -27,7 +27,6 @@ local spell2_button_name = Gui.uid_name()
 local spell3_button_name = Gui.uid_name()
 local spell_info_button_name = Gui.uid_name()
 local spell_info_frame_name = Gui.uid_name()
-local spell_info_close_button_name = Gui.uid_name()
 
 Global.register(
     this,
@@ -609,7 +608,6 @@ Public.spell2_button_name = spell2_button_name
 Public.spell3_button_name = spell3_button_name
 Public.spell_info_button_name = spell_info_button_name
 Public.spell_info_frame_name = spell_info_frame_name
-Public.spell_info_close_button_name = spell_info_close_button_name
 
 local on_init = function()
     Public.reset_table()

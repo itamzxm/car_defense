@@ -487,8 +487,9 @@ function M.check_victory(player, data)
 
     if md.finished then
         if md.score >= md.target_score then
-            -- 奖励系数固定 1.0（2026-08-10 用户决策）
-            Instance.set_reward_multiplier(player, 1.0)
+            -- 超额奖励：每多 10 分 +0.05 倍率，封顶 2.0
+            local bonus = math.min((md.score - md.target_score) / 10 * 0.05, 0.5)
+            Instance.set_reward_multiplier(player, 1.5 + bonus)
             return 'victory'
         else
             return 'defeat'

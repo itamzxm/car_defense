@@ -638,8 +638,10 @@ function M.check_victory(player, data)
 
     if md.finished then
         if md.victory then
-            -- 奖励系数固定 1.0（2026-08-10 用户决策）
-            Instance.set_reward_multiplier(player, 1.0)
+            -- 通关奖励：根据通关波数和剩余时间给奖励系数
+            local waves_ratio = md.current_wave / md.wave_count
+            local mult = 1.0 + waves_ratio * 0.5
+            Instance.set_reward_multiplier(player, mult)
             return 'victory'
         else
             return 'defeat'

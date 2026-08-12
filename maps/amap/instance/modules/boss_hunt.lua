@@ -611,8 +611,10 @@ function M.check_victory(player, data)
     if md.player_died then return 'defeat' end
 
     if md.boss_died then
-        -- 奖励系数固定 1.0（2026-08-10 用户决策）
-        Instance.set_reward_multiplier(player, 1.0)
+        local remaining = math.max(0, md.time_limit - (game.tick - md.start_tick))
+        local ratio = remaining / md.time_limit
+        local mult = 1.5 + ratio * 0.5
+        Instance.set_reward_multiplier(player, mult)
         return 'victory'
     end
 

@@ -18,7 +18,7 @@ local de = defines.events
 local format = string.format
 
 local this = {
-    enabled = true,
+    enabled = false,
     landfill_history = {},
     capsule_history = {},
     friendly_fire_history = {},
@@ -240,40 +240,6 @@ local function on_player_joined_game(event)
     end
 end
 
-local function on_player_built_tile(event)
-    if not this.enabled then
-        return
-    end
-    local placed_tiles = event.tiles
-    if
-        placed_tiles[1].old_tile.name ~= 'deepwater' and placed_tiles[1].old_tile.name ~= 'water' and
-            placed_tiles[1].old_tile.name ~= 'water-green'
-     then
-        return
-    end
-    local player = game.get_player(event.player_index)
-
-    local surface = event.surface_index
-
-    --landfill history--
-
-    if not this.landfill_history then
-        this.landfill_history = {}
-    end
-
-    if #this.landfill_history > 1000 then
-        this.landfill_history = {}
-    end
-    local t = math.abs(math.floor((game.tick) / 3600))
-    local str = '[' .. t .. '] '
-    str = str .. player.name .. ' at X:'
-    str = str .. placed_tiles[1].position.x
-    str = str .. ' Y:'
-    str = str .. placed_tiles[1].position.y
-    str = str .. ' '
-    str = str .. 'surface:' .. surface
-    increment(this.landfill_history, str)
-end
 
 local function on_built_entity(event)
     if not this.enabled then
@@ -356,7 +322,7 @@ local function on_player_used_capsule(event)
             msg = format(player.name .. ' damaged: %s with: %s', get_entities(name, entities), name)
             local ban_msg =
                 format(
-                'Damaged: %s with: %s. This action was performed automatically.',
+                'Damaged: %s with: %s. This action was performed automatically. Visit getcomfy.eu/discord for forgiveness',
                 get_entities(name, entities),
                 name
             )
@@ -890,22 +856,10 @@ end
 
 Event.on_init(on_init)
 
-Event.add(de.on_built_entity, on_built_entity,{
-    {filter = "type", type = 'land-mine'},
-    {filter = "type", type = 'character'},
-    {filter = "type", type = 'car'},
-    {filter = "type", type = 'wall'},
-    {filter = "type", type = 'spider-vehicle'},
-    {filter = "type", type = 'ammo-turret'},
-    {filter = "type", type = 'electric-turret'},
-    {filter = "type", type = 'fluid-turret'},
-    {filter = "type", type = 'radar'},
-    {filter = "type", type = 'roboport'}
-})
+Event.add(de.on_built_entity, on_built_entity)
 Event.add(de.on_gui_opened, on_gui_opened)
 Event.add(de.on_marked_for_deconstruction, on_marked_for_deconstruction)
 Event.add(de.on_player_ammo_inventory_changed, on_player_ammo_inventory_changed)
---Event.add(de.on_player_built_tile, on_player_built_tile)
 Event.add(de.on_pre_player_mined_item, on_pre_player_mined_item)
 --Event.add(de.on_player_used_capsule, on_player_used_capsule)
 Event.add(de.on_player_cursor_stack_changed, on_player_cursor_stack_changed)

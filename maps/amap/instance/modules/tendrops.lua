@@ -436,8 +436,8 @@ function M.on_tick(player, data)
     -- 连锁结束（waves_running 已被 step_wave 置 0）→ 判胜负
     if md.waves_running == 0 then
         if grid_empty(md) then
-            -- 奖励系数固定 1.0（2026-08-10 用户决策）
-            Instance.set_reward_multiplier(player, 1.0)
+            local mult = md.reward_base * (md.drops > 0 and 1.2 or 1.0)
+            Instance.set_reward_multiplier(player, mult)
             md.result = 'victory'
             player.print({'amap.tendrops_win'}, {r = 0, g = 1, b = 0})
             Task.set_timeout_in_ticks(2, delayed_exit_token, {player_index = player.index, reason = 'victory'})
@@ -458,8 +458,8 @@ function M.check_victory(player, data)
     -- （连锁中的判负由 on_tick 处理，此处仅判非连锁状态）
     if md.waves_running == 0 then
         if grid_empty(md) then
-            -- 奖励系数固定 1.0（2026-08-10 用户决策）
-            Instance.set_reward_multiplier(player, 1.0)
+            local mult = md.reward_base * (md.drops > 0 and 1.2 or 1.0)
+            Instance.set_reward_multiplier(player, mult)
             md.result = 'victory'
             player.print({'amap.tendrops_win'}, {r = 0, g = 1, b = 0})
             Task.set_timeout_in_ticks(2, delayed_exit_token, {player_index = player.index, reason = 'victory'})
@@ -511,8 +511,8 @@ function M.on_gui_click(player, event)
     -- 爆裂点击会启动连锁，胜负由 on_tick 在连锁结束后判）
     if md.waves_running == 0 then
         if grid_empty(md) then
-            -- 奖励系数固定 1.0（2026-08-10 用户决策）
-            Instance.set_reward_multiplier(player, 1.0)
+            local mult = md.reward_base * (md.drops > 0 and 1.2 or 1.0)
+            Instance.set_reward_multiplier(player, mult)
             md.result = 'victory'
             player.print({'amap.tendrops_win'}, {r = 0, g = 1, b = 0})
             Task.set_timeout_in_ticks(2, delayed_exit_token, {player_index = player.index, reason = 'victory'})
