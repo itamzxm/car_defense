@@ -14,6 +14,7 @@ local spell2_button_name = Public.spell2_button_name
 local spell3_button_name = Public.spell3_button_name
 local spell_info_button_name = Public.spell_info_button_name
 local spell_info_frame_name = Public.spell_info_frame_name
+local spell_info_close_button_name = Public.spell_info_close_button_name
 
 local settings_level = Public.gui_settings_levels
 
@@ -159,13 +160,12 @@ function Public.spell_info_gui(player)
     local main_frame = player.gui.screen[spell_info_frame_name]
     if not main_frame or not main_frame.valid then
         main_frame =
-            player.gui.screen.add(
-            {
-                type = 'frame',
-                name = spell_info_frame_name,
-                caption = ({'rpg_settings.spell_info_title'}),
-                direction = 'vertical'
-            }
+            Gui.add_main_frame_with_toolbar(
+            player,
+            'screen',
+            spell_info_frame_name,
+            spell_info_close_button_name,
+            {'rpg_settings.spell_info_title'}
         )
         main_frame.auto_center = true
         
@@ -195,11 +195,6 @@ function Public.spell_info_gui(player)
             mana_cost_label.style.vertical_align = 'center'
             mana_cost_label.style.padding = {2, 4}
         end
-        
-        local bottom_flow = main_frame.add({type = 'flow', name = 'bottom_flow', direction = 'horizontal'})
-        bottom_flow.style.horizontal_align = 'center'
-        bottom_flow.style.vertical_align = 'bottom'
-        local close_button = bottom_flow.add({type = 'button', name = spell_info_frame_name .. '_close', caption = {'rpg_settings.close'}})
     else
         main_frame.destroy()
     end
