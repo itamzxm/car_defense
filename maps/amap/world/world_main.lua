@@ -20,6 +20,7 @@ require 'maps.amap.world.worlds.world_14_grass_invasion'
 require 'maps.amap.world.worlds.world_15_tower_defense'  -- 重新启用（PR #4 合入：事件声明式分发/科技解锁修复/通关奖励等）
 require 'maps.amap.world.worlds.world_16_pingfanzhiri'
 require 'maps.amap.world.worlds.world_17_grid_war'
+require 'maps.amap.world.worlds.world_19_mechanical_canyon'
 -- 以下独立世界机制文件（粉丝新增，原未接线=孤儿文件）：直接挂在 world/ 下（非 worlds/ 子目录），
 -- 需显式 require 才加载。挂载后 world3 钓鱼机制生效。
 -- world8 异次元空间机制已随该世界删除而移除（2026-07-31），其 require 注释保留以便回退。
