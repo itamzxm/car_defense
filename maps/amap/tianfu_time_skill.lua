@@ -5283,7 +5283,7 @@ local function chuanqibaozang(player, q_idx)
         {name = 'gate', value = 8, rarity = 1},
         {name = 'gun-turret', value = 64, rarity = 1},
         {name = 'laser-turret', value = 1024, rarity = 6},
-        {name = 'flamethrower-turret', value = 2048, rarity = 6},
+        {name = 'flamethrower-turret', value = 10048, rarity = 6},
         {name = 'artillery-turret', value = 15192, rarity = 8},
         {name = 'tesla-turret', value = 30750, rarity = 8},
         {name = 'rocket-turret', value = 10000, rarity = 8},
