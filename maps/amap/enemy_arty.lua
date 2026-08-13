@@ -1639,7 +1639,8 @@ local function get_new_arty()
     if wave_number < start_nuamber then
         return
     end
-    if is_silo_world and this.baolei_count > 1 then
+    if is_silo_world then
+        -- 核弹发射井独立存在即发射：只要发射井存活且有效，无论堡垒数量多少都会发射核弹
         if this.baolei_silo and this.baolei_silo.valid then
             game.print('警告：敌方火箭发射架将在3分钟后发射核弹！', {255, 0, 0})
             game.print('警告：敌方火箭发射架将在3分钟后发射核弹！！', {255, 0, 0})
