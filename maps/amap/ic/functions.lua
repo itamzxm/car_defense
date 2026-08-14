@@ -791,13 +791,7 @@ function Public.save_car(event)
         log_err('Car was not valid.')
         return
     end
-    local this= WPT.get()
-    if this.silo and this.silo.valid then 
-        car.entity.minable_flag = true
-else
-    car.entity.minable_flag = false
-    end
-   
+
     local position = entity.position
     local health = entity.health
 
@@ -1237,7 +1231,6 @@ function Public.use_door_with_entity(player, door)
                     state = 'add'
                 }
             )
-            car.entity.minable_flag = false
         end
 
         if not validate_entity(surface) then
@@ -1274,12 +1267,6 @@ function Public.use_door_with_entity(player, door)
                     state = 'remove'
                 }
             )
-            local this= WPT.get()
-            if this.silo and this.silo.valid then 
-                car.entity.minable_flag = true
-        else
-            car.entity.minable_flag = false
-            end
         end
         local surface = car.entity.surface
         local x_vector = (door.position.x / math.abs(door.position.x)) * 2
