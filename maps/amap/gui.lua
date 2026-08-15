@@ -376,7 +376,7 @@ local function draw_talent_tab(player, frame)
         vertical_scroll_policy = 'auto',
         horizontal_scroll_policy = 'never'
     })
-    scroll.style.height = 260
+    scroll.style.height = 232
     scroll.style.maximal_width = 510
 
     for talent_id, talent_quality in pairs(this.skill[player.name]) do
