@@ -129,11 +129,7 @@ local function on_built_entity(event)
 
     local this=WPT.get()
 
-    -- 检查是否在汽车内空间，是则改为qiche阵营；火车内空间不归入汽车阵营
-    -- 如果实体所在图层与商店相同，则不转化阵营（避免污染主世界层）
-    if is_in_car_surface(ce) and ce.surface ~= this.shop.surface then
-        apply_qiche_force(ce)
-    end
+    -- 车内建筑保持玩家阵营（玩家可正常操作/施工/拆除；不再转为 qiche 阵营）
 
     local valid_types = IC.get_types()
 
@@ -156,15 +152,7 @@ local function on_built_entity(event)
 end
 
 local function on_robot_built_entity(event)
-    local ce = event.entity
-    if not ce or not ce.valid then
-        return
-    end
-    local this=WPT.get()
-    -- 如果实体所在图层与商店相同，则不转化阵营（避免污染主世界层）
-    if is_in_car_surface(ce) and ce.surface ~= this.shop.surface then
-        apply_qiche_force(ce)
-    end
+    -- 车内建筑保持玩家阵营（on_built_entity 已统一处理，无需额外转换）
 end
 
 local function on_player_driving_changed_state(event)

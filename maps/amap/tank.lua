@@ -510,9 +510,6 @@ local function on_player_build_entity(event)
         end
         if this.tank[index] == nil then
             this.tank[index] = entity
-            if not this.silo or not this.silo.valid then
-                entity.minable_flag = false
-            end
             player.print({'amap.car_info'}, {
                 r = 100,
                 b = 200,

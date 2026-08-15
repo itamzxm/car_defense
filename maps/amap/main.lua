@@ -641,8 +641,9 @@ function Public.reset_map()
   
 game.forces.player.technologies['atomic-bomb'].enabled=false
 -- 世界14仅开局解锁高级星岩处理(advanced-asteroid-processing)，由 world_14 def.unlocked_technologies 控制；
--- asteroid-reprocessing 仍留给玩家手动研究（非 14 世界照旧开局解锁全套）
-if world_number ~= 14 then
+-- asteroid-reprocessing 仍留给玩家手动研究（非 14 世界照旧开局解锁全套）；
+-- 世界21熔岩之心同样不自动解锁（玩家按需手动研究）
+if world_number ~= 14 and world_number ~= 21 then
   game.forces.player.technologies['advanced-asteroid-processing'].researched=true
   game.forces.player.technologies['asteroid-reprocessing'].researched=true
 end
@@ -747,6 +748,17 @@ local car_buff = function()
         -- 天赋"汽车人"和火车内部空间永远享受加成
         if has_qiche_ren or is_in_train_interior then
             should_buff = true
+        end
+
+        -- 玩家在自己汽车内部空间（车内 surface 名为数字，属自己名下的车）也享受加成
+        if not should_buff and tonumber(player.physical_surface.name) ~= nil then
+            local ic_cars = IC.get('cars')
+            for _, c in pairs(ic_cars) do
+                if c.owner == player.index and c.surface == player.physical_surface.index then
+                    should_buff = true
+                    break
+                end
+            end
         end
 
         if should_buff then
