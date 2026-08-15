@@ -215,8 +215,20 @@ function Public.rand_box(surface, position)
   if get_tile.valid and get_tile.name == 'out-of-map' then
   return
   end
+  -- 世界21 熔岩之心：岩浆瓦片上无法放置容器，直接跳过（避免 create_entity 报错）
+  if diff.get().world == 21 and get_tile.valid then
+    local tile_name = get_tile.name
+    if tile_name == 'lava' or tile_name == 'lava-hot' then
+      return
+    end
+  end
   local chest = 'iron-chest'
-  Loot.add(surface, position, chest)
+  -- 世界21 熔岩之心：火星区（通道顶部往上，y ≤ -480）宝箱物品数量 ×3
+  local mult = 1
+  if diff.get().world == 21 and position.y <= -480 then
+    mult = 3
+  end
+  Loot.add(surface, position, chest, mult)
 end
 
 function Public.rand_building(surface, maxs, position)
@@ -294,6 +306,17 @@ function Public.ywjz(surface, position, maxs, shop)
 
   if map and map.world == 11 then
     current_weight_shop = 0
+  end
+
+  -- 世界21 熔岩之心：野外市场只生成于岩浆区的市场块（由 world_21 模块自管），
+  -- 此处禁用随机市场分支，避免市场出现在方块/通道/火星区
+  if map and map.world == 21 then
+    current_weight_shop = 0
+    -- 火星区（通道顶部往上，y ≤ -480）宝箱出现概率 ×2（物品数量 ×3 见 loot.lua）
+    if position.y <= -480 then
+      current_weight_box = current_weight_box * 2
+      current_weight_epic_box = current_weight_epic_box * 2
+    end
   end
 
   if rand_k <= current_weight_shop then

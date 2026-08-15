@@ -327,6 +327,51 @@ function Public.refresh_shop(market)
         end
     end
 
+    -- World 框架：market_price_multiplier（世界21 熔岩之心 = 0.8）——常规市场价格打 8 折
+    --（升级道具 / 固定商品 / 随机商品 / 世界特供均打折，world21 固定价特供除外——特供在其后添加）。
+    -- 统一 clear + 重加，this.market_random_offers 引用的仍是同一批 offer 表（价格已更新）。
+    local price_mult = World.get_field(this.world_number, 'market_price_multiplier')
+    if price_mult and price_mult ~= 1 then
+        local items = market.get_market_items()
+        for _, item in ipairs(items) do
+            if item.price and item.price[1] and item.price[1].count then
+                item.price[1].count = math.floor(item.price[1].count * price_mult + 0.5)
+            end
+        end
+        market.clear_market_items()
+        for _, item in ipairs(items) do
+            market.add_market_item(item)
+        end
+    end
+
+    -- 世界21 熔岩之心：出生市场固定出售工程基座 foundation（500 波内 100 金币 /
+    -- 500-1500 波 200 / 1500 波以上 500）与铸造机 foundry（固定 5000），
+    -- 以及传说插件塔 beacon（500 波以前 10k / 500-1000 波 20k / 1000-2000 波 50k /
+    -- 2000 波以后 100k）。
+    -- 特供固定价商品在 8 折处理之后添加，保持用户指定售价（不参与 8 折）。
+    if this.world_number == 21 then
+        local wave_number = WD.get('wave_number') or 0
+        local foundation_price = 100
+        if wave_number > 500 then foundation_price = 200 end
+        if wave_number > 1500 then foundation_price = 500 end
+        market.add_market_item({
+            price = {{name = "coin", count = foundation_price}},
+            offer = {type = 'give-item', item = 'foundation', count = 1}
+        })
+        market.add_market_item({
+            price = {{name = "coin", count = 5000}},
+            offer = {type = 'give-item', item = 'foundry', count = 1}
+        })
+        local beacon_price = 10000
+        if wave_number >= 500 then beacon_price = 20000 end
+        if wave_number >= 1000 then beacon_price = 50000 end
+        if wave_number >= 2000 then beacon_price = 100000 end
+        market.add_market_item({
+            price = {{name = "coin", count = beacon_price}},
+            offer = {type = 'give-item', item = 'beacon', count = 1, quality = 'legendary'}
+        })
+    end
+
     game.print({'amap.refresh_shop'})
 
     -- 通知 GUI 刷新（如果 market_gui 模块已加载）

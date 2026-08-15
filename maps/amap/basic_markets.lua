@@ -4,6 +4,7 @@ local market = {}
 local random = math.random
 local floor = math.floor
 local WPT = require 'maps.amap.table'
+local World = require 'maps.amap.world.framework'
 
 
 local blacklist = {
@@ -408,6 +409,21 @@ function Public.mountain_market(surface, position, rarity, buy)
         local buys = get_resource_market_buys()
         for i = 1, random(1, 3), 1 do
             mrk.add_market_item(buys[i])
+        end
+    end
+
+    -- World 框架：market_price_multiplier（世界21 熔岩之心 = 0.8）——野外市场价格打 8 折
+    local price_mult = World.get_field(world_number, 'market_price_multiplier')
+    if price_mult and price_mult ~= 1 then
+        local items = mrk.get_market_items()
+        for _, item in ipairs(items) do
+            if item.price and item.price[1] and item.price[1].count then
+                item.price[1].count = math.floor(item.price[1].count * price_mult + 0.5)
+            end
+        end
+        mrk.clear_market_items()
+        for _, item in ipairs(items) do
+            mrk.add_market_item(item)
         end
     end
 

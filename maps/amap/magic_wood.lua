@@ -43,7 +43,7 @@ local MAX_TOTAL_VALUE = 10000
 ----------------------------------------------------------------
 local all_items = {
     -- 军事
-    "firearm-magazine", "piercing-rounds-magazine",
+    "firearm-magazine", "piercing-rounds-magazine", "uranium-rounds-magazine",
     "shotgun-shell", "piercing-shotgun-shell", "rocket", "explosive-rocket",
     "flamethrower-ammo", "grenade", "cluster-grenade", "poison-capsule",
     "slowdown-capsule", "land-mine", "defender-capsule", "distractor-capsule",

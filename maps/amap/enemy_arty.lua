@@ -1666,6 +1666,20 @@ local function get_new_arty()
     local temp_pos
     local position
     if is_silo_world then
+        -- 世界21 熔岩之心：堡垒 y 夹逼在通道区间（arty_settings.channel_y = {上, 下}，
+        -- 负方向为"上"；世界 21 用 {CHANNEL_TOP=-480, CHANNEL_BOTTOM=-128} 保证堡垒只生成在通道内）
+        local channel_y = arty_settings.channel_y
+        local clamp_y
+        if channel_y then
+            clamp_y = function(v)
+                if v < channel_y[1] then v = channel_y[1] end
+                if v > channel_y[2] then v = channel_y[2] end
+                return v
+            end
+        else
+            clamp_y = function(v) return v end
+        end
+
         temp_pos = target.position
         if this.baolei_y ~= 0 then
             temp_pos.y = this.baolei_y
@@ -1681,7 +1695,7 @@ local function get_new_arty()
         while entities ~= 0 do
             temp_pos = {
                 x = 0,
-                y = temp_pos.y - 115
+                y = clamp_y(temp_pos.y - 115)
             }
             entities = surface.count_entities_filtered {
                 position = temp_pos,
@@ -1692,7 +1706,7 @@ local function get_new_arty()
             }
         end
 
-        this.baolei_y = temp_pos.y
+        this.baolei_y = clamp_y(temp_pos.y)
         position = wave_defense_table.spawn_position
     elseif arty_settings.mode == 'custom_4way' then
         -- 世界15：四个通道远端各生成一个堡垒，轮流放置
@@ -1754,18 +1768,15 @@ local function get_new_arty()
             game.print('注意：你必须摧毁所有堡垒，才能对核弹发射井造成伤害！！', {255, 0, 0})
             return
         else
-            Public.baolei({
-                x = -65,
-                y = this.baolei_y
-            }, wave_number, surface)
-            Public.baolei({
-                x = 65,
-                y = this.baolei_y
-            }, wave_number, surface)
-            Public.baolei({
-                x = 0,
-                y = this.baolei_y
-            }, wave_number, surface)
+            -- 三点堡垒 x 坐标可配置（世界21 通道半宽 64，用 -56/0/56 避开黑暗带；
+            -- 其余 silo 世界保持原 -65/0/65）
+            local x_points = arty_settings.three_points_x or {-65, 0, 65}
+            for _, bx in ipairs(x_points) do
+                Public.baolei({
+                    x = bx,
+                    y = this.baolei_y
+                }, wave_number, surface)
+            end
         end
 
     end
