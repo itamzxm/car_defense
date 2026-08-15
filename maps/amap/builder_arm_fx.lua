@@ -33,119 +33,139 @@ local ARM_COST = 8 * ARM_TTL
 
 local arms = {}
 
+-- 执行建造回调（动画不可播/中断时的退化直建共用入口；错误只记日志，不中断调用方）
+local function call_exec(on_exec)
+    if not on_exec then return end
+    local ok, err = pcall(on_exec)
+    if not ok then
+        log('[BuilderArm] on_exec error: ' .. tostring(err))
+    end
+end
+
+-- 销毁单个动画的全部绘制对象（幂等，character 失效后 rendering 对象可能已自动销毁）
+local function destroy_arm(arm)
+    for _, d in ipairs(arm.objects) do
+        if d.valid then d.destroy() end
+    end
+    if arm.flash and arm.flash.valid then arm.flash.destroy() end
+end
+
 -- 每 tick 更新所有进行中的机械臂动画
 local function update_arms()
     for i = #arms, 1, -1 do
         local arm = arms[i]
         arm.age = arm.age + 1
 
-        -- 前摇结束（抓取时刻）：触发真实建造回调（此时手已到目标位置）
-        if arm.age == ARM_EXEC_TICK and arm.on_exec then
-            local ok, err = pcall(arm.on_exec)
-            if not ok then
-                log('[BuilderArm] on_exec error: ' .. tostring(err))
+        if arm.character.valid then
+            -- 前摇结束（抓取时刻）：触发真实建造回调（此时手已到目标位置）
+            if arm.age == ARM_EXEC_TICK and arm.on_exec then
+                call_exec(arm.on_exec)
             end
-        end
 
-        local t = arm.age / ARM_TTL
+            local t = arm.age / ARM_TTL
 
-        -- 目标点每 tick 锚定世界坐标（玩家走动时自动补偿偏移，手臂钉在目标上）
-        -- 肩部 offset 相对角色（跟随玩家），目标 offset = 世界坐标 - 角色当前位置
-        local cx, cy = arm.character.position.x, arm.character.position.y
-        local tx = arm.wx - cx
-        local ty = arm.wy - cy
+            -- 目标点每 tick 锚定世界坐标（玩家走动时自动补偿偏移，手臂钉在目标上）
+            -- 肩部 offset 相对角色（跟随玩家），目标 offset = 世界坐标 - 角色当前位置
+            local cx, cy = arm.character.position.x, arm.character.position.y
+            local tx = arm.wx - cx
+            local ty = arm.wy - cy
 
-        -- ---- 手部位置（4 阶段：伸出→抓取→抬起→收回）----
-        local hx, hy
-        local grab_angle   -- 抓手开合角（弧度）
-        local alpha = 1
+            -- ---- 手部位置（4 阶段：伸出→抓取→抬起→收回）----
+            local hx, hy
+            local grab_angle   -- 抓手开合角（弧度）
+            local alpha = 1
 
-        if t < 0.35 then
-            -- 伸出（ease-out）
-            local p = t / 0.35
-            local e = 1 - (1 - p) * (1 - p)
-            hx = arm.sx + (tx - arm.sx) * e
-            hy = arm.sy + (ty - arm.sy) * e
-            grab_angle = 0.5
-        elseif t < 0.45 then
-            -- 抓取（抓手闭合）
-            hx, hy = tx, ty
-            local p = (t - 0.35) / 0.10
-            grab_angle = 0.5 - 0.42 * p
-        elseif t < 0.55 then
-            -- 抬起（带着"建筑"上提）
-            local p = (t - 0.45) / 0.10
-            hx = tx
-            hy = ty - 0.5 * p
-            grab_angle = 0.08
-        else
-            -- 收回（ease-in + 淡出）
-            local p = (t - 0.55) / 0.45
-            local e = p * p
-            hx = tx + (arm.sx - tx) * e
-            hy = ty - 0.5 + (arm.sy + 0.5 - ty) * e
-            grab_angle = 0.08
-            alpha = 1 - p
-        end
-
-        -- ---- 肘部（两段臂折角：中点 + 垂直偏移）----
-        local mx, my = (arm.sx + hx) / 2, (arm.sy + hy) / 2
-        local dx, dy = hx - arm.sx, hy - arm.sy
-        local dl = math.max(0.001, math.sqrt(dx * dx + dy * dy))
-        local nx, ny = -dy / dl, dx / dl
-        local ex, ey = mx + nx * 0.35, my + ny * 0.35
-
-        -- ---- 抓手端点（开合角）----
-        local gdx, gdy = dx / dl, dy / dl          -- 手伸出方向
-        local gpx, gpy = -gdy, gdx                  -- 垂直方向
-        local g1x = hx + gdx * 0.3 + gpx * math.sin(grab_angle) * 0.35
-        local g1y = hy + gdy * 0.3 + gpy * math.sin(grab_angle) * 0.35
-        local g2x = hx + gdx * 0.3 - gpx * math.sin(grab_angle) * 0.35
-        local g2y = hy + gdy * 0.3 - gpy * math.sin(grab_angle) * 0.35
-
-        -- ---- 更新绘制对象 ----
-        local o = arm.objects
-        o[1].from = {entity = arm.character, offset = {arm.sx, arm.sy}}
-        o[1].to = {entity = arm.character, offset = {ex, ey}}
-        o[2].from = {entity = arm.character, offset = {ex, ey}}
-        o[2].to = {entity = arm.character, offset = {hx, hy}}
-        o[3].target = {entity = arm.character, offset = {ex, ey}}
-        o[4].from = {entity = arm.character, offset = {hx, hy}}
-        o[4].to = {entity = arm.character, offset = {g1x, g1y}}
-        o[5].from = {entity = arm.character, offset = {hx, hy}}
-        o[5].to = {entity = arm.character, offset = {g2x, g2y}}
-        o[6].target = {entity = arm.character, offset = {hx, hy}}
-
-        -- 淡出
-        if alpha < 1 then
-            local a1 = 0.9 * alpha
-            local a2 = 0.85 * alpha
-            o[1].color = {r = ARM_COLOR.r, g = ARM_COLOR.g, b = ARM_COLOR.b, a = a1}
-            o[2].color = {r = ARM_COLOR.r, g = ARM_COLOR.g, b = ARM_COLOR.b, a = a2}
-            o[3].color = {r = ARM_COLOR_BRIGHT.r, g = ARM_COLOR_BRIGHT.g, b = ARM_COLOR_BRIGHT.b, a = 0.9 * alpha}
-            o[4].color = {r = HAND_GRAB.r, g = HAND_GRAB.g, b = HAND_GRAB.b, a = 0.95 * alpha}
-            o[5].color = {r = HAND_GRAB.r, g = HAND_GRAB.g, b = HAND_GRAB.b, a = 0.95 * alpha}
-            o[6].color = {r = ARM_COLOR_BRIGHT.r, g = ARM_COLOR_BRIGHT.g, b = ARM_COLOR_BRIGHT.b, a = alpha}
-        end
-
-        -- 目标闪光环（扩散 + 淡出，锚定世界坐标补偿玩家移动）
-        if arm.flash and arm.flash.valid then
-            arm.flash.target = {entity = arm.character, offset = {tx, ty}}
-            local fp = arm.age / 20
-            if fp <= 1 then
-                arm.flash.radius = 0.3 + fp * 0.9
-                arm.flash.color = {r = 1, g = 0.85, b = 0.4, a = 0.8 * (1 - fp)}
+            if t < 0.35 then
+                -- 伸出（ease-out）
+                local p = t / 0.35
+                local e = 1 - (1 - p) * (1 - p)
+                hx = arm.sx + (tx - arm.sx) * e
+                hy = arm.sy + (ty - arm.sy) * e
+                grab_angle = 0.5
+            elseif t < 0.45 then
+                -- 抓取（抓手闭合）
+                hx, hy = tx, ty
+                local p = (t - 0.35) / 0.10
+                grab_angle = 0.5 - 0.42 * p
+            elseif t < 0.55 then
+                -- 抬起（带着"建筑"上提）
+                local p = (t - 0.45) / 0.10
+                hx = tx
+                hy = ty - 0.5 * p
+                grab_angle = 0.08
             else
-                arm.flash.visible = false
+                -- 收回（ease-in + 淡出）
+                local p = (t - 0.55) / 0.45
+                local e = p * p
+                hx = tx + (arm.sx - tx) * e
+                hy = ty - 0.5 + (arm.sy + 0.5 - ty) * e
+                grab_angle = 0.08
+                alpha = 1 - p
             end
-        end
 
-        -- 到期销毁
-        if arm.age >= ARM_TTL then
-            for _, d in ipairs(arm.objects) do
-                if d.valid then d.destroy() end
+            -- ---- 肘部（两段臂折角：中点 + 垂直偏移）----
+            local mx, my = (arm.sx + hx) / 2, (arm.sy + hy) / 2
+            local dx, dy = hx - arm.sx, hy - arm.sy
+            local dl = math.max(0.001, math.sqrt(dx * dx + dy * dy))
+            local nx, ny = -dy / dl, dx / dl
+            local ex, ey = mx + nx * 0.35, my + ny * 0.35
+
+            -- ---- 抓手端点（开合角）----
+            local gdx, gdy = dx / dl, dy / dl          -- 手伸出方向
+            local gpx, gpy = -gdy, gdx                  -- 垂直方向
+            local g1x = hx + gdx * 0.3 + gpx * math.sin(grab_angle) * 0.35
+            local g1y = hy + gdy * 0.3 + gpy * math.sin(grab_angle) * 0.35
+            local g2x = hx + gdx * 0.3 - gpx * math.sin(grab_angle) * 0.35
+            local g2y = hy + gdy * 0.3 - gpy * math.sin(grab_angle) * 0.35
+
+            -- ---- 更新绘制对象 ----
+            local o = arm.objects
+            o[1].from = {entity = arm.character, offset = {arm.sx, arm.sy}}
+            o[1].to = {entity = arm.character, offset = {ex, ey}}
+            o[2].from = {entity = arm.character, offset = {ex, ey}}
+            o[2].to = {entity = arm.character, offset = {hx, hy}}
+            o[3].target = {entity = arm.character, offset = {ex, ey}}
+            o[4].from = {entity = arm.character, offset = {hx, hy}}
+            o[4].to = {entity = arm.character, offset = {g1x, g1y}}
+            o[5].from = {entity = arm.character, offset = {hx, hy}}
+            o[5].to = {entity = arm.character, offset = {g2x, g2y}}
+            o[6].target = {entity = arm.character, offset = {hx, hy}}
+
+            -- 淡出
+            if alpha < 1 then
+                local a1 = 0.9 * alpha
+                local a2 = 0.85 * alpha
+                o[1].color = {r = ARM_COLOR.r, g = ARM_COLOR.g, b = ARM_COLOR.b, a = a1}
+                o[2].color = {r = ARM_COLOR.r, g = ARM_COLOR.g, b = ARM_COLOR.b, a = a2}
+                o[3].color = {r = ARM_COLOR_BRIGHT.r, g = ARM_COLOR_BRIGHT.g, b = ARM_COLOR_BRIGHT.b, a = 0.9 * alpha}
+                o[4].color = {r = HAND_GRAB.r, g = HAND_GRAB.g, b = HAND_GRAB.b, a = 0.95 * alpha}
+                o[5].color = {r = HAND_GRAB.r, g = HAND_GRAB.g, b = HAND_GRAB.b, a = 0.95 * alpha}
+                o[6].color = {r = ARM_COLOR_BRIGHT.r, g = ARM_COLOR_BRIGHT.g, b = ARM_COLOR_BRIGHT.b, a = alpha}
             end
-            if arm.flash and arm.flash.valid then arm.flash.destroy() end
+
+            -- 目标闪光环（扩散 + 淡出，锚定世界坐标补偿玩家移动）
+            if arm.flash and arm.flash.valid then
+                arm.flash.target = {entity = arm.character, offset = {tx, ty}}
+                local fp = arm.age / 20
+                if fp <= 1 then
+                    arm.flash.radius = 0.3 + fp * 0.9
+                    arm.flash.color = {r = 1, g = 0.85, b = 0.4, a = 0.8 * (1 - fp)}
+                else
+                    arm.flash.visible = false
+                end
+            end
+
+            -- 到期销毁
+            if arm.age >= ARM_TTL then
+                destroy_arm(arm)
+                table.remove(arms, i)
+            end
+        else
+            -- 玩家死亡/换角色/传送 → character 失效：动画无法继续绘制。
+            -- 未执行的建造回调立即退化执行（建造不因动画中断而丢失），随后清理本动画；
+            -- 绝不让一个失效动画抛错中断整批动画的更新（否则后续动画的 on_exec 也会被吞）
+            call_exec(arm.on_exec)
+            destroy_arm(arm)
             table.remove(arms, i)
         end
     end
@@ -159,13 +179,19 @@ end
 -- on_exec: 可选回调，在机械臂"抓取"时刻（ARM_EXEC_TICK tick）调用一次，
 --          用于执行真实建造（create/revive）——动画与实体出现严格同步（前摇→执行→后摇）
 function Public.spawn_builder_arm(player, target_position, on_exec)
-    if not player or not player.valid then return end
-    if not target_position then return end
+    -- 动画是视觉装饰、可舍弃；建造回调是真实功能、不可丢。
+    -- 所有"动画不可播"的提前 return 路径都先退化执行 on_exec（立即直建），保证自动建造永不静默丢失。
+    if not player or not player.valid then
+        call_exec(on_exec)
+        return
+    end
+    if not target_position then
+        call_exec(on_exec)
+        return
+    end
     local character = player.character
-    if not character or not character.valid then return end
-
-    -- 预算网关：预算不足（动画过密/全服过载）直接舍弃，不播放
-    if not FxBudget.try_spend(player.index, ARM_COST) then
+    if not character or not character.valid then
+        call_exec(on_exec)
         return
     end
 
@@ -174,9 +200,19 @@ function Public.spawn_builder_arm(player, target_position, on_exec)
 
     -- 目标位置：保存世界绝对坐标（播放中每 tick 补偿玩家移动，手臂钉在目标上）
     local wx, wy = target_position.x, target_position.y
-    -- 限制距离：太远不播（臂长有限）
+    -- 限制距离：臂长有限，超出动画范围不播；但建造回调必须执行（退化直建，无动画但建造不丢）
     local dist = math.sqrt((wx - character.position.x) ^ 2 + (wy - character.position.y) ^ 2)
-    if dist > 12 then return end
+    if dist > 12 then
+        call_exec(on_exec)
+        return
+    end
+
+    -- 预算网关：动画预算不足（动画过密/全服过载）直接舍弃动画，建造不丢——退化直建
+    if not FxBudget.try_spend(player.index, ARM_COST) then
+        log('[BuilderArm] budget insufficient, animation dropped, fallback to direct build')
+        call_exec(on_exec)
+        return
+    end
 
     local sx, sy = SHOULDER.x, SHOULDER.y
 
