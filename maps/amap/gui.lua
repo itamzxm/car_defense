@@ -935,7 +935,17 @@ local function draw_world_bonus_tab(player, frame)
                     growth_value = string.format('%.2f', (max_value - base_value) / (map_data.world_bonus.max_coefficient - map_data.world_bonus.base_coefficient))
                 end
                 local bonus_interval = World.get_field(world_id, 'world_bonus_interval') or map_data.world_bonus.coefficient_interval or 500
-                tooltip_text = {'amap.world_bonus_tooltip', base_value, growth_value, bonus_interval}
+                -- 概率型奖励（世界21 铸造机概率）：配置为 0.1/0.02（小数），tooltip 按百分比整数显示（10%/2%）
+                if bonus_type_data.name == 'foundry_chance_bonus' then
+                    tooltip_text = {
+                        'amap.world_bonus_tooltip_pct',
+                        math.floor(base_value * 100 + 0.5),
+                        string.format('%.2f', bonus_type_data.growth_value * 100),
+                        bonus_interval
+                    }
+                else
+                    tooltip_text = {'amap.world_bonus_tooltip', base_value, growth_value, bonus_interval}
+                end
             end
             
             world_frame.add({
@@ -954,6 +964,10 @@ local function draw_world_bonus_tab(player, frame)
                 local bonus_desc_key = 'amap.world_bonus_type_' .. world_id .. '_desc'
                 -- 数值与实际施加逻辑同源（插值模式 / 线性增长模式由 diff 统一判定）
                 local bonus_value = diff.get_world_bonus_value(world_id, world_data) or 0
+                -- 概率型奖励（世界21）：配置为小数（0.1/0.02），desc 按百分比整数显示（10%/2%）
+                if bonus_type.name == 'foundry_chance_bonus' then
+                    bonus_value = bonus_value * 100
+                end
                 status_text = {bonus_desc_key, bonus_value }
                 status_color = CONST.COLORS.GREEN
             else

@@ -942,7 +942,8 @@ local function spawn_unit_group()
     end
 
     -- 撼地虫仅在单位置生成时触发（避免多位置重复生成）
-    if num_positions == 1 then
+    -- 世界可经框架字段 spawn_demolisher=false 禁用（如世界21 熔岩之心：无撼地虫）
+    if num_positions == 1 and World.get_field(world_id, 'spawn_demolisher') ~= false then
         BiterRolls.try_spawn_demolisher(surface, spawn_positions[1], target)
     end
 

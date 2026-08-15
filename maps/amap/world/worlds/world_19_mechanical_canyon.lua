@@ -2,7 +2,7 @@
 -- 世界 19：机械峡谷
 --
 -- 特点：长条狭谷。中间 192 格正常地型（同山谷），左右各 192 格极密集石头
---       （密度 = 山谷 5 倍，石下正常生成矿物；仅限距中心上下 960 格内），
+--       （密度 = 山谷 5 倍，石下正常生成矿物；仅限距中心上下 1472 格内），
 --       地图外为不可穿越的黑色虚空。虫子从上下两个方向进攻；沿长轴每隔
 --       46 格自动生成不可摧毁/拆除的精良机器人指令塔（固定一条横向直线，
 --       无自带电力，需玩家接电线杆供电），构成机器人连接骨架——
@@ -14,6 +14,7 @@ local WD = require 'modules.wave_defense.table'
 local diff = require 'maps.amap.diff'
 local world_function = require 'maps.amap.world.world_function'
 local tianfu = require 'maps.amap.tianfu'
+local tianfu_table = require 'maps.amap.tianfu_table'
 
 --==============================================================================
 -- 常量
@@ -21,26 +22,26 @@ local tianfu = require 'maps.amap.tianfu'
 
 local MAP_HALF_WIDTH = 288              -- 地图半宽（横向宽 576 / 2）
 local NORMAL_HALF_WIDTH = 96            -- 中间正常地型半宽（192 / 2）
-local ROCK_BAND_HALF_LENGTH = 960       -- 石头带纵向范围：距中心上下 960 格内才生成
+local ROCK_BAND_HALF_LENGTH = 1472      -- 石头带纵向范围：距中心上下 1472 格内才生成
 local TOWER_INTERVAL = 46               -- 指令塔间隔（格），从中心向左右延伸
 local TOWER_Y = 0                       -- 指令塔固定横向直线（y 完全一致）
 local WAVE_SPAWN_DISTANCE = 128         -- 波虫生成距离：上下 128 格外，可随建筑后移
 local TALENT_CAP = 60                   -- 本图任意玩家天赋上限（到达后无论如何无法获取）
 
 -- 科技瓶 → 天赋数（首次研究含该瓶的科技即发放；90k 金币池 / 不计 20 限购 / 等同顶尖人才）
--- 橙/粉/草/靛/黑瓶为预留映射（当前环境无此类科技瓶，包存在时自动生效）
+-- 橙/粉/草/靛/黑瓶为 Factorio 2.1 Space Age 本体科技瓶（冶金/电磁/农业/低温/钷素）
 local SCIENCE_PACK_TALENTS = {
-    ['logistic-science-pack'] = 1,      -- 绿瓶 +1
-    ['military-science-pack'] = 1,      -- 灰瓶 +1
-    ['chemical-science-pack'] = 1,      -- 蓝瓶 +1
-    ['production-science-pack'] = 1,    -- 紫瓶 +1
-    ['utility-science-pack'] = 1,       -- 黄瓶 +1
-    ['space-science-pack'] = 1,         -- 白瓶 +1
-    ['orange-science-pack'] = 2,        -- 橙瓶 +2（预留）
-    ['pink-science-pack'] = 2,          -- 粉瓶 +2（预留）
-    ['grass-science-pack'] = 2,         -- 草瓶 +2（预留）
-    ['indigo-science-pack'] = 3,        -- 靛瓶 +3（预留）
-    ['black-science-pack'] = 5,         -- 黑瓶 +5（预留）
+    ['logistic-science-pack'] = 1,          -- 绿瓶 +1
+    ['military-science-pack'] = 1,          -- 灰瓶 +1
+    ['chemical-science-pack'] = 1,          -- 蓝瓶 +1
+    ['production-science-pack'] = 1,        -- 紫瓶 +1
+    ['utility-science-pack'] = 1,           -- 黄瓶 +1
+    ['space-science-pack'] = 1,             -- 白瓶 +1
+    ['metallurgic-science-pack'] = 2,       -- 橙瓶（冶金）+2
+    ['electromagnetic-science-pack'] = 2,   -- 粉瓶（电磁）+2
+    ['agricultural-science-pack'] = 2,      -- 草瓶（农业）+2
+    ['cryogenic-science-pack'] = 3,         -- 靛瓶（低温）+3
+    ['promethium-science-pack'] = 5,        -- 黑瓶（钷素）+5
 }
 
 -- 石头抽奖（与 world_function.rock_raffle 保持一致）
@@ -242,7 +243,7 @@ end
 
 --==============================================================================
 -- 天赋机制
---   · 80 级 +1 天赋（RPG 玩家等级）：tianfu_jiange = 80，由 tianfu.lua 消费
+--   · 50 级 +1 天赋（RPG 玩家等级）：tianfu_jiange = 50，由 tianfu.lua 消费
 --   · 首次研究含各色科技瓶 → 发天赋（90k 金币池 / 不计 20 限购 / 等同顶尖人才）
 --   · 本图任意玩家天赋 ≤ 60
 --   · 每个玩家自动获得精良好运连连（hyll，品质精良 = q_idx 2）
@@ -274,7 +275,7 @@ local function world19_grant_hyll(player)
     end
     main_table.tianfu_enabled[player.index].hyll = true
     -- 倒排索引登记（与 tianfu.lua 方案 B 一致，供事件遍历/删除同步）
-    local tpt = tianfu.get()
+    local tpt = tianfu_table.get()
     if not tpt.skill_owners then tpt.skill_owners = {} end
     if not tpt.skill_owners.hyll then tpt.skill_owners.hyll = {} end
     tpt.skill_owners.hyll[player.index] = true
@@ -322,10 +323,41 @@ local function world19_process_talent_queue()
     end
 end
 
--- 首次研究含各色科技瓶 → 全员发天赋（每瓶每局只发一次）。
--- 注：reset_map 期间脚本强制研究的科技（悬崖炸药/激光射速/小行星处理等）也会触发
--- 本事件，其入队会在首个 [60] tick 的 world19_finish_reset 中被整体清空，
--- 播报改在真正发放时（process_talent_queue）输出，重置期不会产生误导公告。
+-- reset_map 期间脚本强制研究的科技（main.lua 开局直接 researched=true 会触发完成事件，
+-- 并非玩家真实研究）→ 不触发科技瓶天赋：
+--   悬崖炸药 / 高级星岩处理 / 星岩再处理
+local SCRIPT_RESEARCH_BLACKLIST = {
+    ['cliff-explosives'] = true,
+    ['advanced-asteroid-processing'] = true,
+    ['asteroid-reprocessing'] = true,
+}
+
+-- 首次研究含某色科技瓶 → 给「本局还没拿过该瓶天赋」的在线玩家发天赋（按玩家记录，
+-- 不再全局按瓶标记）。玩家中途加入 / 离线期间错过 → on_player_joined_game 补发。
+local function world19_grant_science_talent(pack, count)
+    local this = WPT.get()
+    if not this.world19_science_granted then
+        this.world19_science_granted = {}
+    end
+    local pack_tbl = this.world19_science_granted[pack]
+    -- 兼容旧存档：旧代码存的是布尔标记（science_granted[pack] = true），按表索引会崩溃，
+    -- 遇到非表值重建为玩家记录表（旧标记作废，视为本局重新获得资格）
+    if type(pack_tbl) ~= 'table' then
+        pack_tbl = {}
+        this.world19_science_granted[pack] = pack_tbl
+    end
+    for _, player in pairs(game.connected_players) do
+        if player and player.valid and player.force.name == 'player' then
+            if not pack_tbl[player.name] then
+                pack_tbl[player.name] = true
+                world19_enqueue_talent(player.index, count)
+            end
+        end
+    end
+end
+
+-- 首次研究含各色科技瓶 → 发天赋（每玩家每瓶每局只发一次）。
+-- 脚本强制研究的科技（悬崖炸药/小行星处理等）在此拦截，不会误触发。
 local function on_research_finished(event)
     local this = WPT.get()
     if (this and this.world_number or 0) ~= 19 then return end
@@ -334,24 +366,35 @@ local function on_research_finished(event)
     if not tech or not tech.valid then return end
     if tech.force.index ~= game.forces.player.index then return end
 
+    if SCRIPT_RESEARCH_BLACKLIST[tech.name] then return end
+
     local proto = tech.prototype
     -- 2.1.x 科技配方入口：LuaTechnologyPrototype.research_unit_ingredients
     -- （原型上无 ingredients/unit 字段，误用会在事件里抛错）
     local ingredients = proto and proto.research_unit_ingredients
     if not ingredients then return end
 
-    if not this.world19_science_granted then
-        this.world19_science_granted = {}
-    end
     for _, ing in ipairs(ingredients) do
         local pack = ing.name
         local count = SCIENCE_PACK_TALENTS[pack]
-        if count and not this.world19_science_granted[pack] then
-            this.world19_science_granted[pack] = true
-            for _, player in pairs(game.connected_players) do
-                if player and player.valid and player.force.name == 'player' then
-                    world19_enqueue_talent(player.index, count)
-                end
+        if count then
+            world19_grant_science_talent(pack, count)
+        end
+    end
+end
+
+-- 补发：本局已研究过的科技瓶，玩家此前（离线 / 中途加入）没拿过的立即入队
+local function world19_grant_missing_science_talents(player)
+    if not player or not player.valid or player.force.name ~= 'player' then return end
+    local this = WPT.get()
+    local granted = this.world19_science_granted
+    if not granted then return end
+    for pack, pack_tbl in pairs(granted) do
+        if type(pack_tbl) == 'table' and not pack_tbl[player.name] then
+            local count = SCIENCE_PACK_TALENTS[pack]
+            if count then
+                pack_tbl[player.name] = true
+                world19_enqueue_talent(player.index, count)
             end
         end
     end
@@ -373,7 +416,7 @@ local function world19_remove_excess_talent(player)
     if main_table.tianfu_enabled and main_table.tianfu_enabled[player.index] then
         main_table.tianfu_enabled[player.index][victim] = nil
     end
-    local tpt = tianfu.get()
+    local tpt = tianfu_table.get()
     if tpt.skill_owners and tpt.skill_owners[victim] then
         tpt.skill_owners[victim][player.index] = nil
     end
@@ -427,64 +470,27 @@ local function fortress_position_valid(position)
 end
 
 --==============================================================================
--- 通关奖励：通关（2000 波）后，每局游戏每个玩家起始物资 +5 传说建造机器人，
--- 且从 2000 波算起每多 400 波再多 +1（如 2800~3199 波结束 = 7 个），
--- 范围为所有地图（记录更新；实际发放由 diff.apply_world_bonuses 完成）
+-- 通关奖励：通关（1500 波）后，每局游戏每个玩家起始物资 +5 传说建造机器人，
+-- 且从 1500 波算起每多 500 波再多 +1（如 2300~2799 波结束 = 7 个），
+-- 范围为所有地图（记录由 game_over 通用结算，实际发放由 diff.apply_world_bonuses 完成）
 --==============================================================================
-
-local function world19_update_bonus_record(wave_number)
-    local map = diff.get()
-    if not map or not map.world_bonus then return end
-    if map.world_bonus[19] == nil then
-        map.world_bonus[19] = {unlocked = false, coefficient = 0, max_wave = 0}
-    end
-    local record = map.world_bonus[19]
-    if wave_number <= record.max_wave then return end
-
-    local old_unlocked = record.unlocked
-    local old_value = diff.get_world_bonus_value(19, record)
-    record.max_wave = wave_number
-
-    local start_wave = World.get_field(19, 'world_bonus_start_wave') or map.world_bonus.start_wave
-    local interval = World.get_field(19, 'world_bonus_interval') or map.world_bonus.coefficient_interval
-    if wave_number < start_wave then return end
-    record.unlocked = true
-    local coefficient_increase = math.floor((wave_number - start_wave) / interval)
-    record.coefficient = math.min(
-        map.world_bonus.base_coefficient + coefficient_increase,
-        map.world_bonus.max_coefficient
-    )
-
-    local new_value = diff.get_world_bonus_value(19, record)
-    if not old_unlocked then
-        game.print({'amap.world_bonus_unlocked', 4}, {r = 255, g = 255, b = 0})
-    elseif new_value and old_value and new_value > old_value then
-        game.print({'amap.world_bonus_increased_value', 4, new_value}, {r = 0, g = 255, b = 0})
-    end
-end
-
-local function on_tick(event)
-    local this = WPT.get()
-    if (this and this.world_number or 0) ~= 19 then return end
-    local wave_number = WD.get('wave_number') or 0
-    if wave_number >= 2000 then
-        world19_update_bonus_record(wave_number)
-    end
-end
 
 --==============================================================================
 -- 世界进入钩子
 --==============================================================================
 
--- 首个 [60] tick 执行：清空世界重置期间脚本强制研究触发的科技瓶天赋（含发放队列）。
--- 玩家在开局 1 秒内不可能完成任何研究，故该清空只影响 reset_map 的脚本研究事件。
+-- 首个 [60] tick 执行：读档清理。服务器刚读档时无玩家在线（客户端加入时必有玩家），
+-- 此时清空上一局残留的科技瓶天赋记录（含发放队列）。
+--   · 重置（reset_map）路径：on_world_start 已直接清空，此处有玩家在线不重复清理；
+--   · 客户端加入后：与服务器基于同一 game.connected_players 判断（全局同步数据），
+--     加入的客户端不会多清一次已标记的记录 → 无 desync 风险。
 local function world19_finish_reset()
     local this = WPT.get()
     if (this and this.world_number or 0) ~= 19 then return end
-    if not this.world19_pending_reset then return end
-    this.world19_pending_reset = nil
-    this.world19_science_granted = {}
-    this.world19_talent_queue = {}
+    if #game.connected_players == 0 then
+        this.world19_science_granted = {}
+        this.world19_talent_queue = {}
+    end
 end
 
 local function on_world_start(world_number)
@@ -507,12 +513,11 @@ local function on_world_start(world_number)
         world19_grant_hyll(player)
     end
 
-    -- 科技瓶天赋标记不清在此处清：reset_map 期间脚本强制研究的科技
-    -- （cliff-explosives / 激光射速 / 小行星处理等）会在本钩子前后触发
-    -- on_research_finished，直接清会与事件时序产生竞争。
-    -- 改为置 pending 标记，由首个 [60] tick 的 world19_finish_reset 统一清空，
-    -- 保证「首次研究」奖励只发给玩家真实的研究行为。
-    this.world19_pending_reset = true
+    -- 科技瓶天赋本局状态清零（脚本强制研究的科技已被 SCRIPT_RESEARCH_BLACKLIST 拦截，
+    -- 重置期不会产生误标记，此处直接清空无时序竞争）。
+    this.world19_science_granted = {}
+    this.world19_talent_queue = {}
+    this.world19_session_tick = game.tick
 
     -- 补齐初始区块内的指令塔：soft_reset 在 active_surface_index 赋值前生成
     -- 的初始区块（x ∈ [-64, 63]）跳过了 on_chunk_generated，塔需在此补建
@@ -536,13 +541,14 @@ local function on_world_start(world_number)
     end
 end
 
--- 世界内玩家加入：自动获得精良好运连连
+-- 世界内玩家加入：自动获得精良好运连连；并补发此前研究完成但该玩家未领取的科技瓶天赋
 local function on_player_joined_game(event)
     local this = WPT.get()
     if (this and this.world_number or 0) ~= 19 then return end
     local player = game.players[event.player_index]
     if player then
         world19_grant_hyll(player)
+        world19_grant_missing_science_talents(player)
     end
 end
 
@@ -577,8 +583,8 @@ World.register(19, {
     --==========================================================================
     -- 战斗规则
     --==========================================================================
-    -- 本局火焰塔数量：4
-    max_flame = 4,
+    -- 本局火焰塔数量：1
+    max_flame = 1,
 
     -- 虫子生成方向：上下两个方向（双向出波），128 格外（随建筑后移见模块逻辑）
     biter_spawn_rule = {
@@ -620,8 +626,8 @@ World.register(19, {
     disable_legendary_wood_chest = true,
 
     --==========================================================================
-    -- 通关奖励：通关（2000 波）后，每局游戏每个玩家起始物资 +5 传说建造机器人，
-    -- 且从 2000 波算起每多 400 波再多 +1（如 2800~3199 波结束 = 7 个），
+    -- 通关奖励：通关（1500 波）后，每局游戏每个玩家起始物资 +5 传说建造机器人，
+    -- 且从 1500 波算起每多 500 波再多 +1（如 2300~2799 波结束 = 7 个），
     -- 范围为所有地图（由 diff.apply_world_bonuses 统一施加）
     --==========================================================================
     world_bonus_type = {
@@ -630,15 +636,15 @@ World.register(19, {
         base_value = 5,
         growth_value = 1,
     },
-    world_bonus_start_wave = 2000,
-    world_bonus_interval = 400,
+    world_bonus_start_wave = 1500,
+    world_bonus_interval = 500,
     joins_solar_system_edge = true,
 
     --==========================================================================
     -- 专属机制
     --==========================================================================
-    -- 天赋间隔：80 级 +1 天赋（RPG 玩家等级，由 tianfu.lua 消费）
-    tianfu_jiange = 80,
+    -- 天赋间隔：50 级 +1 天赋（RPG 玩家等级，由 tianfu.lua 消费）
+    tianfu_jiange = 50,
 
     -- 世界进入钩子：本图强化 / 自动天赋 / 禁用野外组装机 / 重置每局状态 / 补齐初始区块指令塔
     on_world_start = on_world_start,
@@ -658,7 +664,6 @@ World.register(19, {
         },
         [60] = {
             world19_finish_reset,        -- 开局首个 tick 清空重置期脚本研究的科技瓶天赋
-            on_tick,                     -- 2000 波后通关记录更新
             world19_enforce_talent_cap,  -- 天赋 ≤60 封锁
             world19_process_talent_queue,-- 科技瓶天赋逐次发放
             world19_apply_wave_interval, -- 2000 波后波次间隔 +2%/100波（≤+30%）

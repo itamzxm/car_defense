@@ -25,12 +25,17 @@ function Public.get_distance(position)
     return difficulty
 end
 
-function Public.add(surface, position, chest)
+function Public.add(surface, position, chest, mult)
   local x= position.x
   local y = position.y
   local dist = math.sqrt(x*x+y*y)
     local budget = 48 + dist*1.45
     budget = budget * math.random(25, 175) * 0.01
+
+    -- 物品数量倍率（世界21 熔岩之心火星区 ×3 由调用方 rand_box 传入）
+    if mult and mult > 1 then
+      budget = budget * mult
+    end
 
     if math.random(1, 128) == 1 then
         budget = budget * 4

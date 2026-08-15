@@ -42,6 +42,21 @@ local set_diff = function()
 
   local this = WPT.get()
 
+  -- 旧存档升级补缺：新注册世界（如 21 熔岩之心）在旧档里没有 world_bonus 记录，
+  -- 会导致世界加成面板不显示该世界行、通关记录无处写入。每 60 tick 校验一次（廉价）。
+  if map.world_bonus then
+    local registered_worlds = World.get_registered_worlds()
+    for _, world_id in ipairs(registered_worlds) do
+      if map.world_bonus[world_id] == nil then
+        map.world_bonus[world_id] = {
+          unlocked = false,
+          coefficient = 0,
+          max_wave = 0
+        }
+      end
+    end
+  end
+
 --make_game_mode()
 --  if map.world==6 then 
    -- this.max_flame=14

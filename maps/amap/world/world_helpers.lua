@@ -16,6 +16,7 @@ local BiterRolls = require 'modules.wave_defense.biter_rolls'
 local MT = require "maps.amap.basic_markets"
 local Factories = require 'maps.amap.production'
 local diff = require 'maps.amap.diff'
+local World = require 'maps.amap.world.framework'
 local world_function = require 'maps.amap.world.world_function'
 local enemy_arty = require 'maps.amap.enemy_arty'
 local Instance = require 'maps.amap.instance.instance'
@@ -215,8 +216,21 @@ function Public.rand_box(surface, position)
   if get_tile.valid and get_tile.name == 'out-of-map' then
   return
   end
+  -- 岩浆瓦片上无法放置容器，直接跳过（避免 create_entity 报错）；
+  -- 世界21 熔岩之心通过框架字段 chest_lava_skip 声明（world_21_lava_heart.lua）
+  if World.get_field(diff.get().world, 'chest_lava_skip') and get_tile.valid then
+    local tile_name = get_tile.name
+    if tile_name == 'lava' or tile_name == 'lava-hot' then
+      return
+    end
+  end
   local chest = 'iron-chest'
-  Loot.add(surface, position, chest)
+  -- 火星区（y ≤ -480）宝箱物品数量倍率：世界21 声明 mars_chest_mult=3，其他世界缺省 1
+  local mult = 1
+  if position.y <= -480 then
+    mult = World.get_field(diff.get().world, 'mars_chest_mult') or 1
+  end
+  Loot.add(surface, position, chest, mult)
 end
 
 function Public.rand_building(surface, maxs, position)
@@ -294,6 +308,19 @@ function Public.ywjz(surface, position, maxs, shop)
 
   if map and map.world == 11 then
     current_weight_shop = 0
+  end
+
+  -- 野外市场只在市场块生成（由世界模块自管）：世界21 熔岩之心通过框架字段
+  -- wild_market_disabled 声明禁用随机市场分支，避免市场出现在方块/通道/火星区
+  if map and World.get_field(map.world, 'wild_market_disabled') then
+    current_weight_shop = 0
+    -- 火星区（通道顶部往上，y ≤ -480）宝箱出现概率倍率：
+    -- 世界21 声明 mars_box_weight_mult=2（物品数量倍率见 rand_box）
+    if position.y <= -480 then
+      local mars_weight_mult = World.get_field(map.world, 'mars_box_weight_mult') or 1
+      current_weight_box = current_weight_box * mars_weight_mult
+      current_weight_epic_box = current_weight_epic_box * mars_weight_mult
+    end
   end
 
   if rand_k <= current_weight_shop then

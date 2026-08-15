@@ -893,15 +893,6 @@ if research.name == "planet-discovery-aquilo" then
     end
 end
 
-    -- 同步科技给qiche阵营
-    local qiche = game.forces.qiche
-    if qiche then
-        local qiche_tech = qiche.technologies[research.name]
-        if qiche_tech and not qiche_tech.researched then
-            qiche_tech.researched = true
-        end
-    end
-
 end
 
 

@@ -43,81 +43,6 @@ local function is_in_car_surface(entity)
     return tonumber(name) ~= nil
 end
 
--- 将汽车内生产类建筑改为qiche阵营
--- 注意：蓝图（entity-ghost / tile-ghost）不在此处转换阵营，保持玩家阵营。
--- 否则玩家摆放蓝图时，蓝图 ghost 会被强制改为 qiche 阵营，
--- 导致只有 qiche 阵营建设机器人能施工，且蓝图本身被归入汽车阵营。
-local function apply_qiche_force(entity)
-    local t = entity.type
-    if t == 'entity-ghost' or t == 'tile-ghost' then
-        return
-    end
-    entity.force = game.forces.qiche
-end
-
--- 物流机器人 / 建设机器人由机器人指令中心(roboport)部署，不会触发 on_built_entity / on_robot_built_entity，
--- 因此不会经过上面的 qiche 阵营转换。这里定期扫描所有汽车内部空间，把其中的机器人也归入 qiche 阵营。
-local function apply_qiche_force_to_robots()
-    local cars = IC.get('cars')
-    if not cars then
-        return
-    end
-    local qiche = game.forces.qiche
-    for _, car in pairs(cars) do
-        if car.surface then
-            local surface = game.surfaces[car.surface]
-            if surface and surface.valid then
-                local robots =
-                    surface.find_entities_filtered(
-                    {
-                        type = {'logistic-robot', 'construction-robot'}
-                    }
-                )
-                for _, robot in pairs(robots) do
-                    if robot.valid and robot.force ~= qiche then
-                        robot.force = qiche
-                    end
-                end
-            end
-        end
-    end
-end
-
--- 玩家在汽车内部空间使用红图（拆除规划器）时，红图默认把拆除任务按“玩家”阵营记录，
--- 而汽车内的机器人已被归入 qiche 阵营，qiche 机器人只执行“自己阵营”的拆除任务，
--- 因此这里在红图使用事件里即时处理：扫描红图区域内的 qiche 阵营建筑，改为 qiche 阵营标记，
--- 让 qiche 机器人来拆除。无需周期性同步，也不会误伤主世界。
-local function on_player_deconstructed_area(event)
-    local surface = event.surface
-    if not surface or not surface.valid then
-        return
-    end
-    -- 仅处理汽车内部空间（surface 名称为数字）
-    if tonumber(surface.name) == nil then
-        return
-    end
-
-    local qiche = game.forces.qiche
-    local area = event.area
-
-    -- 扫描红图区域内的 qiche 阵营建筑（汽车内玩家放置的建筑都已被转为 qiche 阵营）
-    local targets = surface.find_entities_filtered({
-        area = area,
-        force = qiche
-    })
-
-    for _, e in pairs(targets) do
-        if e.valid and e.minable
-            and e.type ~= 'logistic-robot' and e.type ~= 'construction-robot'
-            and not e.to_be_deconstructed(qiche) then
-            -- 实体本身属 qiche 阵营，必须以 qiche 权限操作（用 player 调用会报错）。
-            -- 直接以 qiche 阵营登记拆除标记即可，qiche 机器人会来执行拆除；无需取消其它标记。
-            e.order_deconstruction(qiche)
-        end
-    end
-end
-
-
 local function on_built_entity(event)
 
  
@@ -129,11 +54,7 @@ local function on_built_entity(event)
 
     local this=WPT.get()
 
-    -- 检查是否在汽车内空间，是则改为qiche阵营；火车内空间不归入汽车阵营
-    -- 如果实体所在图层与商店相同，则不转化阵营（避免污染主世界层）
-    if is_in_car_surface(ce) and ce.surface ~= this.shop.surface then
-        apply_qiche_force(ce)
-    end
+    -- 车内建筑保持玩家阵营（玩家可正常操作/施工/拆除）
 
     local valid_types = IC.get_types()
 
@@ -156,15 +77,7 @@ local function on_built_entity(event)
 end
 
 local function on_robot_built_entity(event)
-    local ce = event.entity
-    if not ce or not ce.valid then
-        return
-    end
-    local this=WPT.get()
-    -- 如果实体所在图层与商店相同，则不转化阵营（避免污染主世界层）
-    if is_in_car_surface(ce) and ce.surface ~= this.shop.surface then
-        apply_qiche_force(ce)
-    end
+    -- 车内建筑保持玩家阵营（on_built_entity 已统一处理，无需额外转换）
 end
 
 local function on_player_driving_changed_state(event)
@@ -188,11 +101,6 @@ local function on_tick()
 
     if tick % (20 * 60) == 0 then
         Functions.remove_invalid_cars()
-    end
-
-    -- 每隔 2 秒把汽车内部空间的机器人归入 qiche 阵营（机器人由 roboport 部署，不会触发建造事件）
-    if tick % 120 == 0 then
-        apply_qiche_force_to_robots()
     end
 
 end
@@ -358,7 +266,6 @@ Event.add(defines.events.on_player_changed_surface, changed_surface)
 Event.add(IC.events.on_player_kicked_from_surface, trigger_on_player_kicked_from_surface)
 Event.add(defines.events.on_gui_switch_state_changed, on_gui_switch_state_changed)
 Event.add(defines.events.on_robot_built_entity, on_robot_built_entity)
-Event.add(defines.events.on_player_deconstructed_area, on_player_deconstructed_area)
 
 --Event.add(defines.events.on_player_repaired_entity, on_player_repaired_entity)
 

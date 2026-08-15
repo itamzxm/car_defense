@@ -147,7 +147,7 @@ function Public.reset_table()
       ["enemy-base"] = {frequency = 0, size = 0, richness = 0}
     },
     -- 世界19 机械峡谷：铁/铜/石/煤/铀 400% 丰度/分布/大小（标准形态 ×4），
-    -- 石油 200%，污染与虫巢成长同山谷（enemy-base 同 cave），树木同山谷
+    -- 石油 200%，污染与虫巢成长同山谷（enemy-base 密度 = 山谷 2 倍，树木同山谷）
     world19 = {
        ["water"] = {frequency = 0.1, size = 0.1, richness = 0.1},
       ["coal"] = {frequency = 4, size = 4, richness = 4},
@@ -157,7 +157,7 @@ function Public.reset_table()
       ["uranium-ore"] = {frequency = 4, size = 4, richness = 4},
       ["crude-oil"] = {frequency = 2, size = 2, richness = 2},
       ["trees"] = {frequency = 1, size = 0.7, richness = 0.7},
-      ["enemy-base"] = {frequency = 3, size = 2, richness = 1}
+      ["enemy-base"] = {frequency = 6, size = 2, richness = 1}
     },
     -- 铁路模式 - 高资源密度，无树木
     rail = {
@@ -226,6 +226,19 @@ function Public.reset_table()
       ["iron-ore"] = {frequency = 1, size = 0, richness = 1},
       ["uranium-ore"] = {frequency = 1, size = 0, richness = 1},
       ["crude-oil"] = {frequency = 1, size = 0, richness = 1},
+      ["trees"] = {frequency = 1, size = 0.7, richness = 0.7},
+      ["enemy-base"] = {frequency = 1, size = 0, richness = 1}
+    },
+    -- 世界21 熔岩之心 - 方块区默认随机矿同四季（quarter 同款），禁自动虫巢（火星区手动放置）；
+    -- 火星区方解石/废料由 world_21 模块代码生成（模拟本体矿 17%/17%/17%：稀疏小团 + 团内 17% 密度）
+    world21 = {
+      ["water"] = {frequency = 0.1, size = 0.1, richness = 0.1},
+      ["coal"] = {frequency = 1, size = 1, richness = 0.7},
+      ["stone"] = {frequency = 1, size = 1, richness = 0.7},
+      ["copper-ore"] = {frequency = 1, size = 2, richness = 0.7},
+      ["iron-ore"] = {frequency = 1, size = 2, richness = 0.7},
+      ["uranium-ore"] = {frequency = 1.4, size = 2, richness = 1},
+      ["crude-oil"] = {frequency = 2, size = 2, richness = 1.2},
       ["trees"] = {frequency = 1, size = 0.7, richness = 0.7},
       ["enemy-base"] = {frequency = 1, size = 0, richness = 1}
     }
