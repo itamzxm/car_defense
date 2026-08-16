@@ -19,17 +19,11 @@ local WPT = require 'maps.amap.table'
 -- 中立实体红图拆除策略（原 modules/no_deconstruction_of_neutral_entities.lua 移入框架）
 --
 -- 规则（框架统一管理，消除散落的拦截逻辑）：
---   · 世界19：中立 大石头（big-rock / huge-rock / big-sand-rock）、树（tree）、
---     普通实体（simple-entity）允许红图拆除（供石头带开采与建造机器人挖掘）；
---   · 其余世界：仅 allow_deconst_list 白名单（cliff / item-entity / fish）放行，
---     其余中立实体一律取消拆除标记（树/普通实体额外弹解锁提示）。
+--   · 树木（tree）与普通实体（simple-entity，含大石头 big-rock / huge-rock /
+--     big-sand-rock）所有世界一律允许红图拆除；
+--   · 其余中立实体：仅 allow_deconst_list 白名单（cliff / item-entity / fish）
+--     放行，其余一律取消拆除标记。
 --==============================================================================
-
-local DECONSTRUCTABLE_ROCKS = {
-    ['big-rock'] = true,
-    ['huge-rock'] = true,
-    ['big-sand-rock'] = true,
-}
 
 local function on_marked_for_deconstruction(event)
     local entity = event.entity
@@ -37,26 +31,13 @@ local function on_marked_for_deconstruction(event)
     if not event.player_index then return end
     if entity.force.name ~= 'neutral' then return end
 
-    local this = WPT.get()
-    local world_id = this and this.world_number
-    local is_rock = DECONSTRUCTABLE_ROCKS[entity.name]
-    local is_tree_or_simple = entity.type == 'tree' or entity.type == 'simple-entity'
-
-    -- 大石头 / 树 / 普通实体：仅世界19 可拆，其余世界一律禁止。
-    -- 不查 allow_deconst_list，防止旧存档残留白名单导致其他世界放行。
-    if is_rock or is_tree_or_simple then
-        if world_id == 19 then
-            return
-        end
-        entity.cancel_deconstruction(game.players[event.player_index].force.name)
-        if is_tree_or_simple then
-            local player = game.players[event.player_index]
-            player.print({'amap.try_to_deconst'})
-        end
+    -- 树 / 普通实体（含岩石）：所有世界一律放行
+    if entity.type == 'tree' or entity.type == 'simple-entity' then
         return
     end
 
     -- 其余中立实体：白名单放行（cliff / item-entity / fish 等既有配置）
+    local this = WPT.get()
     local blacklist = this and this.allow_deconst_list
     if blacklist and blacklist[entity.type] then
         return
