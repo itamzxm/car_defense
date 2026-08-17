@@ -412,7 +412,7 @@ function Public.mountain_market(surface, position, rarity, buy)
         end
     end
 
-    -- World 框架：market_price_multiplier（世界21 熔岩之心 = 0.8）——野外市场价格打 8 折
+    -- World 框架：market_price_multiplier（当前无世界配置；若未来配置则野外市场价格打折）
     local price_mult = World.get_field(world_number, 'market_price_multiplier')
     if price_mult and price_mult ~= 1 then
         local items = mrk.get_market_items()

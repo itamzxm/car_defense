@@ -327,7 +327,7 @@ function Public.refresh_shop(market)
         end
     end
 
-    -- World 框架：market_price_multiplier（世界21 熔岩之心 = 0.8）——常规市场价格打 8 折
+    -- World 框架：market_price_multiplier（当前无世界配置；若未来配置则常规市场价格打折）
     --（升级道具 / 固定商品 / 随机商品 / 世界特供均打折，world21 固定价特供除外——特供在其后添加）。
     -- 统一 clear + 重加，this.market_random_offers 引用的仍是同一批 offer 表（价格已更新）。
     local price_mult = World.get_field(this.world_number, 'market_price_multiplier')

@@ -19,7 +19,7 @@
 --   2. 出生市场固定出售工程基座 foundation（500 波内 100 金币 / 500-1500 波 200 /
 --      1500 波以上 500）、铸造机 foundry（5000 金币）与传说插件塔 beacon
 --      （500 波以前 10k / 500-1000 波 20k / 1000-2000 波 50k / 2000 波以后 100k）。
---   3. 野外市场只生成于岩浆区的市场块上（3×3 最小承载面）；全市场价格 ×0.8（market_price_multiplier）。
+--   3. 野外市场只生成于岩浆区的市场块上（3×3 最小承载面）。
 --   4. 天赋：50 级 +1（tianfu_jiange=50）；首次研究含各色科技瓶 → 发天赋（同世界19）；
 --      本图任意玩家天赋 ≤ 60。
 --   5. 科技倍率 ×1（默认）；开局解锁熔融铸造（foundry 科技）；黄瓶后解锁填海（全局机制）。
@@ -242,17 +242,12 @@ local function terrain_generator(surface, position, seed, get_tile, set_tiles, e
         set_tiles({{name = 'out-of-map', position = position}})
     elseif py <= CHANNEL_TOP then
         -- 火星地形：火山岩为主 + 稀疏岩浆分布（5%，点状岩浆流淌感；
-        -- 方解石/废料由 on_chunk_generated 每 chunk 中心生成 2×2 矿）+ 虫巢（1/90，同山谷密度）
+        -- 方解石/废料由 on_chunk_generated 每 chunk 中心生成 2×2 矿；
+        -- 虫巢/沙虫由 on_chunk_generated 每 chunk 统一生成（见下），此处不逐格生成）
         if math.random(1, 100) <= 5 then
             set_tiles({{name = 'lava', position = position}})
         else
             set_tiles({{name = VOLCANIC_TILES[math.random(1, #VOLCANIC_TILES)], position = position}})
-        end
-        if math.random(1, 30) == 1 then
-            local spawner_name = Helpers.spawner[math.random(1, 2)]
-            if Helpers.rand_worm(surface, position) then
-                surface.create_entity({name = spawner_name, position = position, force = game.forces.enemy})
-            end
         end
     else
         -- 岩浆区：全部岩浆
@@ -320,6 +315,54 @@ local function on_chunk_generated(event)
                     amount = amount,
                 })
             end
+        end
+    end
+
+    -- 火星区虫巢/沙虫：每 chunk 生成（虫巢密度约为旧逐格 bug 的 1/10，接近正常游戏密度）。
+    -- 幂等：按本 chunk 已有巢数补足目标数（重载/存档加载不会重复累积）
+    if c_cy <= CHANNEL_TOP then
+        local have = 0
+        local existing = surface.find_entities_filtered({area = area, type = 'unit-spawner', force = 'enemy'})
+        for _, e in pairs(existing) do
+            if e.valid then
+                have = have + 1
+            end
+        end
+        -- 虫巢密度：每区块 3~4 个（约山谷 3 倍 / 旧逐格 bug 的 1/10，平衡性能与强度）
+        local target = 3
+        if math.random(1, 3) == 1 then
+            target = 4
+        end
+        local offsets = {
+            {x = lt_x + 8, y = lt_y + 8},
+            {x = lt_x + 24, y = lt_y + 8},
+            {x = lt_x + 8, y = lt_y + 24},
+            {x = lt_x + 24, y = lt_y + 24},
+        }
+        local need = target - have
+        if need > 0 then
+            for i = 1, need do
+                local base = offsets[i]
+                local pos = surface.find_non_colliding_position('biter-spawner', base, 6, 4)
+                if pos then
+                    surface.create_entity({
+                        name = Helpers.spawner[math.random(1, 2)],
+                        position = pos,
+                        force = game.forces.enemy,
+                    })
+                end
+            end
+        end
+        local have_worm = false
+        for _, e in pairs(surface.find_entities_filtered({area = area, type = 'turret', force = 'enemy'})) do
+            if e.valid and e.name:find('worm') then
+                have_worm = true
+                break
+            end
+        end
+        if not have_worm and math.random(1, 5) == 1 then
+            local center = {x = lt_x + 16, y = lt_y + 16}
+            Helpers.rand_worm(surface, center)
         end
     end
 
@@ -795,9 +838,6 @@ World.register(21, {
     --==========================================================================
     -- 天赋间隔：50 级 +1（RPG 玩家等级，由 tianfu.lua 消费）
     tianfu_jiange = 50,
-
-    -- 全市场价格 ×0.8（rock.lua refresh_shop / basic_markets.lua mountain_market 消费）
-    market_price_multiplier = 0.8,
 
     -- 岩浆瓦片跳过宝箱放置（world_helpers.rand_box 消费）
     chest_lava_skip = true,
