@@ -242,12 +242,26 @@ local function terrain_generator(surface, position, seed, get_tile, set_tiles, e
         set_tiles({{name = 'out-of-map', position = position}})
     elseif py <= CHANNEL_TOP then
         -- 火星地形：火山岩为主 + 稀疏岩浆分布（5%，点状岩浆流淌感；
-        -- 方解石/废料由 on_chunk_generated 每 chunk 中心生成 2×2 矿；
-        -- 虫巢/沙虫由 on_chunk_generated 每 chunk 统一生成（见下），此处不逐格生成）
+        -- 方解石/废料由 on_chunk_generated 每 chunk 中心生成 2×2 矿
+        -- 虫巢/沙虫：赤壁机制——逐格概率生成（1/25 ≈ 每区块 40 巢，用户要求 20 的 2 倍），
+        -- 沙虫跟随虫巢同格生成（同频，赤壁同款结构）。
+        -- 总量由 world21_entity_cap 每 10 秒上限清理兜底（4000 巢 / 2000 沙虫），防止无限火星区爆卡
         if math.random(1, 100) <= 5 then
             set_tiles({{name = 'lava', position = position}})
         else
             set_tiles({{name = VOLCANIC_TILES[math.random(1, #VOLCANIC_TILES)], position = position}})
+        end
+        if math.random(1, 25) == 1 then
+            local spawner_name = Helpers.spawner[math.random(1, 2)]
+            if surface.can_place_entity({name = spawner_name, position = position, force = game.forces.enemy}) then
+                if Helpers.rand_worm(surface, position) then
+                    surface.create_entity({
+                        name = spawner_name,
+                        position = position,
+                        force = game.forces.enemy,
+                    })
+                end
+            end
         end
     else
         -- 岩浆区：全部岩浆
@@ -315,54 +329,6 @@ local function on_chunk_generated(event)
                     amount = amount,
                 })
             end
-        end
-    end
-
-    -- 火星区虫巢/沙虫：每 chunk 生成（虫巢密度约为旧逐格 bug 的 1/10，接近正常游戏密度）。
-    -- 幂等：按本 chunk 已有巢数补足目标数（重载/存档加载不会重复累积）
-    if c_cy <= CHANNEL_TOP then
-        local have = 0
-        local existing = surface.find_entities_filtered({area = area, type = 'unit-spawner', force = 'enemy'})
-        for _, e in pairs(existing) do
-            if e.valid then
-                have = have + 1
-            end
-        end
-        -- 虫巢密度：每区块 3~4 个（约山谷 3 倍 / 旧逐格 bug 的 1/10，平衡性能与强度）
-        local target = 3
-        if math.random(1, 3) == 1 then
-            target = 4
-        end
-        local offsets = {
-            {x = lt_x + 8, y = lt_y + 8},
-            {x = lt_x + 24, y = lt_y + 8},
-            {x = lt_x + 8, y = lt_y + 24},
-            {x = lt_x + 24, y = lt_y + 24},
-        }
-        local need = target - have
-        if need > 0 then
-            for i = 1, need do
-                local base = offsets[i]
-                local pos = surface.find_non_colliding_position('biter-spawner', base, 6, 4)
-                if pos then
-                    surface.create_entity({
-                        name = Helpers.spawner[math.random(1, 2)],
-                        position = pos,
-                        force = game.forces.enemy,
-                    })
-                end
-            end
-        end
-        local have_worm = false
-        for _, e in pairs(surface.find_entities_filtered({area = area, type = 'turret', force = 'enemy'})) do
-            if e.valid and e.name:find('worm') then
-                have_worm = true
-                break
-            end
-        end
-        if not have_worm and math.random(1, 5) == 1 then
-            local center = {x = lt_x + 16, y = lt_y + 16}
-            Helpers.rand_worm(surface, center)
         end
     end
 
@@ -450,6 +416,46 @@ local function on_chunk_generated(event)
             end
         end
     end
+
+    -- 火星区虫巢/沙虫：由 terrain_generator 逐格生成（赤壁机制，见上），
+    -- 不再在此处生成；总量上限清理见 world21_entity_cap
+end
+
+--==============================================================================
+-- 虫巢/沙虫总量上限：防止无限火星区持续探索导致实体爆炸卡顿。
+-- 每 10 秒检查一次，超限时每轮删除「离出生点最远的 ≤200 个」，分轮收敛
+--（避免单轮批量 destroy 触发大量事件卡顿）
+--==============================================================================
+
+local function world21_entity_cap()
+    local this = WPT.get()
+    if (this and this.world_number or 0) ~= 21 then return end
+    local s = this.active_surface_index and game.surfaces[this.active_surface_index]
+    if not s or not s.valid then return end
+    local function trim(list, cap)
+        if #list <= cap then return end
+        table.sort(list, function(a, b)
+            local ad = a.position.x * a.position.x + a.position.y * a.position.y
+            local bd = b.position.x * b.position.x + b.position.y * b.position.y
+            return ad > bd
+        end)
+        local n = math.min(#list - cap, 200)
+        local del = 0
+        for i = 1, n do
+            if list[i].valid then
+                list[i].destroy()
+                del = del + 1
+            end
+        end
+    end
+    trim(s.find_entities_filtered({force = 'enemy', type = 'unit-spawner'}), 4000)
+    local worms = {}
+    for _, e in ipairs(s.find_entities_filtered({force = 'enemy', type = 'turret'})) do
+        if e.valid and e.name:find('worm') then
+            worms[#worms + 1] = e
+        end
+    end
+    trim(worms, 2000)
 end
 
 --==============================================================================
@@ -875,6 +881,9 @@ World.register(21, {
             world21_finish_reset,
             world21_enforce_talent_cap,
             world21_process_talent_queue,
+        },
+        [600] = {
+            world21_entity_cap,
         },
     },
 })
