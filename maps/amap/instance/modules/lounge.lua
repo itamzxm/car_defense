@@ -330,7 +330,7 @@ function M.on_surface_init(surface, player, data, difficulty)
                 local tile = surface.get_tile(p)
                 if tile.valid and tile.name ~= "water"
                    and not is_position_on_resource(surface, p) then
-                    -- pcall 防御：实体名缺失/放置失败不中断地形生成（world_15 同因注释）
+                    -- pcall 防御：实体名缺失/放置失败不中断地形生成
                     local ent = nil
                     local ok = pcall(function()
                         ent = surface.create_entity({name = pool[math.random(#pool)], position = p})

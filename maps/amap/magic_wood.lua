@@ -571,8 +571,7 @@ Event.add(defines.events.on_built_entity, function(event)
     if not player or not player.valid then return end
 
     -- 世界禁用传说木箱：必须早于 surface 检查。
-    -- 根因：世界15 使用 CS.create_surface() 自建表面（非 nauvis），原代码在 is_allowed_surface
-    -- 检查之后才判定 disable_legendary_wood_chest，导致世界15 永远走不到降级逻辑，传说木箱残留并生效。
+    -- 否则自建表面/非允许表面会先拦截，导致 disable_legendary_wood_chest 降级逻辑不生效。
     if entity.quality.name == 'legendary' then
         local this = G()
         local world_number = this.world_number or 1
@@ -619,7 +618,7 @@ Event.add(defines.events.on_built_entity, function(event)
 end)
 
 -- 施工机器人建造：玩家手动放置之外的旁路，同样需要执行传说木箱禁用降级，
--- 否则机器人放置的传说木箱会绕过 on_built_entity 的禁用逻辑（世界15 实测残留）。
+-- 否则机器人放置的传说木箱会绕过 on_built_entity 的禁用逻辑。
 Event.add(defines.events.on_robot_built_entity, function(event)
     local entity = event.entity
     if not entity or not entity.valid then return end

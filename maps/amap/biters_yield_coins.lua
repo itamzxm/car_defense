@@ -92,7 +92,7 @@ local function on_entity_died(event)
     return
   end
 
-  -- 世界框架：部分世界（如世界15）使用自身奖励表独立给币，此处排除避免双重给币
+  -- 世界框架：部分世界使用自身奖励表独立给币，此处排除避免双重给币
   if World.get_field((WPT.get() or {}).world_number, 'custom_enemy_reward') then
     return
   end

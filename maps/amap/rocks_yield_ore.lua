@@ -123,7 +123,7 @@ local function get_amount(entity)
 end
 
 local function on_player_mined_entity(event)
-	-- 世界框架：部分世界（如世界15 纯塔防）禁用矿物生成，挖岩石不掉落任何矿石物品
+	-- 世界框架：部分世界（纯塔防）禁用矿物生成，挖岩石不掉落任何矿石物品
 	if World.get_field(diff.get().world, 'disable_rock_ore') then return end
 
 	local entity = event.entity

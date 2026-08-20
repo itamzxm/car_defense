@@ -574,8 +574,7 @@ function Public.reset_map()
     Functions.disable_tech()
 
     -- 世界级开局钩子（框架扩展点）：由各世界在 World.register 声明 on_world_start，
-    -- 在每次「进入 / 重进」世界时执行（如世界15 开局解锁全部非禁用科技）。
-    -- 这样「火箭发射井爆炸后重进世界15」也能正常解锁科技，不再依赖世界模块 on_nth_tick 自驱动。
+    -- 在每次「进入 / 重进」世界时执行（如世界19/21 处理重置与奖励发放）。
     -- 不在此处硬编码 world_number==XX，符合框架扩展点铁律（统一经 World.get_field 查表）。
     local on_world_start = World.get_field(world_number, 'on_world_start')
     if type(on_world_start) == 'function' then

@@ -1708,24 +1708,6 @@ local function get_new_arty()
 
         this.baolei_y = clamp_y(temp_pos.y)
         position = wave_defense_table.spawn_position
-    elseif arty_settings.mode == 'custom_4way' then
-        -- 世界15：四个通道远端各生成一个堡垒，轮流放置
-        local channel_ends = {
-            {0, -500},   -- 下
-            {500, 0},    -- 右
-            {0, 500},    -- 上
-            {-500, 0},   -- 左
-        }
-        if not this.world15_fortress_index then
-            this.world15_fortress_index = 0
-        end
-        this.world15_fortress_index = (this.world15_fortress_index % 4) + 1
-        local dir_pos = channel_ends[this.world15_fortress_index]
-        local target_pos = target.position
-        position = {
-            x = target_pos.x + dir_pos[1],
-            y = target_pos.y + dir_pos[2]
-        }
     else
         -- World 框架：mode == 'only_below' 决定堡垒只生成在下方半圈
         local only_below = (arty_settings.mode == 'only_below')

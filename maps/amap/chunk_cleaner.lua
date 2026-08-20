@@ -92,7 +92,7 @@ local function ring_of(c)
     return math.max(math.abs(c.x), math.abs(c.y))
 end
 
--- K5 区块面积手算（先例 world_15_tower_defense.lua:340-355）：32 格 = 1 区块
+-- K5 区块面积手算：32 格 = 1 区块
 local function chunk_area(c)
     return {left_top = {x = c.x * 32, y = c.y * 32}, right_bottom = {x = c.x * 32 + 32, y = c.y * 32 + 32}}
 end

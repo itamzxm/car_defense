@@ -855,7 +855,7 @@ local function spawn_unit_group()
 
     local surface = game.surfaces[surface_index]
 
-    -- 支持多位置同时生成（世界15四路同时进攻）
+    -- 支持多位置同时生成（多路同时进攻世界）
     local spawn_positions = WD.get('spawn_positions')
     if not spawn_positions then
         local sp = get_spawn_pos()
@@ -892,10 +892,10 @@ local function spawn_unit_group()
         end
     end
 
-    -- 多路公平配额（Bug #32 修复：世界15「100波后左/下通道不刷虫」）
+    -- 多路公平配额（Bug #32 修复：多路世界「高波数后部分通道不刷虫」）
     -- 原逻辑按 spawn_positions 顺序逐路整编生成，而每只虫的准入检查读的是「本路开始时写入的全局
-    -- active_biter_count」：前几路生成完写回后，共享上限（世界15=400）被占满，靠后的通道整路被拒进
-    -- 血量池，从第 ~100 波起（场上残留虫越过阈值）恒定表现为「只从先遍历的两条通道出兵」。
+    -- active_biter_count」：前几路生成完写回后，共享上限被占满，靠后的通道整路被拒进
+    -- 血量池，从高波数起（场上残留虫越过阈值）恒定表现为「只从先遍历的部分通道出兵」。
     -- 现把「剩余容量」按路均分、再按小队均分，每路至多落 lane_budget 只，保证所有通道持续出兵；
     -- 单路世界（num_positions=1、squads=1）退化为原行为：effective_group_size = min(原编制, 剩余容量)。
     local remaining_capacity = math.max(0, WD.get('max_active_biters') - WD.get('active_biter_count'))

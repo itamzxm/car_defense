@@ -263,7 +263,7 @@ function Public.refresh_shop(market)
     market.clear_market_items()
     urgrade_item(market)
 
-    -- 世界框架：部分世界（如世界15 纯塔防）屏蔽指定市场物品（载具/鱼↔币兑换/随机商品保留）
+    -- 世界框架：部分世界（纯塔防）屏蔽指定市场物品（载具/鱼↔币兑换/随机商品保留）
     local blocked = World.get_field(this.world_number, 'blocked_market_offers')
     for _, item in pairs(market_items) do
         if blocked and item.offer and blocked[item.offer.item] then
@@ -316,7 +316,7 @@ function Public.refresh_shop(market)
         })
     end
 
-    -- 世界框架：部分世界（如世界15）在岩石市场追加固定物品（按"所有物品价值表"定价）
+    -- 世界框架：部分世界在岩石市场追加固定物品（按"所有物品价值表"定价）
     local extra_items = World.get_field(this.world_number, 'rock_shop_extra_items')
     if extra_items then
         for _, item in ipairs(extra_items) do

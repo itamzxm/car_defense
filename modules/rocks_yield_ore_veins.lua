@@ -147,7 +147,7 @@ end
 
 local function on_player_mined_entity(event)
 
-	-- 世界框架：部分世界（如世界15 纯塔防）禁用矿脉生成
+	-- 世界框架：部分世界（纯塔防）禁用矿脉生成
 	if World.get_field(diff.get().world, 'disable_rock_ore') then return end
 
 	if not event.entity.valid then return end

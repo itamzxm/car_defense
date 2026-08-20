@@ -376,7 +376,7 @@ end
     local fixed_skill = nil
     if is_first_selection then
         if zhiye == '建造者' and not is_tianfu_blacklisted('fuzhushou') then
-            fixed_skill = 'fuzhushou'  -- 辅助手（世界15 该天赋被禁用，则不再作为固定天赋）
+            fixed_skill = 'fuzhushou'  -- 辅助手（该天赋被禁用时，则不再作为固定天赋）
         elseif zhiye == '战士' then
             fixed_skill = 'genben'  -- 小跟班
         elseif zhiye == '法师' then
@@ -494,7 +494,7 @@ end
         --      （3 职业 + 1 固定 + 1 其他 = 5 张）退化成 3 职业 + 1 固定，
         --      再由下方补位逻辑塞 1 个完全随机天赋顶上。
         --   ② 数组空洞（更严重）：当职业分类可选天赋不足 3 个时
-        --      （世界15 天赋黑名单过滤后很容易出现），skill_options 长度可能只有 1~2，
+        --      （天赋黑名单过滤后很容易出现），skill_options 长度可能只有 1~2，
         --      此时写 index 4 会在 index 3 留下 nil 洞。有洞的表 `#` 在 Lua 中是
         --      未定义行为（二分边界，可能返回 2 也可能返回 4）：
         --        · 返回 4 → 下方按 ipairs 建卡片会在 nil 洞处提前中断，
@@ -846,7 +846,7 @@ local function on_gui_click(event)
     end
     local this = WPT.get()
     local rpg_t = rpgtable.get('rpg_t')
-    -- 天赋间隔经 World 框架配置表按世界查询：默认 35；竞技场/世界15 等声明 tianfu_jiange=15
+    -- 天赋间隔经 World 框架配置表按世界查询：默认 35；竞技场等声明 tianfu_jiange=15
     local jiange = World.get_field(this.world_number, 'tianfu_jiange') or 35
     -- 检查必要的变量是否存在
     if rpg_t[player.index] and rpg_t[player.index].level and this.tianfu_count and this.tianfu_count[player.index] and this.skill_canchoise and this.skill_canchoise[player.name] == 0 then
@@ -1082,7 +1082,7 @@ local function on_tick_learn_skill()
         local main_table = WPT.get()
 
         local frame = player.gui.screen['选择你的天赋']
-        -- 天赋间隔经 World 框架配置表按世界查询：默认 35；竞技场/世界15 等声明 tianfu_jiange=15
+        -- 天赋间隔经 World 框架配置表按世界查询：默认 35；竞技场等声明 tianfu_jiange=15
         local jiange = World.get_field(main_table.world_number, 'tianfu_jiange') or 35
         -- 检查必要的变量是否存在
         if rpg_t[player.index] and rpg_t[player.index].level and main_table.tianfu_count and main_table.tianfu_count[player.index] then

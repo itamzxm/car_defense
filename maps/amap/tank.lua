@@ -145,7 +145,7 @@ local function item_build_car(player)
       -- 不再 return，继续执行下方通用物资发放
     end
 
-    -- 车载开局物资钩子：由世界框架按世界提供（如世界15 仅发战斗物资 + 金币）。
+    -- 车载开局物资钩子：由世界框架按世界提供（部分世界仅发战斗物资 + 金币）。
     -- 返回 true 表示已处理，跳过下方通用物资循环；其它世界保持原逻辑不变。
     local car_hook = World.get_field(map.world, 'on_car_placed')
     local car_handled = false
@@ -698,7 +698,7 @@ local function game_over()
         local old_unlocked = record.unlocked
         local old_value = diff.get_world_bonus_value(map.world, record)
         record.max_wave = wave_number
-        -- World 框架：世界可经 World.register 覆写解锁波数/增档间隔（如世界15=2000/100），未声明用全局默认
+        -- World 框架：世界可经 World.register 覆写解锁波数/增档间隔，未声明用全局默认
         local bonus_start_wave = World.get_field(map.world, 'world_bonus_start_wave') or map.world_bonus.start_wave
         local bonus_interval = World.get_field(map.world, 'world_bonus_interval') or map.world_bonus.coefficient_interval
         if wave_number >= bonus_start_wave then

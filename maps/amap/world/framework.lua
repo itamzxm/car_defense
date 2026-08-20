@@ -86,7 +86,7 @@ local surface_configs = {}
 -- 被声明过的事件/间隔建立"唯一分发器"，运行时按当前世界查表调用其 handler。
 -- 非当前世界的 handler 一律不执行 → 世界间零串扰、世界模块零事件注册。
 --
---   World.register(15, {
+--   World.register(19, {
 --       events = {
 --           [defines.events.on_built_entity] = on_built_entity,               -- 单个
 --           [defines.events.on_entity_died]  = {on_boss_died, on_turret_died},-- 多个（按序调用）

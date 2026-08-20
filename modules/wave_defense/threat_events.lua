@@ -308,7 +308,7 @@ function(data)
   local active_biters = WD.get('active_biters')
   local tick = game.tick
 
-  -- 世界15 关闭「过量杀虫惩罚」（含虫群加速 buff）：经 World 配置表查表跳过，共享模块零 world_number==XX 特判
+  -- 部分世界关闭「过量杀虫惩罚」（含虫群加速 buff）：经 World 配置表查表跳过，共享模块零 world_number==XX 特判
   local wd_tbl = WPT.get()
   local nest_kill_punish_disabled = World.get_field(wd_tbl and wd_tbl.world_number, 'disable_nest_kill_punish')
 
@@ -688,7 +688,7 @@ local function spawn_unit_spawner_inhabitants(entity, cause)
   }
   
   -- 过量杀虫惩罚（更新2）：每次巢穴生成事件触发一次
-  -- 世界15 经 World 配置表 disable_nest_kill_punish 关闭（火/雷/裂隙/烟雾全禁），其他世界照常
+  -- 部分世界经 World 配置表 disable_nest_kill_punish 关闭（火/雷/裂隙/烟雾全禁），其他世界照常
   local nk = WD.get('nest_kills_per_minute')
   local wd_tbl2 = WPT.get()
   if nk >= 25 and not World.get_field(wd_tbl2 and wd_tbl2.world_number, 'disable_nest_kill_punish') then
