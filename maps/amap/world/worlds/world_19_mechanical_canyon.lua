@@ -2,7 +2,7 @@
 -- 世界 19：机械峡谷
 --
 -- 特点：长条狭谷。中间 192 格正常地型（同山谷），左右各 192 格极密集石头
---       （密度 = 山谷 5 倍，石下正常生成矿物；仅限距中心上下 1472 格内），
+--       （密度 = 山谷 4 倍，石下正常生成矿物；仅限距中心上下 1472 格内），
 --       地图外为不可穿越的黑色虚空。虫子从上下两个方向进攻；沿长轴每隔
 --       46 格自动生成不可摧毁/拆除的精良机器人指令塔（固定一条横向直线，
 --       无自带电力，需玩家接电线杆供电），构成机器人连接骨架——
@@ -15,6 +15,7 @@ local diff = require 'maps.amap.diff'
 local world_function = require 'maps.amap.world.world_function'
 local tianfu = require 'maps.amap.tianfu'
 local tianfu_table = require 'maps.amap.tianfu_table'
+local WorldTable = require 'maps.amap.world.world_table'
 
 --==============================================================================
 -- 常量
@@ -27,6 +28,35 @@ local TOWER_INTERVAL = 46               -- 指令塔间隔（格），从中心�
 local TOWER_Y = 0                       -- 指令塔固定横向直线（y 完全一致）
 local WAVE_SPAWN_DISTANCE = 128         -- 波虫生成距离：上下 128 格外，可随建筑后移
 local TALENT_CAP = 60                   -- 本图任意玩家天赋上限（到达后无论如何无法获取）
+
+--==============================================================================
+-- 地表资源配置（世界19 专属覆盖，不改共享 world_table.lua）
+--   surface.lua 每次 reset_map 重建地表时读 WorldTable.get('surface_configs')
+--   （按 surface_config_name = 'world19' 取键）。而 WorldTable.reset_table()
+--   每次会将该表整个重建。此处包装 reset_table，在每次重建后把 world19 键
+--   覆写为本世界专属配置（幂等，仅影响 world19 键）。
+--   配置：铁/铜/石/煤/石油 4/4/4，铀矿 3/3/3，虫子密度 = 山谷 1.2 倍。
+--==============================================================================
+local WORLD19_SURFACE_CONFIG = {
+    ['water'] = {frequency = 0.1, size = 0.1, richness = 0.1},
+    ['coal'] = {frequency = 4, size = 4, richness = 4},
+    ['stone'] = {frequency = 4, size = 4, richness = 4},
+    ['copper-ore'] = {frequency = 4, size = 4, richness = 4},
+    ['iron-ore'] = {frequency = 4, size = 4, richness = 4},
+    ['uranium-ore'] = {frequency = 3, size = 3, richness = 3},
+    ['crude-oil'] = {frequency = 4, size = 4, richness = 4},
+    ['trees'] = {frequency = 1, size = 0.7, richness = 0.7},
+    ['enemy-base'] = {frequency = 3.6, size = 2, richness = 1},
+}
+
+local world_table_orig_reset = WorldTable.reset_table
+WorldTable.reset_table = function()
+    world_table_orig_reset()
+    local sc = WorldTable.get('surface_configs')
+    if sc then
+        sc['world19'] = WORLD19_SURFACE_CONFIG
+    end
+end
 
 -- 科技瓶 → 天赋数（首次研究含该瓶的科技即发放；90k 金币池 / 不计 20 限购 / 等同顶尖人才）
 -- 橙/粉/草/靛/黑瓶为 Factorio 2.1 Space Age 本体科技瓶（冶金/电磁/农业/低温/钷素）
@@ -73,11 +103,11 @@ local function terrain_generator(surface, position, seed, get_tile, set_tiles, e
         -- 地图外：无地型黑色区块，不可穿越
         set_tiles({{name = 'out-of-map', position = position}})
     elseif abs_y_in_band(position.y) and abs_x > NORMAL_HALF_WIDTH then
-        -- 左右石头带（96 < |x| ≤ 288，且距中心上下 ≤ 960）：
-        -- 密度 = 山谷 5 倍。山谷实测平均 ≈4%/格，本带取均匀 20%/格（固定比例）；
+        -- 左右石头带（96 < |x| ≤ 288，且距中心上下 ≤ 1472）：
+        -- 密度 = 山谷 4 倍。山谷实测平均 ≈4%/格，本带取均匀 16%/格（固定比例）；
         -- 不设 can_place 检查——岩石直接叠放在矿上，即「石头下面正常生成矿物」
         -- （挖掉石头后露出矿脉，挖矿与扩张绑定）。
-        if math.random(1, 100) <= 20 then
+        if math.random(1, 100) <= 16 then
             surface.create_entity({
                 name = ROCK_RAFFLE[math.random(1, #ROCK_RAFFLE)],
                 position = position,
@@ -243,10 +273,10 @@ end
 
 --==============================================================================
 -- 天赋机制
---   · 50 级 +1 天赋（RPG 玩家等级）：tianfu_jiange = 50，由 tianfu.lua 消费
+--   · 45 级 +1 天赋（RPG 玩家等级）：tianfu_jiange = 45，由 tianfu.lua 消费
 --   · 首次研究含各色科技瓶 → 发天赋（90k 金币池 / 不计 20 限购 / 等同顶尖人才）
 --   · 本图任意玩家天赋 ≤ 60
---   · 每个玩家自动获得精良好运连连（hyll，品质精良 = q_idx 2）
+--   · 每个玩家自动获得稀有好运连连（hyll，品质稀有 = q_idx 3）
 --==============================================================================
 
 local function count_player_talents(player)
@@ -260,7 +290,7 @@ local function count_player_talents(player)
     return n
 end
 
--- 自动授予精良好运连连（触发天赋，品质精良 = q_idx 2，幂等）
+-- 自动授予稀有好运连连（触发天赋，品质稀有 = q_idx 3，幂等）
 local function world19_grant_hyll(player)
     if not player or not player.valid or player.force.name ~= 'player' then return end
     local main_table = WPT.get()
@@ -269,7 +299,7 @@ local function world19_grant_hyll(player)
     end
     if main_table.skill[player.name].hyll then return end
 
-    main_table.skill[player.name].hyll = 2
+    main_table.skill[player.name].hyll = 3
     if not main_table.tianfu_enabled[player.index] then
         main_table.tianfu_enabled[player.index] = {}
     end
@@ -493,6 +523,27 @@ local function world19_finish_reset()
     end
 end
 
+-- 撤销开局自动研发的「高级星岩处理 / 星岩再处理」（main.lua reset_map 末尾对非 14/21
+-- 世界强制把这两个科技 researched=true，on_world_start 早于此设置，须在进入世界19后的
+-- 首个 [60] tick 一次性撤销；开局 1 秒内不可能完成这些科技，不会误伤玩家手动研究）。
+-- 注：Factorio 2.x 的 LuaTechnology 无 research_progress 属性（会抛
+-- "LuaTechnology doesn't contain key research_progress"），只复位 researched。
+local function world19_unresearch_tech(name)
+    local tech = game.forces.player.technologies[name]
+    if tech and tech.valid then
+        tech.researched = false
+    end
+end
+
+local function world19_unresearch_advanced_asteroid()
+    local this = WPT.get()
+    if (this and this.world_number or 0) ~= 19 then return end
+    if not this.world19_pending_unresearch then return end
+    this.world19_pending_unresearch = nil
+    world19_unresearch_tech('advanced-asteroid-processing')
+    world19_unresearch_tech('asteroid-reprocessing')
+end
+
 local function on_world_start(world_number)
     local this = WPT.get()
     if not this then return end
@@ -500,15 +551,15 @@ local function on_world_start(world_number)
     -- 除出生点外无白嫖组装机（出生点「最后的防线」组装机保留）
     this.enable_wild_factorio = false
 
-    -- 本图玩家强化：挖掘速度 +200%、背包 +20
+    -- 本图玩家强化：挖掘速度 +200%、背包 +30（默认主背包 30 格 + 30 = 60 格）
     -- （force modifier 在 soft_reset 的 f.reset() 中清零，此处每次进入重新施加；
     --   挖掘速度走 force.manual_mining_speed_modifier——LuaForce 无
     --   character_mining_speed_modifier 属性，那是 LuaPlayer 级）
     local force = game.forces.player
     force.manual_mining_speed_modifier = force.manual_mining_speed_modifier + 2
-    force.character_inventory_slots_bonus = force.character_inventory_slots_bonus + 20
+    force.character_inventory_slots_bonus = force.character_inventory_slots_bonus + 30
 
-    -- 自动获得精良好运连连（全员，幂等）
+    -- 自动获得稀有好运连连（全员，幂等）
     for _, player in pairs(game.connected_players) do
         world19_grant_hyll(player)
     end
@@ -539,6 +590,11 @@ local function on_world_start(world_number)
             end
         end
     end
+
+    -- 去除开局自动研发「高级星岩处理 / 星岩再处理」：main.lua reset_map 末尾会强制把
+    -- 非 14/21 世界的这两个科技设为 researched=true（晚于本钩子），此处无法直接撤销，
+    -- 标记由进入世界后的首个 [60] tick 兜底撤销。
+    this.world19_pending_unresearch = true
 end
 
 -- 世界内玩家加入：自动获得精良好运连连；并补发此前研究完成但该玩家未领取的科技瓶天赋
@@ -570,14 +626,16 @@ World.register(19, {
     -- 首波虫子延迟：3900 秒（60 刻/秒）
     time_limit = 3900 * 60,
 
-    -- 资源：铁/铜/石/煤/铀 400% 丰度/分布/大小，石油 200%，污染与虫巢成长同山谷
+    -- 资源：铁/铜/石/煤/石油 4/4/4，铀矿 3/3/3，虫子密度 = 山谷 1.2 倍
+    --（world19 键配置见 WORLD19_SURFACE_CONFIG；由包装 WorldTable.reset_table
+    --  在每次重建后覆写，surface_config_name 仍指向 world19，不改共享文件）
     surface_config_name = 'world19',
 
     -- 地图尺寸：横向宽 576、高无限制。不设 map_settings 的宽高（引擎宽高必须成对），
     -- 边界由 terrain_generator 铺 out-of-map 实现（|x| > 288 全部为黑色虚空）
     map_settings = nil,
 
-    -- 区块地形生成器：中间正常地型 / 两侧石头带（|y|≤960，5 倍密度）/ 外部虚空
+    -- 区块地形生成器：中间正常地型 / 两侧石头带（|y|≤1472，4 倍密度）/ 外部虚空
     terrain_generator = terrain_generator,
 
     --==========================================================================
@@ -643,8 +701,14 @@ World.register(19, {
     --==========================================================================
     -- 专属机制
     --==========================================================================
-    -- 天赋间隔：50 级 +1 天赋（RPG 玩家等级，由 tianfu.lua 消费）
-    tianfu_jiange = 50,
+    -- 天赋间隔：45 级 +1 天赋（RPG 玩家等级，由 tianfu.lua 消费）
+    tianfu_jiange = 45,
+
+    -- 出生市场追加固定商品：机械装甲 mech-armor，99k 金币
+    --（rock.lua refresh_shop 消费，按「所有物品价值表」定价）
+    rock_shop_extra_items = {
+        {name = 'mech-armor', gold = 99000},
+    },
 
     -- 世界进入钩子：本图强化 / 自动天赋 / 禁用野外组装机 / 重置每局状态 / 补齐初始区块指令塔
     on_world_start = on_world_start,
@@ -664,6 +728,7 @@ World.register(19, {
         },
         [60] = {
             world19_finish_reset,        -- 开局首个 tick 清空重置期脚本研究的科技瓶天赋
+            world19_unresearch_advanced_asteroid, -- 撤销开局自动研发的高级星岩处理
             world19_enforce_talent_cap,  -- 天赋 ≤60 封锁
             world19_process_talent_queue,-- 科技瓶天赋逐次发放
             world19_apply_wave_interval, -- 2000 波后波次间隔 +2%/100波（≤+30%）

@@ -84,6 +84,7 @@ local pet_system = require 'modules.pet_system.table'
 local PseudoBuilding = require 'maps.amap.pseudo_building.main'  -- 伪建筑框架（门面，内部 require 5 个 buildings）
 
 require 'maps.amap.wheel_of_fortune'
+require 'modules.no_deconstruction_of_neutral_entities'
 
 
 
@@ -600,6 +601,11 @@ function Public.reset_map()
     else
         game.difficulty_settings.technology_price_multiplier = 1
     end
+
+    -- 树/普通实体红图白名单（同 8.15：no_deconstruction_of_neutral_entities 模块消费；
+    -- 独立模块内另有硬编码放行，此处写入是为了与旧实现一致）
+    this.allow_deconst_list["tree"] = true
+    this.allow_deconst_list["simple-entity"] = true
 
     IC.reset()
     IC.allowed_surface(game.surfaces[this.active_surface_index].name)

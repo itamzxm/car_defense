@@ -440,6 +440,22 @@ function Public.apply_world_bonuses()
                 end
             end
         end,
+        -- 世界21「熔岩之心」通关奖励：新开图每个玩家独立按概率获得 1 个铸造机，
+        -- 初始 10%（1500 波解锁），历史最高波数每多 500 波 +2%
+        -- （value 为概率小数，由 get_world_bonus_value 线性增长模式统一计算；
+        --  与其他 custom 奖励同走 apply_world_bonuses 统一路径，所有地图开图生效）
+        foundry_chance_bonus = function(value)
+            local p = math.floor(value * 100 + 0.5)
+            if p <= 0 then return end
+            for _, pl in pairs(game.connected_players) do
+                if pl and pl.valid and pl.character and pl.character.valid then
+                    if math.random(1, 100) <= p then
+                        pl.insert({name = 'foundry', count = 1})
+                        pl.print({'amap.world21_foundry_reward', p}, {r = 0.4, g = 1, b = 0.4})
+                    end
+                end
+            end
+        end,
     }
     
     for world_id, world_data in pairs(map.world_bonus) do
