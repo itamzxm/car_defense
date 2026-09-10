@@ -1813,6 +1813,12 @@ end
 -- 实体建造：玩家在副本里建实体，先框架无操作，再分发到玩法模块
 -- （挖币玩法用此事件实现"建石墙给币"）
 local function on_built_entity(event)
+    -- 玩家放置的史诗木箱：落地即锁定不可挖掘（防挖起重放、重新随机副本选项）
+    local built = event.entity
+    if built and built.valid and Public.is_epic_chest(built) then
+        built.minable_flag = false
+    end
+
     local player = game.players[event.player_index]
     if not player or not player.valid then return end
 
@@ -1831,6 +1837,11 @@ end
 local function on_robot_built_entity(event)
     local entity = event.entity
     if not entity or not entity.valid then return end
+
+    -- 机器人放置的史诗木箱：同样落地即锁定（施工机器人是玩家手动放置之外的旁路）
+    if Public.is_epic_chest(entity) then
+        entity.minable_flag = false
+    end
 
     local surface_name = entity.surface.name
     if not is_dungeon_surface(surface_name) then return end
@@ -2251,6 +2262,12 @@ local function on_entity_clicked(event)
     -- 弹出副本选择面板：3 张卡片，每张单独随机副本 + 难度 + 奖励
     -- 用 unit_number 作为 cache_key，同个木箱重复点开时复用上次选项（防止玩家关掉 GUI 刷选项）
     Public.show_difficulty_selection_gui(player, nil, entity.unit_number)
+
+    -- 面板弹出后即锁定：木箱不可再挖掘（防止「收回→再放→新 unit_number→重新随机选项」的无限刷新）
+    -- 休息室绑定木箱不在此锁定：进入休息室时 Public.enter 会显式恢复 minable_flag=true
+    -- （绑定木箱需保持可挖，玩家挖掉它 → destroy_lounge 清理整个休息室副本）
+    entity.minable_flag = false
+
     player.print({'amap.epic_chest_opened'}, {r = 0.84, g = 0.6, b = 0.2})
 end
 
