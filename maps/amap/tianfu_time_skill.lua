@@ -104,6 +104,25 @@ local function get_total_crafting_time(item_name, depth, q_idx)
     return total_time
 end
 
+-- T3-B 战地补给：视为"弹药类物资"的物品集合（军火库系发放主通道覆盖面）
+local T3B_AMMO_SET = {
+    ['firearm-magazine'] = true,
+    ['piercing-rounds-magazine'] = true,
+    ['uranium-rounds-magazine'] = true,
+    ['shotgun-shells'] = true,
+    ['piercing-shotgun-shells'] = true,
+    ['rocket'] = true,
+    ['explosive-rocket'] = true,
+    ['atomic-bomb'] = true,
+    ['grenade'] = true,
+    ['cluster-grenade'] = true,
+    ['poison-capsule'] = true,
+    ['slowdown-capsule'] = true,
+    ['defender-capsule'] = true,
+    ['distractor-capsule'] = true,
+    ['destroyer-capsule'] = true,
+}
+
 local function insert_item_to_player(player, item_name, count, q_idx)
     if not player or not player.valid then
         return false
@@ -152,6 +171,36 @@ local function insert_item_to_player(player, item_name, count, q_idx)
     end
 
     local inserted = target_character.insert(insert_opts)
+
+    -- T3-B 战地补给：获得弹药类物资时，20米内队友同得一份相同的补给
+    -- （品质：精良起概率双份 20%/40%/60%/80%/100%；覆盖走本统一发放通道的军火库系天赋）
+    if inserted > 0 and T3B_AMMO_SET[item_name] then
+        local main_table = WPT.get()
+        local enabled = main_table.tianfu_enabled[player.index]
+        if enabled and enabled.zhandibuju == true then
+            local this = WPT.get()
+            local owners = this.skill_owners and this.skill_owners['zhandibuju']
+            if owners then
+                local q = ((main_table.skill[player.name] or {}).zhandibuju) or 1
+                local share_count = 1
+                if q > 1 and math.random() <= 0.2 * (q - 1) then
+                    share_count = 2
+                end
+                for player_index, _ in pairs(owners) do
+                    local mate = game.players[player_index]
+                    if mate and mate.valid and mate.connected and mate.force.name == 'player'
+                        and mate.index ~= player.index and mate.surface == player.surface then
+                        local dx = mate.physical_position.x - player.physical_position.x
+                        local dy = mate.physical_position.y - player.physical_position.y
+                        if math.sqrt(dx * dx + dy * dy) <= 20 then
+                            mate.insert({ name = item_name, count = inserted * share_count })
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     return inserted > 0
 end
 
@@ -205,7 +254,10 @@ end
     })
 end
 
-local function deal_damage_with_floating_text(target_entity, player, damage_amount, damage_type, q_idx)
+-- T3-B 回响：延迟复读 token（前向声明，函数体内在伤害落地后调度）
+local huixiang_echo_token
+
+local function deal_damage_with_floating_text(target_entity, player, damage_amount, damage_type, q_idx, is_echo)
     if type(damage_amount) ~= 'number' or damage_amount <= 0 then
         return false
     end     
@@ -228,9 +280,32 @@ local function deal_damage_with_floating_text(target_entity, player, damage_amou
     damage_type = damage_type or 'explosion'
     create_damage_floating_text(target_entity, final_damage, damage_type, player)
     target_entity.damage(final_damage, 'player', damage_type, player.character)
- 
+
+    -- T3-B 回响：周期性天赋伤害 1 秒后原地复读 30%×LOW，每次消耗 2 条鱼（回响不再回响）
+    if not is_echo then
+        local enabled = this.tianfu_enabled[player.index]
+        if enabled and enabled['huixiang'] == true then
+            local hq = TianfuQuality.idx(player, 'huixiang') or 1
+            if player.get_item_count('raw-fish') >= 2 then
+                player.remove_item({ name = 'raw-fish', count = 2 })
+                Task.set_timeout_in_ticks(60, huixiang_echo_token, {
+                    target = target_entity,
+                    player = player,
+                    damage = final_damage * 0.3 * COEFF_LOW[hq],
+                    damage_type = damage_type
+                })
+            end
+        end
+    end
+
     return true
 end
+
+huixiang_echo_token = Token.register(function(data)
+    if data.target and data.target.valid and data.target.health then
+        deal_damage_with_floating_text(data.target, data.player, data.damage, data.damage_type, 1, true)
+    end
+end)
 local car_name = { 'car', 'tank', 'spidertron' }
 
 -- 时间技能冷却配置表（已抽离至 tianfu_time_skills_data.lua）
@@ -2975,7 +3050,8 @@ local function chifu(player, q_idx)
         local now = player.character.health
         if max ~= now then
             max = math.min(max, 30000)
-            player.character.health = player.character.health + math.floor(max * 0.02 * COEFF_LOW[q_idx] + 0.5)
+            -- T3-B 泰坦之躯：回复效果系统级加成出口
+            player.character.health = player.character.health + math.floor(max * 0.02 * COEFF_LOW[q_idx] * get_heal_mult(player) + 0.5)
         end
     end
     return true
@@ -3259,7 +3335,8 @@ local function sglz(player, q_idx)
         end
 
         splash_damage(player.physical_surface, player.physical_position, max * 0.10 * COEFF_LOW[q_idx], 10, true, player)
-        player.character.health = player.character.health + max * 0.15 * COEFF_LOW[q_idx]
+        -- T3-B 泰坦之躯：回复效果系统级加成出口
+        player.character.health = player.character.health + max * 0.15 * COEFF_LOW[q_idx] * get_heal_mult(player)
         new_print(player, { 'tianfu.sglz_over' })
     end
     return true
@@ -3448,7 +3525,8 @@ local function wolf(player, q_idx)
         if not player.character or not player.character.valid then
             return false
         end
-        player.character.health = player.character.health + (max - now) * 0.2 * COEFF_LOW[q_idx]
+        -- T3-B 泰坦之躯：回复效果系统级加成出口
+        player.character.health = player.character.health + (max - now) * 0.2 * COEFF_LOW[q_idx] * get_heal_mult(player)
     end
     return true
 end
@@ -4815,7 +4893,8 @@ local function hushenfu(player, q_idx)
         local actual_max_health = player.character.max_health
         local limited_max_health = math.min(actual_max_health, 30000)
         local current_health = player.character.health
-        local heal_amount = limited_max_health * 0.1 * COEFF_LOW[q_idx] -- 10%限制后最大生命值
+        -- T3-B 泰坦之躯：回复效果系统级加成出口
+        local heal_amount = limited_max_health * 0.1 * COEFF_LOW[q_idx] * get_heal_mult(player) -- 10%限制后最大生命值
         local max_shield = limited_max_health * 0.5  -- 最大护盾为限制后最大生命值的50%
 
         -- 计算治疗效果
@@ -6999,5 +7078,567 @@ Public.guajichengsheng = guajichengsheng
 Public.yuediaoyuerou = yuediaoyuerou
 Public.linghang = linghang
 Public.duoduoyishan = duoduoyishan
+
+-- ===================================================================
+-- T3-B 新卡落地（设计真值：策划案-真树设计-v1.md §6 + 策划案-天赋设计v3-B批-新卡设计.md）
+-- ===================================================================
+
+-- 回复效果系统级加成（泰坦之躯二段共用出口，实现在下方批2代码块，此处前向声明）
+local get_heal_mult
+
+-- 学习进阶（血线档2·受击驱动，先例：荆棘甲受击/水护符充能层）
+-- 受伤时 +1 层「感悟」（受伤事件由 tianfu.lua 调 Public.xuexijinjie_hit）；
+-- 每秒结算：每层恢复 {0.3,0.4,0.5,0.6,0.8}% 生命上限，最多10层；10秒未受伤后每2秒消退1层
+Public.xuexijinjie = function(player, q_idx)
+    local this = TPT.get()
+    local state = this.xuexijinjie_state and this.xuexijinjie_state[player.index]
+    if not state or state.n <= 0 then
+        return true
+    end
+    if not player.character or not player.character.valid then
+        return true
+    end
+    local now = game.tick
+    -- 脱战消退：10秒（600tick）未受伤后每2秒（120tick）消退1层
+    local idle = now - state.last_hit
+    if idle > 600 then
+        local lost = math.floor((idle - 600) / 120)
+        if lost > 0 then
+            state.n = math.max(0, state.n - lost)
+            state.last_hit = now - 600 - ((idle - 600) % 120)
+        end
+    end
+    if state.n <= 0 then
+        return true
+    end
+    local max_health = player.character.max_health
+    local heal_amount = math.floor(max_health * ({0.3, 0.4, 0.5, 0.6, 0.8})[q_idx or 1] / 100) * state.n
+    -- T3-B 泰坦之躯：回复效果系统级加成出口
+    heal_amount = math.floor(heal_amount * get_heal_mult(player))
+    if heal_amount > 0 then
+        player.character.health = math.min(player.character.health + heal_amount, max_health)
+    end
+    return true
+end
+
+-- 学习进阶受伤加层入口（tianfu.lua on_entity_damaged 调用）
+Public.xuexijinjie_hit = function(player, q_idx)
+    local this = TPT.get()
+    if not this.xuexijinjie_state then
+        this.xuexijinjie_state = {}
+    end
+    local state = this.xuexijinjie_state[player.index]
+    if not state then
+        state = { n = 0, last_hit = game.tick }
+        this.xuexijinjie_state[player.index] = state
+    end
+    state.n = math.min(10, state.n + 1)
+    state.last_hit = game.tick
+    new_print(player, { 'tianfu.xuexijinjie_gain', state.n })
+end
+
+-- 焚身秘法（燃料线档3·真扣当前生命，先例：献祭已损计量/聚气成剑烧蓝）
+-- 每5秒燃烧当前生命值的 8%×品质 作为燃料，对8米内敌人造成 燃料×{1.5,2.0,2.5,3.0,3.5}
+-- + 法力20% 的伤害；单次总伤害不超过生命上限2倍；血量不足以支付燃料时本次不发动
+Public.fenshenmifa = function(player, q_idx)
+    local q = q_idx or 1
+    if not player.character or not player.character.valid then
+        return false
+    end
+    local current_health = player.character.health
+    local max_health = player.character.max_health
+    local burn = current_health * 0.08 * COEFF_LOW[q]
+    if burn < 1 or current_health <= burn + 1 then
+        return false
+    end
+    local rpg_t = rpgtable.get('rpg_t')
+    local magicka = rpg_t[player.index].magicka or 0
+    local damage = burn * ({1.5, 2.0, 2.5, 3.0, 3.5})[q] + magicka * 0.2
+    local cap = max_health * 2
+    if damage > cap then
+        damage = cap
+    end
+    player.character.health = current_health - burn
+    splash_damage(player.physical_surface, player.physical_position, damage, 8, true, player)
+    new_print(player, { 'tianfu.fenshenmifa_over', math.floor(burn), math.floor(damage) })
+    return true
+end
+
+-- ===================================================================
+-- T3-B 新卡落地（批2：平档纵深头部 17 张）
+-- ===================================================================
+
+-- 回复效果系统级加成（泰坦之躯二段/求生本能共用出口）
+-- 泰坦之躯：生命上限每超过10000点 → 回复效果+3%（封顶+30%）
+-- 求生本能：生命低于30%时 → 所有回复效果+100%
+-- 覆盖面：chifu/wolf/sglz/hushenfu 四张回血引擎主回复 + T3-B 新增回复卡（回执已记覆盖面）
+get_heal_mult = function(player)
+    local this = TPT.get()
+    local mult = 1
+    local owners = this.skill_owners and this.skill_owners['taitanzhiqu']
+    if owners and owners[player.index] and player.character and player.character.valid then
+        local max_health = player.character.max_health
+        local segments = math.floor(math.max(0, max_health - 10000) / 10000)
+        if segments > 0 then
+            mult = mult + math.min(segments * 0.03, 0.3)
+        end
+    end
+    local qs_owners = this.skill_owners and this.skill_owners['qiushengbenneng']
+    if qs_owners and qs_owners[player.index] and player.character and player.character.valid then
+        if player.character.health < player.character.max_health * 0.3 then
+            mult = mult * 2
+        end
+    end
+    return mult
+end
+Public.get_heal_mult = get_heal_mult
+
+-- 泰坦之躯（体格线档2·活力直加，B 裁决翻译回活力线：先例=小强 rs 同构，档位跃迁 ×2）
+-- 活力+160×品质（一次性，学习即得）；二段回复联动走 get_heal_mult 不变
+Public.taitanzhiqu = function(player, q_idx)
+    if not player.character or not player.character.valid then
+        return true
+    end
+    local this = TPT.get()
+    this.taitanzhiqu_vita = this.taitanzhiqu_vita or {}
+    if this.taitanzhiqu_vita[player.index] then
+        return true
+    end
+    this.taitanzhiqu_vita[player.index] = true
+    local rpg_t = rpgtable.get('rpg_t')
+    local vita_gain = TianfuQuality.qround(160 * COEFF_REG[q_idx or 1])
+    rpg_t[player.index].vitality = rpg_t[player.index].vitality + vita_gain
+    new_print(player, { 'tianfu.taitanzhiqu_over', vita_gain })
+    return true
+end
+
+-- 渔汛期（鱼枝开采档4·乘法批量，先例：钓鱼佬定时供鱼）
+-- 每10分钟收网一次：获得等同法力 20%×品质 的鱼（单网上限300条）
+Public.yuxunqi = function(player, q_idx)
+    local rpg_t = rpgtable.get('rpg_t')
+    local count = math.floor((rpg_t[player.index].magicka or 0) * 0.2 * COEFF_REG[q_idx or 1])
+    if count > 300 then
+        count = 300
+    end
+    if count <= 0 then
+        return true
+    end
+    insert_item_to_player(player, 'raw-fish', count)
+    new_print(player, { 'tianfu.yuxunqi_over', count })
+    return true
+end
+
+-- 车载暖棚（列车枝车载档2·双资源自维持，先例：海景房/垃圾佬量级）
+-- 每3分钟收获 矿石×{150×品质}（铁矿100+铜矿50）与石砖×{50×品质}；车内同类资源超过2000份停止生长
+Public.chezaiduannpeng = function(player, q_idx)
+    local main_table = WPT.get()
+    local car_entity = main_table.tank[player.index]
+    if not car_entity or not car_entity.valid then
+        return true
+    end
+    local trunk = car_entity.get_inventory(defines.inventory.car_trunk)
+    if not trunk or not trunk.valid then
+        return true
+    end
+    local items = {
+        { name = 'iron-ore', base = 100 },
+        { name = 'copper-ore', base = 50 },
+        { name = 'stone-brick', base = 50 },
+    }
+    local grown = 0
+    for _, item in pairs(items) do
+        local count = trunk.get_item_count(item.name)
+        if count <= 2000 then
+            local amount = math.floor(item.base * COEFF_REG[q_idx or 1])
+            car_entity.insert({ name = item.name, count = amount })
+            grown = grown + amount
+        end
+    end
+    if grown > 0 then
+        new_print(player, { 'tianfu.chezaiduannpeng_over', grown })
+    end
+    return true
+end
+
+-- 千川归海（能源枝单项流档3·守恒再分配，先例：漫步者覆盖赋值）
+-- 每 {60,50,40,32,25} 秒：四维中最低两项各-1、最高一项+2（总和守恒；有并列时本次跳过）
+Public.qianchuanguihai = function(player, q_idx)
+    local interval = ({60, 50, 40, 32, 25})[q_idx or 1] * 60
+    local this = TPT.get()
+    if not this.qianchuanguihai_next then
+        this.qianchuanguihai_next = {}
+    end
+    if game.tick < (this.qianchuanguihai_next[player.index] or 0) then
+        return true
+    end
+    this.qianchuanguihai_next[player.index] = game.tick + interval
+    local rpg_t = rpgtable.get('rpg_t')
+    local stats = rpg_t[player.index]
+    local attrs = {
+        { name = 'strength', value = stats.strength },
+        { name = 'dexterity', value = stats.dexterity },
+        { name = 'magicka', value = stats.magicka },
+        { name = 'vitality', value = stats.vitality },
+    }
+    table.sort(attrs, function(a, b)
+        if a.value == b.value then
+            return a.name < b.name
+        end
+        return a.value < b.value
+    end)
+    -- 四维严格递增才执行（最低两项/最高一项无歧义）
+    if not (attrs[1].value < attrs[2].value and attrs[2].value < attrs[3].value and attrs[3].value < attrs[4].value) then
+        return true
+    end
+    stats[attrs[1].name] = attrs[1].value - 1
+    stats[attrs[2].name] = attrs[2].value - 1
+    stats[attrs[4].name] = attrs[4].value + 2
+    rpgtable.update_player_stats(player)
+    new_print(player, { 'tianfu.qianchuanguihai_over', attrs[4].name })
+    return true
+end
+
+-- 天使投资（经济枝流向档2·投资双向流，先例：领航经验↔金币6:1）
+-- 每分钟资助等级最低玩家 {20,30,50,80,120} 点经验（每点消耗6金币，不足则跳过），自得其中50%
+Public.tianshitouzi = function(player, q_idx)
+    local rpg_t = rpgtable.get('rpg_t')
+    local my_level = rpg_t[player.index].level or 0
+    local target = nil
+    for _, other in pairs(game.connected_players) do
+        if other.valid and other.connected and other.force.name == 'player' and other.index ~= player.index then
+            local other_level = rpg_t[other.index] and rpg_t[other.index].level or 0
+            if other_level < my_level and (target == nil or other_level < (rpg_t[target.index] and rpg_t[target.index].level or 0)) then
+                target = other
+            end
+        end
+    end
+    if not target then
+        return true
+    end
+    local exp = ({20, 30, 50, 80, 120})[q_idx or 1]
+    local cost = exp * 6
+    if player.get_item_count('coin') < cost then
+        return true
+    end
+    player.remove_item({ name = 'coin', count = cost })
+    rpg_t[target.index].xp = rpg_t[target.index].xp + exp
+    rpg_t[player.index].xp = rpg_t[player.index].xp + math.floor(exp / 2)
+    new_print(player, { 'tianfu.tianshitouzi_over', target.name, exp, math.floor(exp / 2) })
+    return true
+end
+
+-- 血酬宝库（军需档4·击杀利息，先例：投资专家周期结算）
+-- 击杀所得20%入池（上限5000，分流在 grant_kill_coin）；每10分钟按存量 {3,4,5,6,8}% 结息，本金不清空
+Public.xiechoubaoku = function(player, q_idx)
+    local this = TPT.get()
+    local pool = this.xiechoubaoku_pool and this.xiechoubaoku_pool[player.index] or 0
+    if pool <= 0 then
+        return true
+    end
+    local interest = math.floor(pool * ({3, 4, 5, 6, 8})[q_idx or 1] / 100)
+    if interest <= 0 then
+        return true
+    end
+    insert_item_to_player(player, 'coin', interest)
+    new_print(player, { 'tianfu.xiechoubaoku_over', interest, pool })
+    return true
+end
+
+-- 食腐提炼（亡灵枝回收工段·尸体→工业矿材，先例：猎狗尸体清除/垃圾佬产板量级）
+-- 每10秒提炼33米内尸体（会被消耗）：每100具产出 200铁板+100铜板+50石砖 ×{1,1.25,1.5,1.75,2.2} 倍
+Public.shifutilian = function(player, q_idx)
+    local corpses = player.physical_surface.find_entities_filtered({
+        position = player.physical_position,
+        radius = 33,
+        type = 'corpse'
+    })
+    local consumed = 0
+    for _, corpse in pairs(corpses) do
+        if consumed >= 100 then
+            break
+        end
+        if corpse.valid then
+            corpse.destroy()
+            consumed = consumed + 1
+        end
+    end
+    local batches = math.floor(consumed / 100)
+    if batches <= 0 then
+        return true
+    end
+    local mult = ({1, 1.25, 1.5, 1.75, 2.2})[q_idx or 1]
+    insert_item_to_player(player, 'iron-plate', math.floor(200 * batches * mult))
+    insert_item_to_player(player, 'copper-plate', math.floor(100 * batches * mult))
+    insert_item_to_player(player, 'stone-brick', math.floor(50 * batches * mult))
+    new_print(player, { 'tianfu.shifutilian_over', consumed })
+    return true
+end
+
+-- 孤注一掷（幸运枝赌注档3·资产比例赌局，先例：小本生意/赌徒手瘾）
+-- 每45分钟押上当前金币的5%（最多5000）：50%血本无归，50%赢得赌注×{3,3.5,4,4.5,5} 倍
+Public.guzhuyizhi = function(player, q_idx)
+    local coins = player.get_item_count('coin')
+    local stake = math.min(math.floor(coins * 0.05), 5000)
+    if stake < 1 then
+        return true
+    end
+    player.remove_item({ name = 'coin', count = stake })
+    if math.random(1, 2) == 1 then
+        new_print(player, { 'tianfu.guzhuyizhi_lose', stake })
+    else
+        local reward = math.floor(stake * ({3, 3.5, 4, 4.5, 5})[q_idx or 1])
+        insert_item_to_player(player, 'coin', reward)
+        new_print(player, { 'tianfu.guzhuyizhi_win', stake, reward })
+    end
+    return true
+end
+
+-- 筑垒术（建设枝工事档3·防御工事，先例：铺路机地表铺设/维修师建筑扫描）
+-- 每 {30,25,20,15,12} 秒：检测20米内我方墙体缺口（空位且相邻墙≥2段）自动放置石墙；
+-- 背包内有石材时每放置1段消耗1块石板（升级语义，混凝土墙无原版原型，见回执）
+Public.zhuleishu = function(player, q_idx)
+    local interval = ({30, 25, 20, 15, 12})[q_idx or 1] * 60
+    local this = TPT.get()
+    if not this.zhuleishu_next then
+        this.zhuleishu_next = {}
+    end
+    if game.tick < (this.zhuleishu_next[player.index] or 0) then
+        return true
+    end
+    this.zhuleishu_next[player.index] = game.tick + interval
+    local surface = player.physical_surface
+    local walls = surface.find_entities_filtered({
+        position = player.physical_position,
+        radius = 20,
+        force = player.force,
+        type = 'wall'
+    })
+    if #walls == 0 then
+        return true
+    end
+    local offsets = { { x = 1, y = 0 }, { x = -1, y = 0 }, { x = 0, y = 1 }, { x = 0, y = -1 } }
+    local wall_seen = {}
+    for _, wall in pairs(walls) do
+        wall_seen[wall.position.x .. ',' .. wall.position.y] = true
+    end
+    local brick_count = player.get_item_count('stone-brick')
+    local placed = 0
+    for _, wall in pairs(walls) do
+        if placed >= 4 then
+            break
+        end
+        for _, offset in pairs(offsets) do
+            if placed >= 4 then
+                break
+            end
+            local tile = { x = wall.position.x + offset.x, y = wall.position.y + offset.y }
+            local key = tile.x .. ',' .. tile.y
+            if not wall_seen[key] then
+                -- 缺口判定：该空位周围4格还有≥2段墙（成线缺口，而非墙线末端外扩）
+                local neighbor_walls = 0
+                for _, n in pairs(offsets) do
+                    if wall_seen[(tile.x + n.x) .. ',' .. (tile.y + n.y)] then
+                        neighbor_walls = neighbor_walls + 1
+                    end
+                end
+                if neighbor_walls >= 2 and surface.can_place_entity({ name = 'stone-wall', position = tile, force = player.force }) then
+                    surface.create_entity({
+                        name = 'stone-wall',
+                        position = tile,
+                        force = player.force,
+                        create_build_effect_smoke = false
+                    })
+                    wall_seen[key] = true
+                    if brick_count > 0 then
+                        player.remove_item({ name = 'stone-brick', count = 1 })
+                        brick_count = brick_count - 1
+                    end
+                    placed = placed + 1
+                end
+            end
+        end
+    end
+    if placed > 0 then
+        new_print(player, { 'tianfu.zhuleishu_over', placed })
+    end
+    return true
+end
+
+-- ===================================================================
+-- T3-B 新卡落地（批3）
+-- ===================================================================
+
+-- 机械师（军团⇄装甲车站·单位维护，先例：维修师建筑维修/贴身护卫召唤物扫描）
+-- 每10秒为24米内生命值最低的召唤物（战斗无人机/炮塔）恢复 8%×LOW 生命
+Public.jixieshi = function(player, q_idx)
+    local robots = player.physical_surface.find_entities_filtered({
+        position = player.physical_position,
+        radius = 24,
+        force = player.force,
+        type = { 'combat-robot', 'turret' }
+    })
+    local target, lowest = nil, nil
+    for _, e in pairs(robots) do
+        if e.valid and e.health and e.health < e.max_health then
+            if lowest == nil or e.health < lowest then
+                lowest = e.health
+                target = e
+            end
+        end
+    end
+    if not target then
+        return true
+    end
+    target.health = math.min(target.health + target.max_health * 0.08 * COEFF_LOW[q_idx or 1], target.max_health)
+    new_print(player, { 'tianfu.jixieshi_over' })
+    return true
+end
+
+-- 发薪日（军需结算·延迟结算加成，先例：投资专家周期结算）
+-- 击杀金币不再即时入袋（分流在 grant_kill_coin），每5分钟一次性结算，结算总额+30%×REG
+Public.faxinri = function(player, q_idx)
+    local this = TPT.get()
+    local pool = this.faxinri_pool and this.faxinri_pool[player.index] or 0
+    if pool <= 0 then
+        return true
+    end
+    this.faxinri_pool[player.index] = 0
+    local payout = math.floor(pool * (1 + 0.3 * COEFF_REG[q_idx or 1]))
+    insert_item_to_player(player, 'coin', payout)
+    new_print(player, { 'tianfu.faxinri_over', pool, payout })
+    return true
+end
+
+-- 转运（幸运枝保底档，先例：集卡计数/神秘礼物抽奖源）
+-- 效果在 TianfuQuality.roll 内结算（连续未出最高两档→下次必出），此处为 tick 占位
+Public.zhuanyun = function(player, q_idx)
+    return true
+end
+
+-- 超频电网（干T4·全树枢纽，先例：泰坦之躯面板反哺/封印卷轴法力上限）
+-- 法力上限每100点→全部周期天赋触发间隔-1%（封顶30%×LOW）；结算在 tianfu.lua 桶调度冷却计算处
+Public.chaopindianwang = function(player, q_idx)
+    return true
+end
+
+-- 起灵消散回调（与亡者征募消散语义一致：destroy 不触发 died，不引发亡语）
+local qiling_expire = Token.register(function(entity)
+    if entity and entity.valid then
+        local this = TPT.get()
+        if this.wangzhezhengmu_units then
+            this.wangzhezhengmu_units[entity.unit_number] = nil
+        end
+        entity.destroy()
+    end
+end)
+
+-- 起灵（亡灵枝档1∥，先例：掘墓人尸体复活亡语）
+-- 每 {30,25,20,16,12} 秒：从33米内一具尸体上唤起一具最弱的虫子残骸（小型虫），为你作战15秒；
+-- 它死亡时炸开，对3米内造成等同法力10%的伤害（复用亡者征募亡语登记表）
+Public.qiling = function(player, q_idx)
+    local interval = ({30, 25, 20, 16, 12})[q_idx or 1] * 60
+    local this = TPT.get()
+    if not this.qiling_next then
+        this.qiling_next = {}
+    end
+    if game.tick < (this.qiling_next[player.index] or 0) then
+        return true
+    end
+    local corpses = player.physical_surface.find_entities_filtered({
+        position = player.physical_position,
+        radius = 33,
+        type = 'corpse'
+    })
+    if #corpses == 0 then
+        return true
+    end
+    this.qiling_next[player.index] = game.tick + interval
+    local corpse = corpses[math.random(1, #corpses)]
+    local corpse_position = corpse.position
+    corpse.destroy()
+    local position = player.physical_surface.find_non_colliding_position('small-biter', corpse_position, 4, 0.5) or corpse_position
+    local e = player.physical_surface.create_entity({
+        name = 'small-biter',
+        position = position,
+        force = player.force
+    })
+    if not e or not e.valid then
+        return true
+    end
+    if not this.wangzhezhengmu_units then
+        this.wangzhezhengmu_units = {}
+    end
+    this.wangzhezhengmu_units[e.unit_number] = {
+        entity = e,
+        player_index = player.index,
+        q_idx = q_idx or 1,
+        blast_pct = 0.1,
+        blast_radius = 3
+    }
+    rendering.draw_text {
+        text = { 'amap.pet_label', player.name },
+        surface = player.physical_surface,
+        target = e,
+        target_offset = { 0, -2.6 },
+        color = { r = 0.5, g = 0.5, b = 0.9, a = 1 },
+        scale = 1.05,
+        font = 'default-large-semibold',
+        alignment = 'center',
+        scale_with_zoom = false
+    }
+    -- 15秒后消散（destroy 不触发 died 事件，不引发亡语爆炸）
+    Task.set_timeout_in_ticks(60 * 15, qiling_expire, e)
+    new_print(player, { 'tianfu.qiling_over' })
+    return true
+end
+
+-- 管家（资源枝智能中控·需求驱动补产，先例：装备研发中心"优先制作身上没有的"）
+-- 每分钟清点背包与车内物资：自动生产存量最低的基础资源，补至 500×品质 份为止（真实消耗材料手搓）
+local GUANJIA_RESOURCES = { 'iron-plate', 'copper-plate', 'stone-brick' }
+Public.guanjia = function(player, q_idx)
+    local target = math.floor(500 * COEFF_REG[q_idx or 1])
+    local main_table = WPT.get()
+    local car = main_table.tank and main_table.tank[player.index]
+    local lowest_name, lowest_count = nil, nil
+    for _, name in pairs(GUANJIA_RESOURCES) do
+        local n = player.get_item_count(name)
+        if car and car.valid then
+            local trunk = car.get_inventory(defines.inventory.car_trunk)
+            if trunk and trunk.valid then
+                n = n + trunk.get_item_count(name)
+            end
+        end
+        if lowest_count == nil or n < lowest_count then
+            lowest_name, lowest_count = name, n
+        end
+    end
+    local deficit = target - lowest_count
+    if deficit <= 0 then
+        return true
+    end
+    player.begin_crafting({ count = deficit, recipe = lowest_name, silent = false })
+    new_print(player, { 'tianfu.guanjia_over', lowest_name, deficit })
+    return true
+end
+
+-- 回响（元素放大档2·延迟回响）：效果在 deal_damage_with_floating_text 内结算，此处为 tick 占位
+Public.huixiang = function(player, q_idx)
+    return true
+end
+
+-- 战地补给（弹药⇄指挥部车站）：效果在 insert_item_to_player 发放通道内结算，此处为 tick 占位
+Public.zhandibuju = function(player, q_idx)
+    return true
+end
+
+-- 连锁反应（清算纵深）：效果在 tianfu_trigger_skill.splash_damage 内结算，此处为 tick 占位
+Public.liansuofanying = function(player, q_idx)
+    return true
+end
+
+-- 求生本能（装甲枝条件档）：效果在 get_heal_mult 内结算（生命<30% 时回复效果×2），此处为 tick 占位
+Public.qiushengbenneng = function(player, q_idx)
+    return true
+end
 
 return Public

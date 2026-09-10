@@ -1,3 +1,14 @@
 .DS_Store
 Thumbs.db
 *.tmp
+
+# AI 工作区（不入游戏仓库）
+AIOS_workspace/
+_scratch/
+.arts/
+.bugfix/
+.codegraph/
+codebase-structure.md
+
+# QA 测试产物（脚本与用例保留，运行产物不入库）
+qa/out/

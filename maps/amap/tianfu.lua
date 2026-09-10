@@ -30,8 +30,8 @@ local tianfu_blacklist = {
     --   也不在 skill_owners 自建路径的 4 个天赋之列），学了永远不触发 => 白白浪费一次天赋选择。
     -- 同类天赋 wanglingdajun 的正确做法就是"分类注释 + 进黑名单"，这 3 个漏了后半步。
     ['jiantazhe'] = '践踏者',
-    ['wuqidashi'] = '武器大师',
-    ['zhiming'] = '致命一击'
+    ['wuqidashi'] = '电磁专家',
+    ['zhiming'] = '会心一击'
 }
 local function is_tianfu_blacklisted(skill_name)
     if tianfu_blacklist[skill_name] then return true end
@@ -572,7 +572,8 @@ end
     for _, skill_name in ipairs(unique_skills) do
         -- ★ 天赋品质：每个候选卡片独立 roll 一次，显示与最终学习共用
         -- tier 决定档位（中级/高级购买传 mid/high，高概率出高品质；默认 low）
-        local q_idx = TianfuQuality.roll(tier)
+        -- T3-B 转运：传入 player 以结算品质保底（pity）
+        local q_idx = TianfuQuality.roll(tier, player)
         local q_color = TianfuQuality.color(q_idx) or {r = 200, g = 200, b = 200}
         local q_color_ui = {r = q_color.r / 255, g = q_color.g / 255, b = q_color.b / 255}
 
@@ -882,6 +883,28 @@ local function have_learn(player, skill)
     return Public.is_learned(player, skill)
 end
 
+-- T3-B 超频电网：法力上限每100点 → 全部周期天赋触发间隔-1%（封顶 30%×LOW[品质]）
+-- 必须先于 on_tick 定义（on_tick 桶调度两处冷却计算调用本函数）
+local function get_chaopin_cooldown(player_index, player_name, base_cooldown)
+    local owners = (TPT.get().skill_owners or {})['chaopindianwang']
+    if not owners or not owners[player_index] then
+        return base_cooldown
+    end
+    local main_table = WPT.get()
+    if not ((main_table.tianfu_enabled[player_index] or {}).chaopindianwang == true) then
+        return base_cooldown
+    end
+    local rpg_t = rpgtable.get('rpg_t')
+    local mana_max = rpg_t[player_index] and rpg_t[player_index].mana_max or 0
+    if mana_max < 100 then
+        return base_cooldown
+    end
+    local q = ((main_table.skill[player_name] or {}).chaopindianwang) or 1
+    local cap = 0.3 * ({1, 1.2, 1.4, 1.6, 1.8})[q]
+    local reduction = math.min(cap, math.floor(mana_max / 100) * 0.01)
+    return math.max(1, math.floor(base_cooldown * (1 - reduction)))
+end
+
 local function on_tick()
     local this = TPT.get()
     local current_tick = game.tick
@@ -914,6 +937,8 @@ local function on_tick()
                 for skill_name, _ in pairs(skills) do
                     local cooldown = (time_skills[skill_name] or {}).time or 60
                     if cooldown <= 0 then cooldown = 1 end
+                    -- T3-B 超频电网：法力上限转化为周期天赋触发频率
+                    cooldown = get_chaopin_cooldown(player_index, player.name, cooldown)
                     local next_tick = current_tick + cooldown
                     local next_bucket = this.due_buckets[next_tick]
                     if not next_bucket then
@@ -979,6 +1004,8 @@ local function on_tick()
                 if skill_still_learned then
                     local cooldown = (time_skills[skill_name] or {}).time or 60
                     if cooldown <= 0 then cooldown = 1 end
+                    -- T3-B 超频电网：法力上限转化为周期天赋触发频率
+                    cooldown = get_chaopin_cooldown(player_index, player.name, cooldown)
                     local next_tick = current_tick + cooldown
                     local next_bucket = this.due_buckets[next_tick]
                     if not next_bucket then
@@ -1218,6 +1245,18 @@ local function on_pre_player_died(event)
         tianfu_trigger_skill.yanshu(player, q_table.yanshu or 1)
     end
 
+    -- T3-B 英灵挽歌：死亡瞬间捕获死者生命上限（on_player_died 阶段角色实体已失效）
+    if this.skill_owners and this.skill_owners['yinglingwange'] then
+        this.yinglingwange_maxhp = this.yinglingwange_maxhp or {}
+        this.yinglingwange_maxhp[event.player_index] = (dying_player.character and dying_player.character.valid)
+            and dying_player.character.max_health or 0
+    end
+
+    -- 不竭之躯天赋触发（T3-B 血线档5·层数制死亡否决）
+    if learned.bujiezhiqu == true then
+        tianfu_trigger_skill.bujiezhiqu(player, q_table.bujiezhiqu or 1)
+    end
+
     if event.cause and event.cause.name == 'character' then
         local attacker = event.cause.player
         if attacker and attacker.valid and attacker.force == player.force then
@@ -1390,6 +1429,11 @@ function Public.on_player_used_capsule(event)
             tianfu_trigger_skill.chengshuangchengdui(player, event.position, item.name, q_table.chengshuangchengdui or 1)
         end
     end
+
+    -- 炼金配对天赋触发（T3-B 裂解档3·胶囊顺序融合）
+    if learned.lianjinpeidui == true and (item.name == 'poison-capsule' or item.name == 'slowdown-capsule' or item.name == 'raw-fish') then
+        tianfu_trigger_skill.lianjinpeidui(player, event.position, item.name, q_table.lianjinpeidui or 1)
+    end
 end
 
 local function on_player_died(event)
@@ -1452,6 +1496,40 @@ local function on_player_died(event)
                 if learned1.dijiaojiaotu == true then
                     local q = (q_all[player1.name] or {}).dijiaojiaotu or 1
                     tianfu_trigger_skill.dijiaojiaotu(player1, { player = player }, q)
+                end
+            end
+        end
+    end
+
+    -- yinglingwange（英灵挽歌，T3-B 干T5·任一玩家死亡清算）
+    local owners_ylw = owners_all.yinglingwange
+    if owners_ylw then
+        local dead_max_health = (this.yinglingwange_maxhp or {})[event.player_index] or 0
+        this.yinglingwange_maxhp[event.player_index] = nil
+        if dead_max_health > 0 then
+            for player_index, _ in pairs(owners_ylw) do
+                local player1 = game.players[player_index]
+                if player1 and player1.valid and player1.connected and player1.force.name == 'player' then
+                    local learned1 = enabled_all[player_index] or {}
+                    if learned1.yinglingwange == true then
+                        local q = (q_all[player1.name] or {}).yinglingwange or 1
+                        tianfu_trigger_skill.yinglingwange(player1, player, dead_max_health, q)
+                    end
+                end
+            end
+        end
+    end
+
+    -- yichanzhixingren（遗产执行人，T3-B 抚恤档2）
+    local owners_yczx = owners_all.yichanzhixingren
+    if owners_yczx then
+        for player_index, _ in pairs(owners_yczx) do
+            local player1 = game.players[player_index]
+            if player1 and player1.valid and player1.connected and player1.force.name == 'player' then
+                local learned1 = enabled_all[player_index] or {}
+                if learned1.yichanzhixingren == true then
+                    local q = (q_all[player1.name] or {}).yichanzhixingren or 1
+                    tianfu_trigger_skill.yichanzhixingren(player1, player, q)
                 end
             end
         end
@@ -1681,6 +1759,26 @@ local function on_entity_died(event)
                 end
             end
 
+            -- 掠夺者血脉天赋触发（T3-B 血线档3）
+            if learned.luoduozhexuemai == true then
+                tianfu_trigger_skill.luoduozhexuemai(player, q_table.luoduozhexuemai or 1)
+            end
+
+            -- 亡者征募天赋触发（T3-B 亡灵枝档2）
+            if learned.wangzhezhengmu == true then
+                tianfu_trigger_skill.wangzhezhengmu(player, entity, q_table.wangzhezhengmu or 1)
+            end
+
+            -- 首级记功天赋触发（T3-B 军需档2）
+            if learned.shoujijigong == true then
+                tianfu_trigger_skill.shoujijigong(player, entity, q_table.shoujijigong or 1)
+            end
+
+            -- 连战连捷天赋触发（T3-B 军需档3·连杀叠层计数）
+            if learned.lianzhanlianjie == true then
+                tianfu_trigger_skill.lianzhanlianjie(player, q_table.lianzhanlianjie or 1)
+            end
+
         end
 
         return
@@ -1869,6 +1967,9 @@ return
             if learned.hkzy == true then tianfu_trigger_skill.hkzy(player, event, q_table.hkzy or 1) end
             if learned.tishenshu == true then tianfu_trigger_skill.tishenshu(player, event, q_table.tishenshu or 1) end
             if learned.xuebao == true then tianfu_trigger_skill.xuebao(player, event, q_table.xuebao or 1) end
+            if learned.xuexijinjie == true then tianfu_time_skill.xuexijinjie_hit(player, q_table.xuexijinjie or 1) end
+            if learned.huoshuidongyin == true then tianfu_trigger_skill.huoshuidongyin(player, event, q_table.huoshuidongyin or 1) end
+            if learned.zhandibilei == true then tianfu_trigger_skill.zhandibilei_check(player, event) end
         end
 
 end
@@ -1953,6 +2054,21 @@ local function on_research_finished(event)
             end
         end
     end
+
+    -- xuefuwuche（学富五车，T3-B 科研线档3·每次科研四维成长）
+    local owners_xfwc = owners_all.xuefuwuche
+    if owners_xfwc then
+        for player_index, _ in pairs(owners_xfwc) do
+            local player = game.players[player_index]
+            if player and player.valid and player.connected and player.force.name == 'player' then
+                local learned = enabled_all[player_index] or {}
+                if learned.xuefuwuche == true then
+                    local q = (q_all[player.name] or {}).xuefuwuche or 1
+                    tianfu_trigger_skill.xuefuwuche(player, q)
+                end
+            end
+        end
+    end
 end
 
 -- ★ 方案 C：on_nth_tick(3) → on_nth_tick(1)
@@ -1985,7 +2101,7 @@ Event.add(defines.events.on_research_finished, on_research_finished)
 Event.add(defines.events.on_player_gun_inventory_changed, on_player_gun_inventory_changed)
 Event.add(defines.events.on_player_died, on_player_died)
 Event.add(defines.events.on_entity_damaged, on_entity_damaged, {
-    {filter = "type", type = 'character'}, 
+    {filter = "type", type = 'character'},
     {filter = "type", type = 'electric-turret'}
     })
 Event.add(defines.events.on_entity_died, on_entity_died)
@@ -2052,6 +2168,16 @@ local function on_player_deconstructed_area(event)
     -- 检查是否学习了神赐之手天赋
     if learned.shencizhishou == true then
         tianfu_trigger_skill.shencizhishou(player, event, q_table.shencizhishou or 1)
+    end
+
+    -- 军团号令天赋触发（T3-B 干T4·红图集火）
+    if learned.juntuanhaoling == true then
+        tianfu_trigger_skill.juntuanhaoling(player, event, q_table.juntuanhaoling or 1)
+    end
+
+    -- 工兵参谋天赋触发（T3-B 建设⇄资源车站·按图施工）
+    if learned.gongbingcanmou == true then
+        tianfu_trigger_skill.gongbingcanmou(player, event, q_table.gongbingcanmou or 1)
     end
 
 end

@@ -156,7 +156,7 @@ local function fill_tiles(entity, size)
     local surface = entity.surface
     local radius = size or 10
     local pos = entity.position
-    local t = {'water', 'water-green', 'water-mud', 'water-shallow', 'deepwater', 
+    local t = {'water', 'water-green', 'water-mud', 'water-shallow', 'deepwater',
     'deepwater-green', 'lava-hot','lava','ammoniacal-ocean','ammoniacal-ocean-2'
 }
     local area = {{pos.x - radius, pos.y - radius}, {pos.x + radius, pos.y + radius}}
@@ -165,12 +165,16 @@ local function fill_tiles(entity, size)
         name = t
     }
     if #tiles > 0 then
-        for _, tile in pairs(tiles) do
-            surface.set_tiles({{
+        -- 性能优化：批量一次 set_tiles。原实现逐 tile 调用（61×61 范围命中水域时可达
+        -- 数百次引擎调用，且每次都触发独立的地形更新），批量后等价且只调用一次。
+        local replacement = {}
+        for i, tile in pairs(tiles) do
+            replacement[i] = {
                 name = 'sand-1',
                 position = tile.position
-            }}, true)
+            }
         end
+        surface.set_tiles(replacement, true)
     end
 
     local litter_radius = 10
@@ -560,6 +564,48 @@ local function set_next_wave()
     end
 end
 
+--- 走廊障碍收集（性能优化，功能覆盖不变）：
+-- 沿「起点 → dir 单位方向 × total_len」的走廊分段做轴对齐范围查询。原实现对走廊上每 3/6 步
+-- 采样点逐一 radius 查询（远距离时数百次引擎调用、且相邻查询重复扫描同一区域）；现在每段
+-- 一次查询（次数 ≈ 距离/段长），再按「点到走廊中心线的距离」过滤，覆盖范围与原逐点查询一致。
+-- 返回按走廊距离升序的 {entity, dist} 列表。
+local CORRIDOR_TYPES = {'simple-entity', 'tree', 'wall', 'inserter', 'loader'}
+
+local function get_corridor_obstacles(surface, start_x, start_y, dir_x, dir_y, total_len, segment_len, search_radius)
+    local found = {}
+    local n_seg = math.ceil(total_len / segment_len)
+    for s = 0, n_seg - 1 do
+        local d0 = s * segment_len
+        local d1 = math.min((s + 1) * segment_len, total_len)
+        local ax = start_x + dir_x * d0
+        local ay = start_y + dir_y * d0
+        local bx = start_x + dir_x * d1
+        local by = start_y + dir_y * d1
+        local entities = surface.find_entities_filtered {
+            area = {
+                {math.min(ax, bx) - search_radius, math.min(ay, by) - search_radius},
+                {math.max(ax, bx) + search_radius, math.max(ay, by) + search_radius}
+            },
+            type = CORRIDOR_TYPES
+        }
+        for i = 1, #entities do
+            local e = entities[i]
+            if e.valid then
+                local t = (e.position.x - start_x) * dir_x + (e.position.y - start_y) * dir_y
+                if t >= d0 - search_radius and t <= d1 + search_radius then
+                    local dx = e.position.x - (start_x + dir_x * t)
+                    local dy = e.position.y - (start_y + dir_y * t)
+                    if dx * dx + dy * dy <= search_radius * search_radius then
+                        found[#found + 1] = {entity = e, dist = t}
+                    end
+                end
+            end
+        end
+    end
+    table.sort(found, function(a, b) return a.dist < b.dist end)
+    return found
+end
+
 --- 生成虫子单位组的主要攻击命令序列
 -- 该函数生成一个复合命令，包含路径清理、区域攻击和直接攻击三个阶段
 -- @param group 单位组对象，包含位置和表面信息
@@ -567,56 +613,54 @@ end
 local function get_main_command(group)
     local unit_group_command_step_length = WD.get('unit_group_command_step_length')
     local commands = {}
-    
+
     local group_position = {
         x = group.position.x,
         y = group.position.y
     }
-    
+
     local step_length = unit_group_command_step_length
     local target = WD.get('target')
-    
+
     if not valid(target) then
         return
     end
 
     local target_position = target.position
-    local distance_to_target = math_floor(math_sqrt((target_position.x - group_position.x) ^ 2 +
-                                                        (target_position.y - group_position.y) ^ 2))
-    
-    local steps = math_floor(distance_to_target / step_length) + 1
-    
-    local vector = {math_round((target_position.x - group_position.x) / steps, 3),
-                    math_round((target_position.y - group_position.y) / steps, 3)}
+    local dx = target_position.x - group_position.x
+    local dy = target_position.y - group_position.y
+    local distance_to_target = math_floor(math_sqrt(dx * dx + dy * dy))
 
-    local search_interval = 3
-    local search_radius = step_length * 1.5
-    
-    for i = 1, steps, 1 do
-        local old_position = group_position
-        
-        group_position.x = group_position.x + vector[1]
-        group_position.y = group_position.y + vector[2]
-        
-        if i % search_interval == 0 or i == steps then
-            local obstacles = group.surface.find_entities_filtered {
-                position = old_position,
-                radius = search_radius,
-                type = {'simple-entity', 'tree', "wall", "inserter", "loader"},
-                limit = 30
-            }
-            
-            if obstacles and #obstacles > 0 then
-                shuffle_distance(obstacles, old_position)
-                
-                for j = 1, #obstacles, 1 do
-                    if obstacles[j].valid then
-                        commands[#commands + 1] = {
-                            type = defines.command.attack,
-                            target = obstacles[j],
-                            distraction = defines.distraction.by_anything
-                        }
-                    end
+    if distance_to_target >= 1 then
+        -- 走廊采样：原实现对每 3 步采样点逐一 radius 查询（远距离时数百次调用，单次构建
+        -- 即产生 10ms+ 尖峰）。改为分段查询（段长 12 步），查询次数从数百降到十余次，
+        -- 清障覆盖仍为全程；每 search_interval 步窗口内最多 30 个目标与原 limit=30 一致。
+        local search_interval = 3
+        local search_radius = step_length * 1.5
+        local dir_x = dx / distance_to_target
+        local dir_y = dy / distance_to_target
+        local obstacles =
+            get_corridor_obstacles(group.surface, group_position.x, group_position.y, dir_x, dir_y,
+                distance_to_target, step_length * 12, search_radius)
+
+        local window_len = step_length * search_interval
+        local window_idx = -1
+        local window_count = 0
+        for i = 1, #obstacles do
+            local o = obstacles[i]
+            if o.entity.valid then
+                local w = math_floor(o.dist / window_len)
+                if w ~= window_idx then
+                    window_idx = w
+                    window_count = 0
+                end
+                window_count = window_count + 1
+                if window_count <= 30 then
+                    commands[#commands + 1] = {
+                        type = defines.command.attack,
+                        target = o.entity,
+                        distraction = defines.distraction.by_anything
+                    }
                 end
             end
         end
@@ -1088,42 +1132,39 @@ local function attempt_enemy_regroup_and_restart(surface, search_position, targe
     local unit_group_command_step_length = WD.get('unit_group_command_step_length')
     local step_length = unit_group_command_step_length
     local target_position_vec = target_position
-    local distance_to_target = math_floor(math_sqrt((target_position_vec.x - group_position.x) ^ 2 +
-                                                        (target_position_vec.y - group_position.y) ^ 2))
-    
-    local steps = math_floor(distance_to_target / step_length) + 1
-    
-    local vector = {math_round((target_position_vec.x - group_position.x) / steps, 3),
-                    math_round((target_position_vec.y - group_position.y) / steps, 3)}
+    local dx = target_position_vec.x - group_position.x
+    local dy = target_position_vec.y - group_position.y
+    local distance_to_target = math_floor(math_sqrt(dx * dx + dy * dy))
 
-    local search_interval = 6
-    local search_radius = step_length * 1.5
-    
-    for i = 1, steps, 1 do
-        local old_position = group_position
-        
-        group_position.x = group_position.x + vector[1]
-        group_position.y = group_position.y + vector[2]
-        
-        if i % search_interval == 0 or i == steps then
-            local obstacles = new_group.surface.find_entities_filtered {
-                position = old_position,
-                radius = search_radius,
-                type = {'simple-entity', 'tree', "wall", "inserter", "loader"},
-                limit = 10
-            }
-            
-            if obstacles and #obstacles > 0 then
-                shuffle_distance(obstacles, old_position)
-                
-                for j = 1, #obstacles, 1 do
-                    if obstacles[j].valid then
-                        commands[#commands + 1] = {
-                            type = defines.command.attack,
-                            target = obstacles[j],
-                            distraction = defines.distraction.by_anything
-                        }
-                    end
+    if distance_to_target >= 1 then
+        -- 与 get_main_command 相同的走廊分段查询优化：每 6 步窗口最多 10 个目标（原 limit=10），
+        -- 查询次数从 O(步数) 降到 O(段数)，清障覆盖保持全程。
+        local search_interval = 6
+        local search_radius = step_length * 1.5
+        local dir_x = dx / distance_to_target
+        local dir_y = dy / distance_to_target
+        local obstacles =
+            get_corridor_obstacles(new_group.surface, group_position.x, group_position.y, dir_x, dir_y,
+                distance_to_target, step_length * 12, search_radius)
+
+        local window_len = step_length * search_interval
+        local window_idx = -1
+        local window_count = 0
+        for i = 1, #obstacles do
+            local o = obstacles[i]
+            if o.entity.valid then
+                local w = math_floor(o.dist / window_len)
+                if w ~= window_idx then
+                    window_idx = w
+                    window_count = 0
+                end
+                window_count = window_count + 1
+                if window_count <= 10 then
+                    commands[#commands + 1] = {
+                        type = defines.command.attack,
+                        target = o.entity,
+                        distraction = defines.distraction.by_anything
+                    }
                 end
             end
         end
@@ -1364,6 +1405,11 @@ local function check_group_positions()
 
     local unit_group_pos = WD.get('unit_group_pos')
 
+    -- 性能修复：限流（调度摊平，不改变各组的处理内容）。接战期多个组同时进入停滞分支时，
+    -- command_to_main_target（命令重建）、清场与 reform_group 的开销会在同一 tick 集中爆发
+    -- （实测单 tick 10ms+）。每 tick 最多处理 2 个停滞组，其余下轮（120 tick 后）自然轮到。
+    local budget = 2
+
     for id, group in pairs(unit_groups) do
         if not group.valid then
             unit_groups[id] = nil
@@ -1372,7 +1418,10 @@ local function check_group_positions()
         end
 
         if group.state == defines.group_state.finished then
-            command_to_main_target(group, true)
+            if budget > 0 then
+                budget = budget - 1
+                command_to_main_target(group, true)
+            end
             goto skip
         end
 
@@ -1384,7 +1433,8 @@ local function check_group_positions()
 
         if is_position_near(group.position, ugp.position) then
             ugp.index = ugp.index + 1
-            if ugp.index >= 2 then
+            if ugp.index >= 2 and budget > 0 then
+                budget = budget - 1
                 command_to_main_target(group, true)
                 fill_tiles(group, 30)
                 remove_rocks(group)
@@ -1412,7 +1462,7 @@ local function on_tick()
         for _, player in pairs(players) do
             update_gui(player)
         end
-        
+
         -- 每秒执行一次的任务
         set_main_target()
         spawn_unit_group()
@@ -1432,11 +1482,11 @@ local function on_tick()
     if tick % 120 == 0 then check_group_positions() end
     if tick % 150 == 0 then ThreatEvent.build_nest() end
     if tick % 180 == 0 then ThreatEvent.build_worm() end
-    
+
     if tick % 1800 == 0 then
         spawn_player_biters_against_enemy_roboport()
     end
-    
+
     if tick % 3600 == 0 then time_out_biters() end
     if tick % 1800 == 0 then WD.reconcile_pentapod_counts() end
     if tick % 7200 == 0 then refresh_active_unit_threat() end

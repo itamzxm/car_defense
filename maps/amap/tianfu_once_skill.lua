@@ -59,14 +59,15 @@ end
 Public.once_skills = once_skills
 
 -- 一次性技能函数定义
--- local function dgzg(player)
---     local k = 'bullet'
---     local e = game.forces.player
---     local e_old = e.get_ammo_damage_modifier(k)
---     e.set_ammo_damage_modifier(k, 0.1 + e_old)
---     new_print(player, {'tianfu.dgzg_over'})
---     return true
--- end
+-- 帝国战歌（指挥部光环档1，T3-B1 补注册：取消注释并进抽取池）
+local function dgzg(player, q_idx)
+    local k = 'bullet'
+    local e = game.forces.player
+    local e_old = e.get_ammo_damage_modifier(k)
+    e.set_ammo_damage_modifier(k, 0.1 + e_old)
+    new_print(player, {'tianfu.dgzg_over'})
+    return true
+end
 
 
 local function hc(player, q_idx)
@@ -252,9 +253,9 @@ end
 
 -- 一次性技能表
 local once_skills = {
-    -- ['dgzg'] = {
-    --     name = dgzg
-    -- },
+    ['dgzg'] = {
+        name = dgzg
+    },
     ['hc'] = {
         name = hc
     },

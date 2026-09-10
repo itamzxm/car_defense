@@ -66,6 +66,17 @@ Data.tianfu_categories = {
         'zidongfanmai',  -- 自动贩卖机
         'huoliyu',        -- 活力鱼
         'njbomb',          -- 黏土炸弹
+        -- T3-B 新卡（法师）
+        'wangzhezhengmu',  -- 亡者征募
+        'fenshenmifa',     -- 焚身秘法
+        'yuxunqi',         -- 渔汛期
+        'lianjinpeidui',   -- 炼金配对
+        'shifutilian',     -- 食腐提炼
+        'guzhuyizhi',      -- 孤注一掷
+        'huixiang',        -- 回响
+        'chaopindianwang', -- 超频电网
+        'qiling',          -- 起灵
+        'zhuanyun',        -- 转运
     },
     builder = {      -- 建造者类天赋（建设基地，敏捷相关，资源经济）
         'rsrl',      -- 肉身熔炉
@@ -117,6 +128,14 @@ Data.tianfu_categories = {
         'qiche_ren', -- 汽车人
         'haiguanfang',
         'jqrpu',       -- 机器人仆从
+        -- T3-B 新卡（建造者）
+        'chezaiduannpeng', -- 车载暖棚
+        'xuefuwuche',      -- 学富五车
+        'qianchuanguihai', -- 千川归海
+        'tianshitouzi',    -- 天使投资
+        'zhuleishu',       -- 筑垒术
+        'gongbingcanmou',  -- 工兵参谋
+        'guanjia',         -- 管家
     },
     fighter = {          -- 战斗者类天赋（通过增强自身能力战斗，力量和活力相关）
         'shengguangzhongji', -- 圣光重击
@@ -180,6 +199,25 @@ Data.tianfu_categories = {
         'dingjilueshizhe', -- 顶级掠食者
         'emengyingrao',    -- 噩梦萦绕
         'duoduoyishan',    -- 多多益善
+        -- T3-B 新卡（战士）
+        'xuexijinjie',     -- 学习进阶
+        'luoduozhexuemai', -- 掠夺者血脉
+        'bujiezhiqu',      -- 不竭之躯
+        'juntuanhaoling',  -- 军团号令
+        'yinglingwange',   -- 英灵挽歌
+        'shoujijigong',    -- 首级记功
+        'lianzhanlianjie', -- 连战连捷
+        'xiechoubaoku',    -- 血酬宝库
+        'yichanzhixingren',-- 遗产执行人
+        'zhandibilei',     -- 战地壁垒
+        'taitanzhiqu',     -- 泰坦之躯
+        'huoshuidongyin',  -- 祸水东引
+        'jixieshi',        -- 机械师
+        'zhandibuju',      -- 战地补给
+        'liansuofanying',  -- 连锁反应
+        'faxinri',         -- 发薪日
+        'qiushengbenneng', -- 求生本能
+        'dgzg',            -- 帝国战歌（T3-B1 补注册）
     },
     other = {         -- 其他类天赋（无法归类到以上三类的天赋）
               'wudi',       -- 隐形斗篷
@@ -232,7 +270,9 @@ Data.tianfu_icons = {
     ['yuer'] = 'item/raw-fish',                    -- 鱼饵
     ['xybg'] = 'item/raw-fish',                    -- 小鱼饼干
     ['mijingzhang'] = 'item/iron-stick',             -- 魔晶杖
-    ['juqichengjian'] = 'item/steel-axe',           -- 聚气成剑
+    -- T3F-1：原 'item/steel-axe' 已失效——2.0 移除钢斧物品（真实客户端 Unknown sprite），
+    -- 近战/攻击卡统一改用有效战斗图标（与抽卡卡面 get_tianfu_icon 同源呈现）。
+    ['juqichengjian'] = 'item/grenade',             -- 聚气成剑
     ['smmf'] = 'item/energy-shield-equipment',     -- 魔法盾
     ['mlzq'] = 'item/battery',                      -- 魔力之泉
     ['morefali'] = 'item/battery',                  -- 备用法力瓶
@@ -266,13 +306,13 @@ Data.tianfu_icons = {
     ['mdt'] = 'entity/distractor',               -- 魔盗团
     ['shalujingyan'] = 'entity/small-biter',     -- 杀戮经验
     ['falibiqu'] = 'item/iron-stick',               -- 法力汲取
-    ['xxyd'] = 'item/steel-axe',                    -- 鲜血涌动
+    ['xxyd'] = 'item/grenade',                      -- 鲜血涌动
     ['xxzb'] = 'item/battery',                  -- 鲜血之杯（回法力）
     ['shui_hu_fu'] = 'item/pipe',                   -- 水护符
     ['shui_dun'] = 'item/pipe-to-ground',                      -- 水遁
     ['tishenshu'] = 'item/energy-shield-equipment', -- 替身术
     ['fengyinjuanzhou'] = 'item/blueprint',        -- 封印卷轴
-    ['wuxingjue'] = 'item/steel-axe',               -- 五行诀
+    ['wuxingjue'] = 'item/poison-capsule',          -- 五行诀
     ['htms'] = 'item/deconstruction-planner',       -- 红图抹杀
 
     -- 建造者类（builder）
@@ -321,7 +361,7 @@ Data.tianfu_icons = {
     ['sansan'] = 'entity/assembling-machine-1',                -- 三三合成
 
     -- 战士类（fighter）
-    ['shengguangzhongji'] = 'item/steel-axe',       -- 圣光重击
+    ['shengguangzhongji'] = 'item/grenade',         -- 圣光重击
     ['gongshengti'] = 'entity/small-biter',               -- 共生体
     ['hushenfu'] = 'item/energy-shield-equipment',  -- 护身符
     ['chongfengxianzhen'] = 'item/exoskeleton-equipment', -- 冲锋陷阵
@@ -367,7 +407,7 @@ Data.tianfu_icons = {
     ['zhidanbing'] = 'item/grenade',                 -- 掷弹兵
     ['pochen_bawangqiang'] = 'item/iron-stick',      -- 破阵霸王枪（长枪）
     ['lidazhuanfei'] = 'item/stone-brick',            -- 力大砖飞
-    ['xuyiyiquan'] = 'item/steel-axe',              -- 蓄意一拳（近战）
+    ['xuyiyiquan'] = 'item/grenade',                -- 蓄意一拳（近战）
     ['shuangrenjian'] = 'item/iron-stick',           -- 双刃剑
     ['dingjilueshizhe'] = 'entity/behemoth-biter',           -- 顶级掠食者
     ['emengyingrao'] = 'entity/medium-spitter',              -- 噩梦萦绕
@@ -405,7 +445,7 @@ Data.tianfu_icons = {
     ['hd'] = 'item/steel-chest',                     -- 皇帝
     ['guajichengsheng'] = 'item/coin',                -- 挂机成圣
     ['yuediaoyuerou'] = 'item/raw-fish',             -- 越钓越肉
-    ['linghang'] = 'utility/heart',                    -- 领航
+    ['linghang'] = 'utility/gps_map_icon',             -- 领航（T3F-1：原 utility/heart 在 core 中无此 sprite 定义，真实客户端报 Unknown sprite，按导航语义换 utility/gps_map_icon）
     ['duoduoyishan'] = 'entity/small-biter',            -- 多多益善（敌方虫子）
     ['zidongfanmai'] = 'entity/market',                 -- 自动贩卖机（市场）
     ['huoliyu'] = 'item/raw-fish',                    -- 活力鱼（鱼）
@@ -441,6 +481,42 @@ Data.tianfu_icons = {
     ['yuedui_gushou'] = 'item/jellynut',         -- 乐队鼓手（施加 jellynut 加速贴纸）
     ['zhiming'] = 'item/grenade',                -- 致命一击（15%爆炸暴击）
     ['zrsc'] = 'item/repair-pack',               -- 自然人（活力回复）
+
+    -- ===== T3-B 新卡图标 =====
+    ['xuexijinjie'] = 'item/energy-shield-equipment',  -- 学习进阶（受击感悟）
+    ['luoduozhexuemai'] = 'item/grenade',              -- 掠夺者血脉（掠夺生机）
+    ['bujiezhiqu'] = 'item/power-armor',               -- 不竭之躯（死亡否决）
+    ['juntuanhaoling'] = 'item/deconstruction-planner', -- 军团号令（红图指挥）
+    ['yinglingwange'] = 'item/grenade',                -- 英灵挽歌（死亡清算）
+    ['wangzhezhengmu'] = 'entity/small-biter',         -- 亡者征募（亡灵化）
+    ['fenshenmifa'] = 'item/flamethrower',             -- 焚身秘法（烧血）
+    ['shoujijigong'] = 'item/coin',                    -- 首级记功（赏金）
+    ['lianzhanlianjie'] = 'item/combat-shotgun',       -- 连战连捷（战意）
+    ['xiechoubaoku'] = 'item/steel-chest',             -- 血酬宝库（宝库）
+    ['yichanzhixingren'] = 'item/coin',                -- 遗产执行人（抚恤）
+    ['zhandibilei'] = 'item/stone-wall',               -- 战地壁垒（壁垒）
+    ['taitanzhiqu'] = 'item/heavy-armor',              -- 泰坦之躯（巨躯）
+    ['huoshuidongyin'] = 'item/pipe',                  -- 祸水东引（转嫁）
+    ['yuxunqi'] = 'item/raw-fish',                     -- 渔汛期（收网）
+    ['lianjinpeidui'] = 'item/poison-capsule',         -- 炼金配对（融合）
+    ['shifutilian'] = 'item/iron-plate',               -- 食腐提炼（提炼）
+    ['guzhuyizhi'] = 'item/coin',                      -- 孤注一掷（豪赌）
+    ['huixiang'] = 'item/spidertron',                  -- 回响（复读）
+    ['chezaiduannpeng'] = 'item/car',                  -- 车载暖棚（车内暖棚）
+    ['xuefuwuche'] = 'item/automation-science-pack',   -- 学富五车（科研）
+    ['qianchuanguihai'] = 'item/exoskeleton-equipment', -- 千川归海（凝峰）
+    ['tianshitouzi'] = 'item/coin',                    -- 天使投资（投资）
+    ['zhuleishu'] = 'entity/gate',                     -- 筑垒术（工事）
+    ['jixieshi'] = 'item/repair-pack',                 -- 机械师（维修）
+    ['zhandibuju'] = 'item/firearm-magazine',          -- 战地补给（弹药）
+    ['liansuofanying'] = 'item/explosive-rocket',      -- 连锁反应（连环爆炸）
+    ['faxinri'] = 'item/coin',                         -- 发薪日（定期结算）
+    ['chaopindianwang'] = 'item/copper-cable',         -- 超频电网（并网）
+    ['qiling'] = 'entity/medium-biter',                -- 起灵（唤起残骸）
+    ['zhuanyun'] = 'item/raw-fish',                    -- 转运（保底；T3F-1：原 utility/heart 在 core 中无此 sprite 定义，真实客户端报 Unknown sprite，改用图标缺省语义同源）
+    ['gongbingcanmou'] = 'item/blueprint',             -- 工兵参谋（按图施工）
+    ['guanjia'] = 'item/requester-chest',              -- 管家（中控补产；T3F-1：2.0 起物品更名 logistic-chest-requester→requester-chest，旧路径真实客户端报 Unknown sprite）
+    ['qiushengbenneng'] = 'item/energy-shield-mk2-equipment', -- 求生本能（绝境回涌）
 }
 
 return Data

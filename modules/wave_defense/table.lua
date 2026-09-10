@@ -130,6 +130,19 @@ function Public.try_register_biter_spawn(unit_name)
     return true, category
 end
 
+--- BUG-4：清空全部血量池（重开游戏时调用）
+-- 血量池不会自己增长：重开后开局阶段出现的复活能力来自上一局残留余额。
+-- 重开/新开局时必须清空，使每局血量池从零积累；复活判定保持"有余额即复活"的原始形态。
+function Public.clear_health_pools()
+    this.biter_health_pools = {
+        biter    = { pending_health = 0 },
+        spitter  = { pending_health = 0 },
+        stomper  = { pending_health = 0 },
+        strafer  = { pending_health = 0 },
+        wriggler = { pending_health = 0 },
+    }
+end
+
 --- 将虫子血量存入对应分类的池子
 -- @param unit_name string 虫子名称
 -- @param quality_name string|nil 品质
@@ -386,14 +399,8 @@ function Public.reset_wave_defense()
     this.strafer_count = 0
     this.max_pentapods_per_type = 3
 
-    -- 5个血量池，按虫子类型分类，只存血量
-    this.biter_health_pools = {
-        biter    = { pending_health = 0 },
-        spitter  = { pending_health = 0 },
-        stomper  = { pending_health = 0 },
-        strafer  = { pending_health = 0 },
-        wriggler = { pending_health = 0 },
-    }
+    -- 5个血量池，按虫子类型分类，只存血量（BUG-4：清池实现统一收敛到 clear_health_pools）
+    Public.clear_health_pools()
 
     this.spawn_unit_spawner_count = 0
     this.spawn_unit_spawner_time = 0

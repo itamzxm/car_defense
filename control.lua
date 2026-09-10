@@ -112,6 +112,23 @@ if config.gui.top_button_order.enabled then
     require 'utils.top_button_order'
 end
 
+
+-- =============================================================================
+-- QA headless 自检钩子（默认关闭；qa/Run-TankHeadlessCase.ps1 经 config 变体启用）
+-- =============================================================================
+if config.debug.instance_selfcheck and config.debug.instance_selfcheck.enabled then
+    require 'qa.instance_selfcheck'
+end
+if config.debug.bug4_hppool_selfcheck and config.debug.bug4_hppool_selfcheck.enabled then
+    require 'qa.bug4_hppool_selfcheck'
+end
+if config.debug.mining_red_tag_selfcheck and config.debug.mining_red_tag_selfcheck.enabled then
+    require 'qa.mining_red_tag_selfcheck'
+end
+if config.debug.d6_panel_selfcheck and config.debug.d6_panel_selfcheck.enabled then
+    require 'qa.d6_panel_selfcheck'
+end
+
 if _DUMP_ENV then
     require 'utils.dump_env'
 end

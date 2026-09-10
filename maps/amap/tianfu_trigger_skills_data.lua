@@ -149,7 +149,40 @@ Data.trigger_skills = {
         time = 60 * 2
     },
     ['shuangrenjian'] = {
-    }
+    },
+
+    -- ===== T3-B 新卡 =====
+    ['luoduozhexuemai'] = {
+        time = 20 -- 每秒最多掠夺3次（20 tick 冷却）
+    },
+    ['bujiezhiqu'] = {
+    },
+    ['juntuanhaoling'] = {
+        time = 60 * 60 -- 红图集火冷却60秒
+    },
+    ['wangzhezhengmu'] = {
+    },
+    ['yinglingwange'] = {
+        time = 60 * 60 * 3 -- 冷却3分钟
+    },
+    ['shoujijigong'] = {
+    },
+    ['lianzhanlianjie'] = {
+    },
+    ['yichanzhixingren'] = {
+    },
+    ['huoshuidongyin'] = {
+        -- CD 逐档 {12,10,8,7,6} 秒由函数内自门控（this.huoshuidongyin_last）
+    },
+    ['zhandibilei'] = {
+    },
+    ['lianjinpeidui'] = {
+    },
+    ['xuefuwuche'] = {
+    },
+    ['gongbingcanmou'] = {
+        time = 60 * 60 * 10 -- 冷却10分钟
+    },
 }
 
 return Data

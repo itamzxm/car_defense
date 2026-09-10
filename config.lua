@@ -54,6 +54,12 @@ config.gui = {
 -- =============================================================================
 config.debug = {
     dump_env = false,                      -- _DUMP_ENV：转储环境（仅排查用）
+
+    -- QA headless 自检钩子（全部默认关闭；qa/Run-TankHeadlessCase.ps1 变体注入用，正式服零影响）
+    instance_selfcheck = { enabled = false },
+    bug4_hppool_selfcheck = { enabled = false }, -- BUG-4 血量池生命周期自检（QA 用例 BUG4-HPPOOL-SELFCHECK 启用，正式服务器默认关闭）
+    mining_red_tag_selfcheck = { enabled = false },
+    d6_panel_selfcheck = { enabled = false },
 }
 
 return config

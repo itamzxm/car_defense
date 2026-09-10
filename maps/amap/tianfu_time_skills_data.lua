@@ -407,6 +407,73 @@ Data.time_skills = {
     ['njbomb'] = {
         time = 60 * 6 -- 每6秒触发一次（被动自动为友方虫子施加亡语）
     },
+
+    -- ===== T3-B 新卡 =====
+    ['xuexijinjie'] = {
+        time = 60 -- 每秒结算「感悟」层数回复（受伤加层由 on_entity_damaged 入口）
+    },
+    ['fenshenmifa'] = {
+        time = 60 * 5 -- 每5秒燃烧当前生命造成环形法术伤害
+    },
+    ['taitanzhiqu'] = {
+        time = 60 * 5 -- 每5秒刷新生命上限加成（跟随成长）
+    },
+    ['yuxunqi'] = {
+        time = 60 * 10 -- 每10分钟收网一次
+    },
+    ['chezaiduannpeng'] = {
+        time = 60 * 3 -- 每3分钟收获一次
+    },
+    ['qianchuanguihai'] = {
+        time = 60 * 25 -- 调度下限25秒；实际间隔按品质逐档 {60,50,40,32,25} 秒自门控
+    },
+    ['tianshitouzi'] = {
+        time = 60 -- 每分钟资助一次
+    },
+    ['xiechoubaoku'] = {
+        time = 60 * 10 -- 每10分钟结息一次
+    },
+    ['shifutilian'] = {
+        time = 60 * 10 -- 每10秒提炼一次
+    },
+    ['guzhuyizhi'] = {
+        time = 60 * 60 * 45 -- 每45分钟豪赌一次
+    },
+    ['zhuleishu'] = {
+        time = 60 * 12 -- 调度下限12秒；实际间隔按品质逐档 {30,25,20,15,12} 秒自门控
+    },
+
+    -- ===== T3-B 新卡（批3） =====
+    ['jixieshi'] = {
+        time = 60 * 10 -- 每10秒治疗生命值最低的召唤物
+    },
+    ['faxinri'] = {
+        time = 60 * 5 -- 每5分钟一次性结算击杀金币（+30%×REG）
+    },
+    ['zhuanyun'] = {
+        time = 60 -- 占位 tick（保底结算在 TianfuQuality.roll 内）
+    },
+    ['chaopindianwang'] = {
+        time = 60 -- 占位 tick（间隔缩短结算在 tianfu.lua 桶调度冷却计算处）
+    },
+    ['qiling'] = {
+        time = 60 * 12 -- 调度下限12秒；实际间隔按品质逐档 {30,25,20,16,12} 秒自门控
+    },
+    ['guanjia'] = {
+        time = 60 -- 每分钟清点补产一次
+    },
+    ['huixiang'] = {
+        time = 60 -- 占位 tick（延迟复读在 deal_damage_with_floating_text 内结算）
+    },
+    ['zhandibuju'] = {
+        time = 60 -- 占位 tick（补给镜像在 insert_item_to_player 内结算）
+    },
+    ['liansuofanying'] = {
+        time = 60 -- 占位 tick（连锁在 splash_damage 内结算）
+    },
+    ['qiushengbenneng'] = {
+        time = 60 -- 占位 tick（低血回复加成在 get_heal_mult 内结算）
+    },
 }
 
 return Data

@@ -205,12 +205,74 @@ local DISPLAY = {
     duoduoyishan = { coeff = 'REG', vals = {5} },    -- 多多益善：金币 = 实际召唤数 × 5 × REG（单轮封顶30只，金币跟随实际虫子，每只基础5金币、品质线性缩放）
     zidongfanmai = { arr = {4, 4, 4, 4, 4} },           -- 自动贩卖机：每条鱼按商店价 4 金币贩卖（不随品质变化，__2__恒为4）
     huoliyu = { arr = {1, 1, 2, 2, 3} },                -- 每85条鱼 +__2__活力(11223)
+
+    -- ===== T3-B 新卡（批1） =====
+    xuexijinjie = { arr = {0.3, 0.4, 0.5, 0.6, 0.8} },            -- 学习进阶：每层每秒回复生命上限 {0.3..0.8}%
+    luoduozhexuemai = { arr = {4, 4, 6, 6, 8} },                  -- 掠夺者血脉：恢复已损生命 {4,4,6,6,8}%
+    bujiezhiqu = { arr = {40, 50, 60, 70, 80} },                  -- 不竭之躯：触发回复生命上限 {40..80}%
+    juntuanhaoling = {},                                          -- 军团号令：品质无数值作用面（攻速段未实装，见回执）
+    wangzhezhengmu = { arrs = { {1, 1, 2, 2, 3}, {20, 24, 28, 32, 36} } }, -- 亡者征募：存活上限{1,1,2,2,3} + 亡语20%×LOW
+    yinglingwange = { arr = {50, 60, 70, 80, 100} },              -- 英灵挽歌：清算=死者生命上限 {50..100}%
+    fenshenmifa = { arrs = { {8, 9.6, 11.2, 12.8, 14.4}, {1.5, 2.0, 2.5, 3.0, 3.5} } }, -- 焚身秘法：燃料比8%×LOW + 倍率表
+
+    -- ===== T3-B 新卡（批2） =====
+    shoujijigong = { arr = {0.2, 0.3, 0.4, 0.5, 0.8} },           -- 首级记功：赏金=猎物生命上限 {0.2..0.8}%
+    lianzhanlianjie = { coeff = 'LOW', vals = {2} },               -- 连战连捷：每杀+2%×LOW（上限+100%固定）
+    xiechoubaoku = { arr = {3, 4, 5, 6, 8} },                      -- 血酬宝库：利息 {3..8}%
+    yichanzhixingren = { arr = {5, 8, 10, 15, 20} },               -- 遗产执行人：抚恤=死者金币 {5..20}%
+    zhandibilei = { coeff = 'LOW', vals = {8} },                   -- 战地壁垒：减伤 8%×LOW
+    taitanzhiqu = { coeff = 'REG', vals = {160} },                 -- 泰坦之躯：活力+160×REG（B 裁决翻译，先例=小强 rs 档位×2）
+    huoshuidongyin = { arr = {12, 10, 8, 7, 6} },                  -- 祸水东引：CD {12..6} 秒
+    yuxunqi = { coeff = 'REG', vals = {20} },                      -- 渔汛期：鱼=法力 20%×REG
+    lianjinpeidui = {},                                            -- 炼金配对：融合倍率固定
+    shifutilian = { arr = {1, 1.25, 1.5, 1.75, 2.2} },             -- 食腐提炼：产料倍率 {1..2.2}
+    guzhuyizhi = { arr = {3, 3.5, 4, 4.5, 5} },                    -- 孤注一掷：赢局倍率 {3..5} 倍
+    huixiang = { coeff = 'LOW', vals = {30} },                     -- 回响：复读 30%×LOW
+    chezaiduannpeng = { coeff = 'REG', vals = {150, 50} },         -- 车载暖棚：矿石150×REG / 石砖50×REG
+    xuefuwuche = { arr = {1, 1, 2, 2, 3} },                        -- 学富五车：四维各+{1,1,2,2,3}
+    qianchuanguihai = { arr = {60, 50, 40, 32, 25} },              -- 千川归海：转移间隔 {60..25} 秒
+    tianshitouzi = { arr = {20, 30, 50, 80, 120} },                -- 天使投资：每分钟资助 {20..120} 经验
+    zhuleishu = { arr = {30, 25, 20, 15, 12} },                    -- 筑垒术：施工间隔 {30..12} 秒
+    zhuanyun = { arr = {3, 3, 2, 2, 2} },                          -- 转运：保底阈值 {3,3,2,2,2} 次
+
+    -- ===== T3-B 新卡（批3） =====
+    jixieshi = { coeff = 'LOW', vals = {8} },                      -- 机械师：治疗 8%×LOW
+    zhandibuju = { arr = {1, 2, 2, 2, 2} },                        -- 战地补给：精良起概率双份（1份/2份展示）
+    liansuofanying = { coeff = 'LOW', vals = {50} },               -- 连锁反应：第二层威力 50%×LOW
+    faxinri = { coeff = 'REG', vals = {30} },                      -- 发薪日：结算总额+30%×REG
+    chaopindianwang = { coeff = 'LOW', vals = {30} },              -- 超频电网：间隔缩短封顶 30%×LOW
+    qiling = { arr = {30, 25, 20, 16, 12} },                       -- 起灵：触发间隔 {30..12} 秒
+    gongbingcanmou = { coeff = 'REG', vals = {20} },               -- 工兵参谋：单次施工 20×REG 段
+    guanjia = { coeff = 'REG', vals = {500} },                     -- 管家：补足目标 500×REG
+    qiushengbenneng = { coeff = 'REG', vals = {100} },             -- 求生本能：低血回复效果+100%×REG
 }
 
 -- 学天赋时调用一次：宠物直接返回品质整数 1..5
 -- tier: 'low'(默认,普通购买) / 'mid'(中级购买) / 'high'(高级购买)，对应宠物 quality_weights 三档
-function Public.roll(tier)
-    return pet.roll_quality(tier or 'low')
+-- player（T3-B 转运）：传入时结算品质保底——学了「转运」的玩家连续 threshold 次未出最高两档，
+-- 下一次必出最高两档（史诗/传说）；threshold 逐档 {3,3,2,2,2}
+function Public.roll(tier, player)
+    local q = pet.roll_quality(tier or 'low')
+    if player then
+        local this = WPT.get()
+        local learned = this.skill and this.skill[player.name] or nil
+        local threshold = learned and learned.zhuanyun and ({3, 3, 2, 2, 2})[learned.zhuanyun] or nil
+        if threshold then
+            if not this.zhuanyun_pity then
+                this.zhuanyun_pity = {}
+            end
+            local streak = this.zhuanyun_pity[player.index] or 0
+            if streak >= threshold then
+                q = math.random(4, 5)
+                this.zhuanyun_pity[player.index] = 0
+            elseif q < 4 then
+                this.zhuanyun_pity[player.index] = streak + 1
+            else
+                this.zhuanyun_pity[player.index] = 0
+            end
+        end
+    end
+    return q
 end
 
 -- 运行时取品质：字典直接 O(1) 取值（方案 D 简化版，无需旧档兼容/遍历）。

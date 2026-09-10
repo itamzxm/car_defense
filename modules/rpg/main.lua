@@ -38,116 +38,6 @@ local sqrt = math.sqrt
 local abs = math.abs
 
 
-local function on_gui_click(event)
-  if not event then
-    return
-  end
-  local player = game.players[event.player_index]
-  if not (player and player.valid) then
-    return
-  end
-
-  if not event.element then
-    return
-  end
-  if not event.element.valid then
-    return
-  end
-  local element = event.element
-  if player.gui.screen[main_frame_name] then
-    local is_spamming = SpamProtection.is_spamming(player, nil, 'RPG Gui Click')
-    if is_spamming then
-      return
-    end
-  end
-
-  local surface_name = Public.get('rpg_extra').surface_name
-
-
-  if element.type ~= 'sprite-button' then
-    return
-  end
-
-  local shift = event.shift
-
-  if element.caption ~= '✚' then
-    return
-  end
-  if element.sprite ~= 'virtual-signal/signal-red' then
-    return
-  end
-
-  local rpg_t = Public.get_value_from_player(player.index)
-
-  local index = element.name
-  if not rpg_t[index] then
-    return
-  end
-  if not player.character then
-    return
-  end
-
-  if shift then
-    if event.button == defines.mouse_button_type.left then
-      local count = rpg_t.points_left
-      if not count then
-        return
-      end
-      rpg_t.points_left = 0
-      rpg_t[index] = rpg_t[index] + count
-      if not rpg_t.reset then
-        rpg_t.total = rpg_t.total + count
-      end
-      Public.toggle(player, true)
-      Public.update_player_stats(player)
-    elseif event.button == defines.mouse_button_type.right then
-      local left = rpg_t.points_left / 2
-      if left > 2 then
-        for _ = 1, left, 1 do
-          if rpg_t.points_left <= 0 then
-            Public.toggle(player, true)
-            return
-          end
-          rpg_t.points_left = rpg_t.points_left - 1
-          rpg_t[index] = rpg_t[index] + 1
-          if not rpg_t.reset then
-            rpg_t.total = rpg_t.total + 1
-          end
-          Public.update_player_stats(player)
-        end
-      end
-      Public.toggle(player, true)
-    end
-  elseif event.button == defines.mouse_button_type.right then
-    for _ = 1, points_per_level, 1 do
-      if rpg_t.points_left <= 0 then
-        Public.toggle(player, true)
-        return
-      end
-      rpg_t.points_left = rpg_t.points_left - 1
-      rpg_t[index] = rpg_t[index] + 1
-      if not rpg_t.reset then
-        rpg_t.total = rpg_t.total + 1
-      end
-      Public.update_player_stats(player)
-    end
-    Public.toggle(player, true)
-    return
-  end
-
-  if rpg_t.points_left <= 0 then
-    Public.toggle(player, true)
-    return
-  end
-  rpg_t.points_left = rpg_t.points_left - 1
-  rpg_t[index] = rpg_t[index] + 1
-  if not rpg_t.reset then
-    rpg_t.total = rpg_t.total + 1
-  end
-  Public.update_player_stats(player)
-  Public.toggle(player, true)
-end
-
 local function train_type_cause(cause)
   local players = {}
   if cause.train.passengers then
@@ -626,7 +516,7 @@ local function on_pre_player_mined_item(event)
   if player.gui.screen[main_frame_name] then
     local f = player.gui.screen[main_frame_name]
     local data = Gui.get_data(f)
-    if data.exp_gui and data.exp_gui.valid then
+    if data and data.exp_gui and data.exp_gui.valid then
       data.exp_gui.caption = floor(rpg_t.xp)
     end
   end
@@ -1295,7 +1185,6 @@ end
 Event.add(defines.events.on_pre_player_left_game, on_pre_player_left_game)
 Event.add(defines.events.on_player_died, on_player_died)
 Event.add(defines.events.on_entity_died, on_entity_died)
-Event.add(defines.events.on_gui_click, on_gui_click)
 Event.add(defines.events.on_player_changed_position, on_player_changed_position)
 Event.add(defines.events.on_player_crafted_item, on_player_crafted_item)
 Event.add(defines.events.on_player_joined_game, on_player_joined_game)
