@@ -10,6 +10,7 @@ local RPG_spee = require 'modules.rpg.core'
 local Spells = require 'modules.rpg.spells'
 local biter_rolls = require 'modules.wave_defense.biter_rolls'
 local EntityCache = require 'maps.amap.entity_cache'
+local World = require 'maps.amap.world.framework'
 
 local Public = {}
 
@@ -1378,7 +1379,10 @@ end
 local function hyll(player, q_idx)
     local this = TPT.get()
 
-    local k = math.random(1, 200)
+    -- World 框架：hyll_steel_chest_chance 调整钢箱概率（世界15 黑暗地穴 = 1/100；其他世界 1/200）
+    local wpt = WPT.get()
+    local chance = World.get_field(wpt and wpt.world_number, 'hyll_steel_chest_chance') or 200
+    local k = math.random(1, chance)
     if k == 1 then
         local rpg_t = rpgtable.get('rpg_t')
         local luck = math.min(rpg_t[player.index].magicka, 1000)

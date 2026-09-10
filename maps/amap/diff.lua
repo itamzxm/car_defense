@@ -104,7 +104,6 @@ local set_diff = function()
     end
     this.productionsphere.experience = {}
     this.productionsphere.assemblers = {}
-    this.productionsphere.groups = {}
     this.enable_wild_factorio =false
     game.print({"amap.biter_kill_factorio"})
   end
@@ -255,11 +254,9 @@ function Public.reset_table()
   map.record['SlouchyQuill507']='电量满满'
   map.record['smqdyxgc']='我gaygay的'
   map.record['1havedone']='绝不可能'
-  map.record['xiaoxing']='我迪迦在东北'
-   
+  
 
   map.png={}
-  map.png['xiaoxing']=true
   map.png['daoting']=true
   map.png['shawnk']=true
   map.png['aceshotter']=true

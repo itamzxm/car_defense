@@ -542,8 +542,8 @@ local function on_player_changed_position(event)
     return
   end
 
-  -- 副本隔离：副本内移动不获得主世界 RPG 移动经验（用 physical_surface 判断角色真实位置）
-  if player.physical_surface and Instance.is_dungeon_surface(player.physical_surface.name) then
+  -- 副本隔离：副本内移动不获得主世界 RPG 移动经验
+  if player.surface and Instance.is_dungeon_surface(player.surface.name) then
     return
   end
 

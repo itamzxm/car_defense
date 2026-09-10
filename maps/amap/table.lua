@@ -43,9 +43,6 @@ function Public.reset_table()
   this.productionsphere.experience = {}
   this.productionsphere.assemblers = {}
   this.productionsphere.train_assemblers = {}
-  this.productionsphere.groups = {}
-  this.productionsphere.next_group_id = 0
-  this.productionsphere.next_assembler_key = 0
   this.quality_chest_purchases = {}
   this.cache_values = {}
   this.cache_timeout = 60*10 -- 5秒缓存
@@ -223,8 +220,6 @@ this.bio_labs = {}
   this.ore_sequence_index = 0
   this.strategic_points = 0
   this.port_discovered = false
-  -- 角色缺失宽限计时（编辑器修复 2026-08-28）：player_index -> 缺失起始 tick；普通玩家缺角色持续 300 tick 才补建
-  this.no_character_since = {}
   this.island_type_index=1
   this.ore_sequence = {"iron-ore", "coal", "copper-ore", "stone", "crude-oil", "uranium-ore","iron-ore", "copper-ore", "stone","iron-ore", "coal", "copper-ore"}
   -- 岛屿系统数据（世界3）

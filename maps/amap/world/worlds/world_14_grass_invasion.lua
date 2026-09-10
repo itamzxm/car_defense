@@ -150,8 +150,8 @@ World.register(14, {
 
     -- 开局解锁的科技列表
     -- 来源：main.lua apply_technology_settings 中 world_number==14 分支（第 436-437 行）
-    -- 2026-08-27 星岩科技仅世界14解锁：advanced-asteroid-processing(高级星岩处理) + asteroid-reprocessing(星岩再处理)，由本 def 控制
-    unlocked_technologies = {'rocket-silo', 'advanced-asteroid-processing', 'asteroid-reprocessing'},
+    -- 新增 advanced-asteroid-processing（高级星岩处理），由本 def 控制开局解锁
+    unlocked_technologies = {'rocket-silo', 'advanced-asteroid-processing'},
     -- 是否允许填海
     -- 来源：main.lua apply_technology_settings 中 landfill_worlds 列表（第 455 行 {3, 7, 8, 9, 13, 14}），14 在列表
     landfill_allowed = true,

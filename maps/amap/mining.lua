@@ -5,6 +5,8 @@ local Pets = require 'maps.amap.biter_pets'
 local WPT = require 'maps.amap.table'
 local Alert = require 'utils.alert'
 local WD = require 'modules.wave_defense.table'
+local World = require 'maps.amap.world.framework'
+local diff = require 'maps.amap.diff'
 local Task = require 'utils.task'
 local Token = require 'utils.token'
 local random = math.random
@@ -74,13 +76,13 @@ local function hidden_biter_pet(player, entity)
     Pets.biter_pets_tame_unit(game.players[player.index], unit)
   end
 end
-local function hidden_treasure(player, entity)
+local function hidden_treasure(player, entity, chest_name)
   if not entity or not entity.valid then return end
   local rpg = RPGtable.get('rpg_t')
   local magic = rpg[player.index].magicka
   local msg = 'look,you find a treasure'
   Alert.alert_player(player, 5, msg)
-  Loot.add_rare(entity.surface, entity.position, 'wooden-chest', magic)
+  Loot.add_rare(entity.surface, entity.position, chest_name or 'wooden-chest', magic)
 end
 
 
@@ -123,8 +125,17 @@ local function on_player_mined_entity(event)
     this.biter_wudi[#this.biter_wudi+1]=e
     unstuck_player(player.index)
   end
-  if math.random(1,150)  < 2 then
-    hidden_treasure(player,entity)
+  -- World 框架：wood_chest_chance 调整挖石头木质宝箱概率（世界15 黑暗地穴 = 1/50；
+  -- 其他世界维持 1/150，即原 math.random(1,150) < 2）；
+  -- rock_chest_name 可把宝箱类型从木箱换成钢箱（世界15 = steel-chest，物资按钢箱物资）
+  local wood_chest_chance = World.get_field(diff.get().world, 'wood_chest_chance')
+  if wood_chest_chance then
+    if math.random(1, wood_chest_chance) == 1 then
+      local chest_name = World.get_field(diff.get().world, 'rock_chest_name') or 'wooden-chest'
+      hidden_treasure(player, entity, chest_name)
+    end
+  elseif math.random(1, 150) < 2 then
+    hidden_treasure(player, entity, 'wooden-chest')
   end
   if math.random(1,170)  < 3 then
     hidden_biter_pet(player,entity)

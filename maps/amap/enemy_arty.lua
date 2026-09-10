@@ -1620,7 +1620,8 @@ local function get_new_arty()
     arty_count.arty_check_count = 0
 
     local wave_number = WD.get('wave_number')
-    local start_nuamber = 250
+    -- World 框架：start_wave 对非 silo 世界同样生效（世界15 黑暗地穴 = 500；其他世界缺省 250）
+    local start_nuamber = arty_settings.start_wave or 250
     --如果没有火箭发射井，但是标签存在，则移除标签
     if not this.baolei_silo or not this.baolei_silo.valid then
          if this.silo_tag  then
@@ -1724,7 +1725,16 @@ local function get_new_arty()
     end
     -- 排除 silo 世界和世界 13（由专属逻辑生成堡垒）
     if not is_silo_world and this.world_number ~= 13 then
+        -- World 框架：fortress_count 一次生成多座堡垒（世界15 黑暗地穴 = 2）。
+        -- 第二轮起加大搜索初始半径，避免与上一座堡垒重叠（首座尚在建造队列、冲突检测查不到）。
+        local fc = arty_settings.fortress_count or 1
         Public.baolei(position, wave_number, surface)
+        for i = 2, fc, 1 do
+            local p2 = get_baolei_pos(target.position, 120 + (i - 1) * 60, surface, target, only_below)
+            if p2 then
+                Public.baolei(p2, wave_number, surface)
+            end
+        end
     end
 
     if is_silo_world then

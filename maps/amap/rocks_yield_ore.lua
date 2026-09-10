@@ -139,9 +139,26 @@ local function on_player_mined_entity(event)
 
 	event.buffer.clear()
 
-	local ore = storage.rocks_yield_ore["raffle"][math.random(1, storage.rocks_yield_ore["size_of_raffle"])]
+	local raffle = storage.rocks_yield_ore["raffle"]
+	-- World 框架：rock_ore_raffle（世界15 黑暗地穴）为挖石头出矿提供自定义权重池
+	--（铁/铜/煤/石/铀/钨/废料；其他世界缺省用默认 raffle，切世界无需恢复）
+	local custom_raffle = World.get_field(diff.get().world, 'rock_ore_raffle')
+	if custom_raffle then
+		raffle = custom_raffle
+	end
+	local ore = raffle[math.random(1, #raffle)]
 	local count = get_amount(entity)
 	count = math_floor(count * (1 + player.force.mining_drill_productivity_bonus))
+	-- World 框架：rock_ore_player_bonus（世界15 黑暗地穴 = 0.1）挖石头出产随在线人数加成
+	--（在线 1 人 +10%，与采矿产能科技叠加；其他世界缺省 0 不受影响）
+	local player_bonus = World.get_field(diff.get().world, 'rock_ore_player_bonus')
+	if player_bonus and player_bonus > 0 then
+		local n = 0
+		for _, p in pairs(game.connected_players) do
+			if p and p.valid then n = n + 1 end
+		end
+		count = math_floor(count * (1 + player_bonus * n))
+	end
 
 	storage.rocks_yield_ore["ores_mined"] = storage.rocks_yield_ore["ores_mined"] + count
 	storage.rocks_yield_ore["rocks_broken"] = storage.rocks_yield_ore["rocks_broken"] + 1
@@ -156,7 +173,9 @@ if  no_tree[entity.name]~=1 then
 	 player.create_local_flying_text({text = "+" .. 4 .. " [img=item/" .. 'wood' .. "]", position = {x=position.x+0.4,y=position.y+0.4}, color = {r = 200/255, g = 160/255, b = 30/255}})
 
 	 end
-	create_particles(player.physical_surface, particles[ore], position, 64, {x = player.physical_position.x, y = player.physical_position.y})
+	-- 粒子名缺失（钨/废料等无专属粒子）时回退铁粒，避免 create_particle(nil) 报错导致矿石未入包
+	local particle_name = particles[ore] or 'iron-ore-particle'
+	create_particles(player.physical_surface, particle_name, position, 64, {x = player.physical_position.x, y = player.physical_position.y})
 
 	entity.destroy()
 

@@ -1,4 +1,4 @@
--- control.lua
+﻿-- control.lua
 -- 场景入口
 --
 -- 原则：
@@ -115,3 +115,16 @@ end
 if _DUMP_ENV then
     require 'utils.dump_env'
 end
+
+-- 离线测试钩子（加载期 require，注册全局 _TEST 供 RCON /c 调用；
+-- 生产环境无此文件时 pcall 静默跳过，零影响。见 CLAUDE.md「离线测试方法」）
+pcall(require, 'command_line')
+
+
+
+
+
+
+
+
+

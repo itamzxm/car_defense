@@ -135,14 +135,6 @@ factorio.exe --start-server-load-scenario 坦克保卫战 --no-log-rotation
 - `control.lua` 末尾：`pcall(require, 'command_line')`（生产缺文件时 pcall 静默跳过，零影响；control.lua/根文件本就不在 factorio_sync.ps1 同步范围）。
 - `scenarios/rcon_driver.py`（场景父目录，不被同步）：Source RCON 客户端，发命令并抓日志标记行。
 
-**启动与执行：**
-```
-# 起服务器（建议用 timeout 包住避免常驻）
-factorio.exe --start-server-load-scenario 坦克保卫战 --rcon-port 27015 --rcon-password testpw --no-log-rotation
-# 进 InGame(~12s) 后，另一终端：
-python rcon_driver.py "_TEST.run_all()"
-```
-> 路径坑：Python 参数用反斜杠 Windows 路径；MSYS 会把 `/c/...` 传成 `c:\c\...` 导致找不到文件。
 
 **能力边界：**
 - 能测（占多数 bug）：纯逻辑——品质映射、`roll` 概率、`qround`/`fmt2` 数学、经验曲线、宠物解锁等级、locale 拼装、模块加载是否成功。

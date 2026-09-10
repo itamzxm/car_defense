@@ -158,7 +158,10 @@ local function on_player_mined_entity(event)
 	if not player or not player.valid then return end
 	if player.force.name ~= 'player' then return end
 
-	if math_random(1, storage.rocks_yield_ore_veins.chance) ~= 1 then return end
+	-- World 框架：vein_chance（世界15 黑暗地穴 = 999999999，等效禁用共享矿脉，
+	-- 改由世界模块自生成 1×1 单矿）；其他世界缺省用 storage 默认 768，切世界无需恢复
+	local vein_chance = World.get_field(diff.get().world, 'vein_chance') or storage.rocks_yield_ore_veins.chance
+	if math_random(1, vein_chance) ~= 1 then return end
 	ore_vein(event)
 
 end

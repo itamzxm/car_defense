@@ -907,11 +907,11 @@ function Public.enter(player, type_name, difficulty, previewed_reward_id, previe
                   {'amap.' .. difficulty_data.display_name_key}},
                  {r = 0, g = 1, b = 0})
 
-    -- 保存原状态（用 physical_surface：角色真实位置，而非视图所在图层）
-    data.original_surface = player.physical_surface.name
+    -- 保存原状态
+    data.original_surface = player.surface.name
     data.original_character = player.character
     data.original_force = player.force.name
-    data.original_position = {x = player.physical_position.x, y = player.physical_position.y}
+    data.original_position = {x = player.position.x, y = player.position.y}
     data.player_index = player_index
     data.active = true
     data.start_tick = game.tick
@@ -1803,9 +1803,9 @@ local function on_player_died(event)
     local data = this.dungeons[player_index]
     if not data.active then return end
 
-    -- 死亡在副本 surface 才算（用 physical_surface 判断角色真实位置）
+    -- 死亡在副本 surface 才算
     if not data.surface_name then return end
-    if not player.physical_surface or player.physical_surface.name ~= data.surface_name then return end
+    if not player.surface or player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(player_index, 'on_player_died', player, data)
 end
@@ -1821,7 +1821,7 @@ local function on_built_entity(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_built_entity', player, event)
 end
@@ -1861,7 +1861,7 @@ local function on_player_mined_entity(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_player_mined_entity', player, event)
 end
@@ -1888,7 +1888,7 @@ local function on_pre_player_mined_item(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_pre_player_mined_item', player, event)
 end
@@ -1926,7 +1926,7 @@ local function on_player_setup_blueprint(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     -- 副本内禁止蓝图：清空光标中的蓝图物品
     if player.cursor_stack and player.cursor_stack.valid_for_read then
@@ -2026,7 +2026,7 @@ local function on_player_crafted_item(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_player_crafted_item', player, event)
 end
@@ -2071,7 +2071,7 @@ local function on_player_changed_position(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_player_changed_position', player, event)
 end
@@ -2086,7 +2086,7 @@ local function on_player_used_capsule(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_player_used_capsule', player, event)
 end
@@ -2101,7 +2101,7 @@ local function on_player_ammo_inventory_changed(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_player_ammo_inventory_changed', player, event)
 end
@@ -2167,7 +2167,7 @@ local function on_player_built_tile(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_player_built_tile', player, event)
 end
@@ -2182,7 +2182,7 @@ local function on_player_mined_tile(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_player_mined_tile', player, event)
 end
@@ -2197,7 +2197,7 @@ local function on_gui_closed(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_gui_closed', player, event)
 end
@@ -2214,9 +2214,8 @@ local function on_entity_clicked(event)
     -- 仅处理史诗木箱（双重保险，on_gui_opened 已预判过）
     if not Public.is_epic_chest(entity) then return end
 
-    -- 玩家物理位置与史诗箱子不在同一表面 → 不弹面板
-    -- 用 physical_surface（角色实体实际所在表面）而非 player.surface（图层/视角表面）
-    if player.physical_surface.index ~= entity.surface.index then return end
+    -- 玩家与史诗箱子不在同一图层 → 不弹面板
+    if player.surface.index ~= entity.surface.index then return end
 
     -- 玩家已在副本中或副本面板已开 → 不重复弹
     local this = WPT.get()
@@ -2279,7 +2278,7 @@ local function on_gui_opened(event)
     local data = this.dungeons[player.index]
     if not data.active then return end
     if not data.surface_name then return end
-    if player.physical_surface.name ~= data.surface_name then return end
+    if player.surface.name ~= data.surface_name then return end
 
     dispatch_to_module(event.player_index, 'on_gui_opened', player, event)
 end

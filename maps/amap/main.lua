@@ -61,7 +61,6 @@ local player_build = {'steam-turbine', 'assembling-machine-1', 'assembling-machi
 local tianfu = require 'maps.amap.tianfu'
 
 require 'maps.amap.mining'
-require 'maps.amap.mining_drill_red_tag'
 require "modules.rocks_yield_ore_veins"
 
 require 'maps.amap.auto_put_turret'
@@ -85,6 +84,7 @@ local pet_system = require 'modules.pet_system.table'
 local PseudoBuilding = require 'maps.amap.pseudo_building.main'  -- 伪建筑框架（门面，内部 require 5 个 buildings）
 
 require 'maps.amap.wheel_of_fortune'
+require 'modules.no_deconstruction_of_neutral_entities'
 
 
 
@@ -402,7 +402,8 @@ local function apply_planet_surface_settings(world_number, active_surface_index)
 end
 
 local function apply_technology_settings(world_number)
-    -- 2026-08-27 所有世界不再开局赠送悬崖炸药科技（cliff-explosives），由玩家手动研究
+    -- 所有世界开局默认解锁悬崖炸药科技
+    game.forces.player.technologies['cliff-explosives'].researched = true
 
     -- World 框架优先
     local world_def = World.get(world_number)
@@ -601,6 +602,11 @@ function Public.reset_map()
         game.difficulty_settings.technology_price_multiplier = 1
     end
 
+    -- 树/普通实体红图白名单（同 8.15：no_deconstruction_of_neutral_entities 模块消费；
+    -- 独立模块内另有硬编码放行，此处写入是为了与旧实现一致）
+    this.allow_deconst_list["tree"] = true
+    this.allow_deconst_list["simple-entity"] = true
+
     IC.reset()
     IC.allowed_surface(game.surfaces[this.active_surface_index].name)
     ICW.reset()
@@ -612,8 +618,13 @@ function Public.reset_map()
   global.watery_world_fishes = {}
   
 game.forces.player.technologies['atomic-bomb'].enabled=false
--- 2026-08-27 星岩科技仅世界14解锁：advanced-asteroid-processing（高级星岩处理）/ asteroid-reprocessing（星岩再处理）
--- 均由 world_14 def.unlocked_technologies 控制，其他世界开局不再自动送（手动研究）
+-- 世界14仅开局解锁高级星岩处理(advanced-asteroid-processing)，由 world_14 def.unlocked_technologies 控制；
+-- asteroid-reprocessing 仍留给玩家手动研究（非 14 世界照旧开局解锁全套）；
+-- 世界21熔岩之心同样不自动解锁（玩家按需手动研究）
+if world_number ~= 14 and world_number ~= 21 then
+  game.forces.player.technologies['advanced-asteroid-processing'].researched=true
+  game.forces.player.technologies['asteroid-reprocessing'].researched=true
+end
   -- 初始化WPT表中的捕鱼车数据
   for _, prototype in pairs(prototypes.entity) do
     if prototype.type == "fish" then
@@ -759,8 +770,8 @@ local gain_xp = function()
     local world_def = World.get(this.world_number)
 
     for _, player in pairs(game.connected_players) do
-        -- 副本隔离：副本内玩家不获得主世界被动经验（用 physical_surface 判断角色真实位置）
-        if player.physical_surface and Instance.is_dungeon_surface(player.physical_surface.name) then
+        -- 副本隔离：副本内玩家不获得主世界被动经验
+        if player.surface and Instance.is_dungeon_surface(player.surface.name) then
             goto continue_gain_xp
         end
 
@@ -984,27 +995,13 @@ local on_tick = function()
         -- end
 
         -- 定时检测玩家是否意外丢失角色，没有则创建（死亡复生/编辑器模式不干预）
-        -- 编辑器守卫（2026-08-28）：同时检查 controller_type 与 physical_controller_type——
-        -- 编辑器模式进入远程视图时 controller_type 会变 remote(7)，仅查 controller_type 会误判"无角色"
-        -- physical_controller_type 忽略远程视图，编辑器+远程视图时仍为 editor(4)
-        -- 普通玩家缺角色持续 300 tick（5 秒）才补建，吸收编辑器切换瞬态
-        this.no_character_since = this.no_character_since or {}
         for _, player in pairs(game.connected_players) do
-            local phys_ct = player.physical_controller_type
-            local is_editor = player.controller_type == defines.controllers.editor
-                or (phys_ct ~= nil and phys_ct == defines.controllers.editor)
-            if is_editor then
-                this.no_character_since[player.index] = nil
-            elseif not player.character and not player.ticks_to_respawn then
-                if not this.no_character_since[player.index] then
-                    this.no_character_since[player.index] = tick
-                elseif tick - this.no_character_since[player.index] >= 300 then
-                    player.set_controller({type = defines.controllers.god})
-                    player.create_character()
-                    this.no_character_since[player.index] = nil
-                end
-            else
-                this.no_character_since[player.index] = nil
+            if not player.character
+                and player.controller_type ~= defines.controllers.editor
+                and not player.ticks_to_respawn
+            then
+                player.set_controller({type = defines.controllers.god})
+                player.create_character()
             end
         end
     end
@@ -1037,7 +1034,8 @@ local on_tick = function()
 
     -- 史诗木箱投递：200 波后每半小时（108000 tick）随机选一名在线玩家
     -- 在其附近 24 米内随机位置投递一个史诗木箱（全局上限 5 个，由 spawn API 内部判定）
-    if tick % 108000 == 0 then
+    -- World 框架：disable_epic_chest_delivery（世界15 黑暗地穴）禁止投递副本史诗木箱
+    if tick % 108000 == 0 and not World.get_field(this.world_number, 'disable_epic_chest_delivery') then
         local wave_number = WD.get('wave_number')
         if wave_number >= 1 then
             local active_surface_index = this.active_surface_index

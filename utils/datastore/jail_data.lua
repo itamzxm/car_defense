@@ -249,7 +249,7 @@ local teleport_player_to_gulag = function(player, action)
     if action == 'jail' then
         local gulag = game.surfaces['gulag']
         if p_data and not p_data.locked then
-            p_data.fallback_surface_index = player.physical_surface.index
+            p_data.fallback_surface_index = player.surface.index
             p_data.position = player.position
             p_data.p_group_id = player.permission_group.group_id
             p_data.locked = true
@@ -763,7 +763,7 @@ Event.add(
 
         local surface = game.surfaces['gulag']
 
-        if player.physical_surface.index ~= surface.index then
+        if player.surface.index ~= surface.index then
             local p_data = get_player_data(player)
             if jailed[player.name] and p_data and p_data.locked then
                 teleport_player_to_gulag(player, 'jail')
@@ -792,7 +792,7 @@ Event.add(
         end
 
         local surface = game.surfaces['gulag']
-        if player.physical_surface.index ~= surface.index then
+        if player.surface.index ~= surface.index then
             local p_data = get_player_data(player)
             if jailed[player.name] and p_data and p_data.locked then
                 teleport_player_to_gulag(player, 'jail')

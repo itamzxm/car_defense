@@ -1,4 +1,4 @@
-local Global = require 'utils.global'
+﻿local Global = require 'utils.global'
 local Event = require 'utils.event'
 
 local this = {
@@ -120,7 +120,7 @@ local on_cutscene_waypoint_reached = function(event)
     player.exit_cutscene()
 
     if custom_surface() then
-        if player.physical_surface.name == 'nauvis' then
+        if player.surface.name == 'nauvis' then
             player.teleport(game.surfaces[3].find_non_colliding_position('character', {64, 64}, 50, 0.5), game.surfaces[3].name)
         end
     end
@@ -143,7 +143,7 @@ local skip_crash_site_cutscene = function(event)
         player.exit_cutscene()
     end
     if custom_surface() then
-        if player.physical_surface.name == 'nauvis' then
+        if player.surface.name == 'nauvis' then
             player.teleport(game.surfaces[3].find_non_colliding_position('character', {64, 64}, 50, 0.5), game.surfaces[3].name)
         end
     end

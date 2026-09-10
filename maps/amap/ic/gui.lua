@@ -57,21 +57,24 @@ local function decrement(t, k)
     t[k] = nil
 end
 
-local function crate_water(surface, position)
-    for i = 1, 3 do
-        for b = 1, 3 do
-            local p = {
-                x = position.x - b + 2,
-                y = position.y - i - 2
-            }
-            if surface.can_place_entity {
-                name = 'iron-chest',
-                position = p
-            } then
-                surface.set_tiles({{
-                    name = "water",
+-- oil_only=true（世界15 黑暗地穴 disable_car_water_generation）：只生成油田，不铺水
+local function crate_water(surface, position, oil_only)
+    if not oil_only then
+        for i = 1, 3 do
+            for b = 1, 3 do
+                local p = {
+                    x = position.x - b + 2,
+                    y = position.y - i - 2
+                }
+                if surface.can_place_entity {
+                    name = 'iron-chest',
                     position = p
-                }})
+                } then
+                    surface.set_tiles({{
+                        name = "water",
+                        position = p
+                    }})
+                end
             end
         end
     end
@@ -1177,7 +1180,13 @@ Gui.on_click('integration_buy_resources', function(event)
         local surface = entity.surface
         
         crate_ore(surface, position)
-        crate_water(surface, position)
+        -- World 框架：disable_car_water_generation（世界15 黑暗地穴）买矿不生成水、
+        -- 但仍生成油田（crate_water oil_only=true 只出油不铺水）
+        if World.get_field(map.world, 'disable_car_water_generation') then
+            crate_water(surface, position, true)
+        else
+            crate_water(surface, position)
+        end
         this.ore_record[index] = this.ore_record[index] + 1
     else
         player.print({'amap.noenough'})

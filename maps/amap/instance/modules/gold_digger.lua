@@ -361,8 +361,8 @@ function M.on_pre_player_mined_item(player, event)
     -- 关键：必须确认玩家在副本中 + 实体在副本 surface 上
     local data = Instance.get_data(player.index)
     if not data or not data.active then return end
-    -- 双重校验：实体 surface 必须是玩家的物理 surface（角色真实所在表面）
-    if entity.surface ~= player.physical_surface then return end
+    -- 双重校验：实体 surface 必须是玩家的 surface
+    if entity.surface ~= player.surface then return end
     local md = data.module_data
     if not md then return end
 
