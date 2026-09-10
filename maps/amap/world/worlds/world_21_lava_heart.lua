@@ -1,48 +1,63 @@
--- maps/amap/world/worlds/world_21_lava_heart.lua
--- 世界 21：熔岩之心（2026-08 改版）
---
+-- 地图：坦克保卫战 世界21 熔岩之心
+--（2026-09 改版：科技×2 / 新瓶扩张 / 方解石商店 / 奖励20% / 梯形虫巢通道+死亡区域 /
+--  市场1/2/3品 / 撼地虫随机生成 / 9999杀虫奖励 / 堡垒1个1个生成+≥4核弹）
+
 -- 地形（自下而上）：
 --   主基地：288×288 方块（默认随机矿同四季 + 中心 4 块 40×40 矿各 4M），
---           可通过「基地扩张」机制向左/右/下生长（新机制1）；
+--           可通过「基地扩张」机制向左/右/下生长（新机制1：点亮新科技瓶 +16）；
 --   防御通道：384 高（y ∈ [-528,-144]）、128 宽火山岩地形带 5% 岩浆小块，
 --           两侧 40 格 out-of-map 黑暗带（64 < |x| ≤ 104）；
---   虫巢通道：防御通道上方 |x| ≤ 104（208 宽）无限延伸的地球草地地形，
---           两侧全岩浆；虫子/虫巢/沙虫生成规则与世界11失落之城完全一致
---           （逐格 1/90 虫巢+沙虫），区域更宽故整宽生效；
+--   虫巢通道：防御通道上方起，倒梯形（锥形向上）——半宽随深度 45° 向外扩张
+--           （|x| ≤ DARK_HALF + (CHANNEL_TOP - y)），地球草地地形无限向上延伸，
+--           两侧全岩浆；虫子/虫巢生成规则照搬世界10赤壁（1/60 逐格 + can_place 检查）；
+--   死亡区域：虫巢通道起点往上 256 格（y = CHANNEL_TOP - 256 = -784）沿整个 x 轴
+--           横贯一条闪电线（每个覆盖该 y 的已生成区块叠 3 段 electric-beam，视觉加粗 3 倍），
+--           玩家越过闪电线（y < -784，即死亡区域）→ 公告提醒，越过持续 2 秒立即死亡
+--           （[60] tick 监视器 world21_deathzone_monitor 判定）；
+--           闪电线外（上方）不生成任何野外市场（含 wild_market_disabled 禁共享 ywjz 市场分支）；
 --   岩浆区（方块下方/左右、通道两侧）：按背水一战方式随机分布方块矿
 --           （6% 概率、ore_sequence 轮流、32×32 单矿 2M / 油井每井 4M）
---           与市场块（4%，3×3 草地 + market）；虫巢通道内同样滚动，
---           但市场为品质市场（见下）；虫巢通道两侧岩浆不生成任何矿/市场块。
+--           与市场块（4%，3×3 草地 + market）；虫巢通道内同样滚动但市场概率 ×4（16%）、
+--           无方块矿，市场为 1/2/3 品品质市场（见下）；虫巢通道两侧岩浆不生成任何矿/市场块。
 --
 -- 战斗：单方向（固定上方，x 对齐 → 沿通道直线南下），火焰塔上限 0，
 --       爆炸三件 -50%（单方向硬性要求）；
---       堡垒改山谷生成模式（only_below：只生成在 x 轴以下/y≥0 半圈螺旋搜索），
---       存活堡垒数 > 8 时创建敌方核弹发射井（每 3 分钟警告后发射 atomic-rocket）。
+--       堡垒：1 个 1 个生成（only_below 山谷模式，约每 20 分钟 1 座，共享 SGA 避让）；
+--       存活堡垒数 ≥ 4 时创建敌方核弹发射井（每 3 分钟警告后发射 atomic-rocket）。
 --
 -- 专属机制：
 --   1. 出生点传说大矿机 + 传说红箱（passive-provider-chest）：不可击毁/不可挖/不可移动，
---      打死任意敌方虫子 3/250 概率直接生成 1 个方解石到传说红箱。
---   2. 出生市场固定出售工程基座 foundation（永久 44 金币，不受波次影响）与
---      铸造机 foundry（5000 金币）、传说插件塔 beacon（阶梯价），并保证有机甲
---      mech-armor 出售（69000 金币）——由本模块每秒巡检改写（rock.lua 共享代码不动）。
+--      打死任意敌方虫子 1/60 概率直接生成 1 个方解石到传说红箱。
+--   2. 出生市场：工程基座 foundation 永久 44 金币（不受波次影响）、铸造机 foundry
+--      （5000 金币）、传说插件塔 beacon（阶梯价，rock.lua 特供栏）；机甲 mech-armor
+--      固定 69000 金币且恒排在 beacon 之后（列表队尾）。方解石售卖已取消
+--      （2026-09-10；旧巡检把机甲/方解石插到列表头部导致价格与商品错位）。
+--      以上由本模块每秒巡检纠偏（rock.lua 共享代码不动）。
 --   3. 野外市场只生成于岩浆区市场块上；全市场价格恢复原价（无折扣）。
---      虫巢通道内的市场块与岩浆区普通市场完全一致（随机物品随机价格），
---      仅额外为每件在售商品追加一份「精良」品质条目（售价 = 普通售价 ×2）；
---      虫巢通道内禁止方块矿生成。
+--      虫巢通道内（闪电线以下）市场概率 ×4（16%）且统一为「1、2、3 品」品质市场：
+--      每件在售商品附普通（×1 原价）、精良（×2）、稀有（×5）三档条目；岩浆区普通市场不变。
 --   4. 天赋：45 级 +1（tianfu_jiange=45）；首次研究含各色科技瓶 → 发天赋（同世界19）；
 --      本图任意玩家天赋 ≤ 60。
---   5. 科技倍率 ×1（默认）；开局解锁熔融铸造（foundry 科技）；黄瓶后解锁填海（全局机制）。
---   6. 通关奖励：通关（1500 波）后，新开图时 10% 概率全员得 1 个铸造机，
---      历史最高波数每多 500 波概率 +2%（如 2700 波 → 14%）。
---   7. 新机制1 基地扩张：每研发 1 个科技 → 左右各扩 2 列 + 向下扩 2 行；
---      任一玩家累计击杀 4444 只虫 → 同样扩张 2 格（播报）。
+--   5. 科技倍率 ×2（technology_price_multiplier，[60] tick 兜底，抄世界15模式）；
+--      开局解锁熔融铸造（foundry 科技）；黄瓶后解锁填海（全局机制）。
+--   6. 通关奖励：通关（1500 波）后，新开图时 20% 概率全员得 1 个铸造机，
+--      历史最高波数每多 500 波概率 +10%。
+--   7. 新机制1 基地扩张：科技点亮新科技瓶（首次完成该瓶科技）→ 左、右、下
+--      各扩张 16 格（播报）；不再有逐科技/击杀数/撼地虫扩张。
 --      与方块矿（含油井）/市场/堡垒占地重叠的格子保持原样。
---   8. 新机制2 撼地虫：波次 ≥1 起每 20 分钟在「离玩家基地最近的敌方虫巢」再往北 96 格处
---      生成 1 条撼地虫（<1000 小型 / 1000~2000 中型 / >2000 大型），生成前把该点周边 ±96
---      预生成（保证分段身体落在已生成区块、避免被引擎回收）；
---      活动范围 = 虫巢通道：只有进入防御通道（y > -528）才清除，北/侧向越出预生成区
---      teleport 拉回出生点（不消失）；无超时自动消失，仅在下一条刷新时旧的一只让位；
---      击杀后基地扩张 5 格，全体玩家得金币与工程基座、击杀者得额外金币并广播。
+--   8. 新机制2 撼地虫：波次 ≥1 起每 20 分钟在虫巢通道梯形内随机生成 1 条
+--      （闪电线以下 y∈(LIGHTNING_Y, CHANNEL_TOP-48)、x 在对应深度半宽内随机；
+--       <1000 小型 / 1000~2000 中型 / >2000 大型），生成前把该点周边 ±96 预生成
+--      （保证分段身体落在已生成区块、避免被引擎回收）；
+--      活动范围 = 虫巢通道（梯形）：南/北/侧任一越界 → teleport 拉回出生点（不消失、不销毁）。
+--      南界 = 距防御通道顶端 48 格守护线（永不进入防御通道）；
+--      北界 = 闪电线（永不进入线上方死亡区域）；无超时自动消失，仅在下一条刷新时旧的一只让位；
+--      击杀后不再扩张基地；全体玩家得金币与工程基座（较旧版减半）、击杀者得额外金币并广播；
+--      击杀点就地出现一个（仅 1 个）不可摧毁、可开采拾取的钢箱（小/中/大 = 稀有好运连连
+--      500/750/1000 魔法对应的钢箱，见 world21_hyll_chest）。
+--   9. 杀虫计数：每个玩家累计击杀 9999 只虫 → 全服通报，按当前波次获得好运连连钢箱
+--      （<500 波 = 稀有1000魔法 / 500~2000 波 = 史诗1000魔法 / >2000 波 = 传说1000魔法），
+--      并额外把基地下边往下扩 EXPAND_KILL_DOWN_TILES 格；累计清零重新计数。
 
 local World = require 'maps.amap.world.framework'
 local WPT = require 'maps.amap.table'
@@ -53,8 +68,13 @@ local tianfu_table = require 'maps.amap.tianfu_table'
 local Helpers = require 'maps.amap.world.world_helpers'
 local MT = require 'maps.amap.basic_markets'
 local enemy_arty = require 'maps.amap.enemy_arty'
+local Loot = require 'maps.amap.loot'
 local Task = require 'utils.task'
 local Token = require 'utils.token'
+
+-- 天赋品质系数（与 tianfu_quality.lua / tianfu_trigger_skill.lua 同一约定，
+-- 好运连连钢箱按该系数折算 magic，见 world21_hyll_chest）
+local COEFF_REG = {1, 1.2, 1.4, 1.6, 1.8}
 
 --==============================================================================
 -- 常量
@@ -64,14 +84,17 @@ local SQUARE_HALF = 144          -- 主基地 288 半宽
 local CHANNEL_TOP = -528         -- 防御通道顶部（虫巢通道起点，负方向为"上"）
 local CHANNEL_BOTTOM = -144      -- 防御通道底部（主基地上边）
 local CHANNEL_HALF = 64          -- 防御通道半宽（128 / 2）
-local DARK_HALF = 104            -- 黑暗带外缘（64 + 40）；也是虫巢通道半宽（208 / 2）
+local DARK_HALF = 104            -- 黑暗带外缘（64 + 40）；也是虫巢通道起点半宽（208 / 2）
+local LIGHTNING_NORTH = 256      -- 闪电线距虫巢通道起点的距离（向上 256 格）
+local LIGHTNING_Y = CHANNEL_TOP - LIGHTNING_NORTH  -- 闪电线 y = -784（沿整个 x 轴横贯）
 local TALENT_CAP = 60            -- 天赋上限
-local CALCITE_ROLL = 250         -- 杀虫子 3/250 概率掉方解石（直接进传说红箱）
+local CALCITE_ROLL = 60          -- 杀虫子 1/60 概率直接生成 1 个方解石到传说红箱
 local ORE_TOTAL = 4000000        -- 油井每井储量（保持 4M 不变）
 local ORE_CHUNK_TOTAL = 2000000  -- 方块矿储量 2M（原 4M）
 local ORE_CHUNK_AMOUNT = math.floor(ORE_CHUNK_TOTAL / (32 * 32))  -- 32×32 每格含量
 local ORE_ROLL = 6               -- 区块矿块概率 6%（原 7%）
-local MARKET_ROLL = 4            -- 区块市场块概率 4%（不变）
+local MARKET_ROLL = 4            -- 区块市场块概率 4%（虫巢通道内闪电线下 ×4 = 16%）
+local NEST_MARKET_ROLL_MULT = 4  -- 虫巢通道（闪电线下）市场概率倍率（4%×4=16%，2026-09 按用户要求在 8% 基础上翻倍）
 
 -- 中心 4 方矿：四象限（参考世界 2 四季布局：左上煤 / 右上铁 / 左下铜 / 右下石）
 local CENTER_ORES = {
@@ -105,33 +128,43 @@ local GRASS_TILES = {
 local MINER_POS = {x = 0, y = -25}
 local CHEST_POS = {x = 0, y = -28}
 
--- 出生市场巡检：工程基座永久 44 金 / 机甲 69000 金（rock.lua 共享代码不改，
--- 由本模块每秒把 refresh_shop 生成的波次价改写回固定价）
+-- 出生市场巡检：工程基座永久 44 金 / 机甲 69000 金（恒排在 beacon 特供栏之后）
+--（rock.lua 共享代码不改，由本模块每秒纠偏；2026-09-10 起取消方解石售卖——
+--  旧版把机甲/方解石插到列表头部，导致按 offer_index 定位的购买回调错位）
 local FOUNDATION_PRICE = 44
 local MECH_ARMOR_PRICE = 69000
 
--- 新机制1：基地扩张
-local KILL_EXPAND_THRESHOLD = 4444     -- 玩家累计击杀触发阈值（每 4444 重置积累）
-local EXPAND_RESEARCH_TILES = 2        -- 每研发 1 个科技扩张格数（左右各 N 列 + 下 N 行）
-local EXPAND_KILL_TILES = 2            -- 杀虫触发扩张格数
-local EXPAND_DEMOLISHER_TILES = 5      -- 击杀撼地虫扩张格数
+-- 新机制1：基地扩张（仅由「科技点亮新科技瓶」触发）
+local KILL_CHEST_THRESHOLD = 9999           -- 每玩家累计击杀 9999 只虫 → 通报 + 好运连连钢箱 + 下扩
+local EXPAND_PACK_TILES = 16                -- 点亮新瓶子：左、右、下各扩张格数
+local EXPAND_KILL_DOWN_TILES = 2            -- 杀虫 9999 奖励：基地下边往下扩格数
 
 -- 新机制2：撼地虫
 local DEMO_INTERVAL_TICKS = 20 * 60 * 60   -- 每 20 分钟生成 1 条
-local DEMO_SPAWN_NORTH_OFFSET = 96         -- 生成点在「离基地最近虫巢」再往北偏移 96 格
+local DEMO_MAX_ALIVE = 3                   -- 数量帽（2026-09 用户要求）：防御通道顶端→闪电线区间内
+                                           -- 活着的撼地虫 > 3 时本轮不再生成，1 分钟后重试
 local DEMO_PREGEN_RADIUS = 96              -- 生成点周边预生成半径（保证分段身体落在已生成区块）
+local DEMO_SOUTH_GUARD = 48                -- 南界守护：距防御通道顶端（CHANNEL_TOP）48 格内即拉回出生点
+                                           -- （保证任何身体段都进不了防御通道；通道净高 256，损耗可接受）
 local DEMOLISHER_NAMES = {
     ['small-demolisher'] = true,
     ['medium-demolisher'] = true,
     ['big-demolisher'] = true,
 }
--- 击杀撼地虫奖励：{全员金币, 全员工程基座, 击杀者额外金币}（小/中/大）
+-- 击杀撼地虫奖励：{全员金币, 全员工程基座, 击杀者额外金币}（小/中/大；2026-09 按用户要求减半）
 local DEMOLISHER_REWARDS = {
-    ['small-demolisher'] = {coin = 1000, foundation = 30, killer_coin = 5000},
-    ['medium-demolisher'] = {coin = 3000, foundation = 90, killer_coin = 15000},
-    ['big-demolisher'] = {coin = 5000, foundation = 150, killer_coin = 25000},
-}-- 堡垒核弹井：存活堡垒数 > 8 时创建发射井；之后每 3 分钟警告并发射一枚核弹
-local FORTRESS_NUKE_THRESHOLD = 8
+    ['small-demolisher'] = {coin = 500, foundation = 15, killer_coin = 2500},
+    ['medium-demolisher'] = {coin = 1500, foundation = 45, killer_coin = 7500},
+    ['big-demolisher'] = {coin = 2500, foundation = 75, killer_coin = 12500},
+}
+-- 击杀撼地虫就地钢箱 = 稀有好运连连在对应魔法值下触发的钢箱（luck 为魔法属性值，q=3 稀有）
+local DEMOLISHER_HYLL_CHEST = {
+    ['small-demolisher'] = {luck = 500, q = 3},
+    ['medium-demolisher'] = {luck = 750, q = 3},
+    ['big-demolisher'] = {luck = 1000, q = 3},
+}
+-- 堡垒核弹井：存活堡垒数 ≥ 4（> 3）时创建发射井；之后每 3 分钟警告并发射一枚核弹
+local FORTRESS_NUKE_THRESHOLD = 3
 local NUKE_INTERVAL_TICKS = 60 * 60 * 3
 
 -- 科技瓶 → 天赋数（同世界19：绿/灰/蓝/紫/黄/白 +1，橙/粉/草 +2，靛 +3，黑 +5）
@@ -199,6 +232,31 @@ local function pick_grass_tile()
     return 'grass-1'
 end
 
+-- 虫巢通道 = 倒梯形（锥形向上）：起点半宽 DARK_HALF，随向上深度 45° 逐格外扩
+local function nest_half_width(y)
+    return DARK_HALF + math.max(0, CHANNEL_TOP - y)
+end
+
+-- 点是否落在虫巢通道内（含起点以上无限延伸的梯形带）
+local function in_nest_point(x, y)
+    return y < CHANNEL_TOP and math.abs(x) <= nest_half_width(y)
+end
+
+-- 好运连连钢箱：复刻天赋 hyll 触发产出的品质钢箱——
+--   magic = (min(luck,1000) × 4 + 100) × COEFF_REG[品质档]（同 tianfu_trigger_skill.lua hyll）
+--   经 Loot.cool_with_quality 生成；箱体不可摧毁、可开采拾取（ mined 后物品含内容进背包）。
+-- @param luck 魔法属性值（500/750/1000...） @param q_idx 品质档（3稀有/4史诗/5传说）
+local function world21_hyll_chest(surface, position, luck, q_idx)
+    local magic = (math.min(luck or 1000, 1000) * 4 + 100) * COEFF_REG[q_idx or 3]
+    local pos = surface.find_non_colliding_position('steel-chest', position, 20, 1, true) or position
+    local container = Loot.cool_with_quality(surface, pos, 'steel-chest', magic)
+    if container and container.valid then
+        container.destructible = false
+        container.minable_flag = true
+    end
+    return container
+end
+
 -- 确保目标区域所在区块已生成（扩张/补丁铺地前置）。
 -- 本图逐格 Lua 生成器很重（单区块同步生成需数秒），force_generate_chunk_requests
 -- 又是同步批量执行，大半径请求会冻结游戏数分钟 —— 因此逐个缺块小半径请求、
@@ -224,16 +282,29 @@ local function ensure_area_generated(surface, min_x, min_y, max_x, max_y)
     return false
 end
 
--- 扩张占地判定：与方块矿（含油井）/ 市场 / 堡垒地基重叠的格子不生成新土地
-local function world21_tile_blocked(surface, x, y)
-    local pos = {x = x, y = y}
-    local res = surface.find_entities_filtered({type = 'resource', position = pos, limit = 1})
-    if res and #res > 0 then
-        return true
+-- 扩张占地判定（预计算集合）：与方块矿（含油井）/ 市场 / 堡垒重叠的格子不生成新土地。
+-- 语义与旧的逐格点查询一致，但改为 3 次区域查询 + 查表（16 格级扩张一次要判定
+-- 上万格，逐格 find_entities_filtered 会有万级查询开销）：
+--   矿石：1×1 格，取整后标记自身格（点查询只会命中整数格自身）；
+--   市场：旧点查询 radius 2 + 市场碰撞框 ±1.4 → 中心切比雪夫距离 ≤3 的格标记；
+--   堡垒：旧判定为与 roboport 各轴距离 ≤22 的格。
+local function world21_collect_blocked(surface, min_x, min_y, max_x, max_y)
+    local area = {
+        left_top = {x = min_x - 26, y = min_y - 26},
+        right_bottom = {x = max_x + 26, y = max_y + 26},
+    }
+    local blocked = {}
+    for _, e in ipairs(surface.find_entities_filtered({area = area, type = 'resource'})) do
+        blocked[math.floor(e.position.x + 0.5) .. ',' .. math.floor(e.position.y + 0.5)] = true
     end
-    local mkt = surface.find_entities_filtered({name = 'market', position = pos, radius = 2, limit = 1})
-    if mkt and #mkt > 0 then
-        return true
+    for _, e in ipairs(surface.find_entities_filtered({area = area, name = 'market'})) do
+        local mx = math.floor(e.position.x + 0.5)
+        local my = math.floor(e.position.y + 0.5)
+        for dx = -3, 3 do
+            for dy = -3, 3 do
+                blocked[(mx + dx) .. ',' .. (my + dy)] = true
+            end
+        end
     end
     local arty = enemy_arty.get('arty')
     if arty then
@@ -241,13 +312,15 @@ local function world21_tile_blocked(surface, x, y)
             local rp = data and data.roboport
             if rp and rp.valid then
                 local p = rp.position
-                if math.abs(x - p.x) <= 22 and math.abs(y - p.y) <= 22 then
-                    return true
+                for cx = math.ceil(p.x - 22), math.floor(p.x + 22) do
+                    for cy = math.ceil(p.y - 22), math.floor(p.y + 22) do
+                        blocked[cx .. ',' .. cy] = true
+                    end
                 end
             end
         end
     end
-    return false
+    return blocked
 end
 
 --==============================================================================
@@ -344,24 +417,31 @@ local function world21_retry_spawn()
     build_spawn_facilities(surface)
 end
 
--- 虫巢通道市场：与岩浆区普通市场完全一致（随机物品随机价格，全价无折扣），
--- 再为每个在售商品追加一份「精良」品质条目，售价为该商品普通售价的 2 倍。
--- 即每件商品都有 普通 + 精良 两档售卖；没有只卖普通或只卖精良的市场。
+-- 虫巢通道（闪电线下）市场：底版与岩浆区普通市场一致（随机物品随机价格，全价无折扣），
+-- 在此基础上统一改造为「1、2、3 品」三档品质市场：每件在售商品附
+--   1品（normal，×1 原价）、2品（uncommon，×2）、3品（rare，×5）三条目。
 local function world21_build_quality_market(surface, position, rarity)
     local mrk = MT.mountain_market(surface, position, rarity)
     if not mrk or not mrk.valid then return nil end
     local base_items = mrk.get_market_items()
     if #base_items == 0 then return mrk end
+    local tiers = {
+        {quality = 'uncommon', mult = 2},
+        {quality = 'rare', mult = 5},
+    }
     local out = {}
     for _, item in ipairs(base_items) do
         out[#out + 1] = item
         local offer = item.offer
         local base_price = item.price and item.price[1] and item.price[1].count
-        if offer and offer.type == 'give-item' and base_price then
-            local twin = table.deepcopy(item)
-            twin.offer.quality = 'uncommon'
-            twin.price[1].count = math.max(1, math.floor(base_price * 2 + 0.5))
-            out[#out + 1] = twin
+        if offer and offer.type == 'give-item' and base_price
+            and (offer.quality == nil or offer.quality == 'normal') then
+            for _, tier in ipairs(tiers) do
+                local twin = table.deepcopy(item)
+                twin.offer.quality = tier.quality
+                twin.price[1].count = math.max(1, math.floor(base_price * tier.mult + 0.5))
+                out[#out + 1] = twin
+            end
         end
     end
     mrk.clear_market_items()
@@ -411,7 +491,7 @@ local function terrain_generator(surface, position, seed, get_tile, set_tiles, e
                     end
                     surface.set_tiles(tiles)
                     if oc.quality_market then
-                        -- 虫巢通道市场：普通市场 + 每件商品精良版（2 倍价）
+                        -- 虫巢通道市场：1/2/3 品三档（normal ×1 / uncommon ×2 / rare ×5）
                         world21_build_quality_market(surface, {x = mcx, y = mcy}, oc.rarity)
                     else
                         MT.mountain_market(surface, {x = mcx, y = mcy}, oc.rarity)
@@ -437,21 +517,24 @@ local function terrain_generator(surface, position, seed, get_tile, set_tiles, e
     elseif math.abs(px) > CHANNEL_HALF and math.abs(px) <= DARK_HALF and py >= CHANNEL_TOP and py <= CHANNEL_BOTTOM then
         -- 黑暗带（40 格宽）：黑色虚空，不可穿越（若该格属于登记的矿块则已被上方分支铺 grass）
         set_tiles({{name = 'out-of-map', position = position}})
-    elseif math.abs(px) <= DARK_HALF and py < CHANNEL_TOP then
-        -- 虫巢通道（208 宽，无限向上）：地球草地地形；虫子/虫巢/沙虫与世界11失落之城完全一致
+    elseif in_nest_point(px, py) then
+        -- 虫巢通道（倒梯形、锥形向上：半宽随深度 45° 外扩，无限延伸）：地球草地地形；
+        -- 虫子/虫巢生成照搬世界10赤壁：1/60 逐格 + can_place_entity 检查 + 沙虫（rand_worm）
         set_tiles({{name = pick_grass_tile(), position = position}})
-        if math.random(1, 90) == 1 then
+        if math.random(1, 60) == 1 then
             local spawner_name = Helpers.spawner[math.random(1, 2)]
-            if Helpers.rand_worm(surface, position) then
-                surface.create_entity({
-                    name = spawner_name,
-                    position = position,
-                    force = game.forces.enemy,
-                })
+            if surface.can_place_entity({name = spawner_name, position = position, force = game.forces.enemy}) then
+                if Helpers.rand_worm(surface, position) then
+                    surface.create_entity({
+                        name = spawner_name,
+                        position = position,
+                        force = game.forces.enemy,
+                    })
+                end
             end
         end
     else
-        -- 岩浆区：全部岩浆（含虫巢通道两侧——不生成方块矿/市场块，见 on_chunk_generated 排除）
+        -- 岩浆区：全部岩浆（含虫巢通道梯形外两侧——不生成方块矿/市场块，见 on_chunk_generated 排除）
         set_tiles({{name = 'lava', position = position}})
     end
 end
@@ -491,6 +574,24 @@ local function on_chunk_generated(event)
     local lt_x, lt_y = area.left_top.x, area.left_top.y
     local c_cx, c_cy = lt_x + 16, lt_y + 16
 
+    -- 闪电线：覆盖 y = LIGHTNING_Y 的区块各自铺 3 段 electric-beam（纵向 ±0.5 偏移叠放，
+    -- 视觉加粗 3 倍；横贯整个 x 轴，随区块生成逐段落地；实体随存档持久。
+    -- 视觉参照本地 ComfyFactorio fish_defender 的 lightning wall；死亡区域判定在
+    -- world21_deathzone_monitor，与视觉无关）
+    if lt_y <= LIGHTNING_Y and lt_y + 32 > LIGHTNING_Y then
+        for _, off in ipairs({-0.5, 0, 0.5}) do
+            local beam = surface.create_entity({
+                name = 'electric-beam',
+                position = {x = c_cx, y = LIGHTNING_Y + off},
+                source = {x = lt_x - 1, y = LIGHTNING_Y + off},
+                target = {x = lt_x + 33, y = LIGHTNING_Y + off},
+            })
+            if beam and beam.valid then
+                beam.destructible = false
+            end
+        end
+    end
+
     -- 中心 4 矿：各矿块由所属锚点 chunk 一次性铺矿（本 chunk 与矿块相交但不锚点则跳过）
     for _, co in ipairs(CENTER_ORES) do
         local anchor_x = math.floor(co.cx / 32) * 32
@@ -502,10 +603,13 @@ local function on_chunk_generated(event)
 
     -- 岩浆区方块矿：抄背水一战——每 chunk 6% 概率矿块（ore_sequence 轮流：
     -- 铁/煤/铜/石/油/铀，非油 2M）、4% 市场块；排除主基地/防御通道/黑暗带/
-    -- 虫巢通道（矿与市场均不生成于两侧岩浆；虫巢通道内禁止方块矿、市场必为品质市场）
+    -- 虫巢通道梯形（矿与市场均不生成于梯形外两侧岩浆）；
+    -- 市场规则：闪电线外一律不生成；虫巢通道（闪电线下）概率 ×4 且为 1/2/3 品市场；
+    -- 虫巢通道内禁止方块矿生成。
     local in_square = math.abs(c_cx) <= SQUARE_HALF and math.abs(c_cy) <= SQUARE_HALF
     local in_channel = math.abs(c_cx) <= CHANNEL_HALF and c_cy >= CHANNEL_TOP and c_cy <= CHANNEL_BOTTOM
-    local nest_side_lava = c_cy < CHANNEL_TOP and math.abs(c_cx) > DARK_HALF
+    local in_nest = in_nest_point(c_cx, c_cy)
+    local nest_side_lava = c_cy < CHANNEL_TOP and not in_nest
     -- 矿块（整 chunk 32×32）范围与黑暗带（|x| ∈ (64,104]，y ∈ [-528,-144]）相交判定
     local overlaps_dark = lt_y < CHANNEL_BOTTOM and lt_y + 32 > CHANNEL_TOP
         and ((lt_x + 32 > -DARK_HALF and lt_x < -CHANNEL_HALF) or (lt_x + 32 > CHANNEL_HALF and lt_x < DARK_HALF))
@@ -514,17 +618,23 @@ local function on_chunk_generated(event)
     local overlaps_base = b
         and lt_x < b.max_x + 1 and lt_x + 32 > b.min_x
         and lt_y < b.max_y + 1 and lt_y + 32 > b.min_y
-    local in_nest = math.abs(c_cx) <= DARK_HALF and c_cy < CHANNEL_TOP
     if not in_square and not in_channel and not nest_side_lava and not overlaps_dark and not overlaps_base then
         local roll = math.random(1, 100)
         local kind
+        -- 虫巢通道（闪电线下）市场概率 ×4；其余区域 4%
+        local market_roll = MARKET_ROLL * (in_nest and c_cy > LIGHTNING_Y and NEST_MARKET_ROLL_MULT or 1)
         if roll <= ORE_ROLL then
             kind = 'ore'
-        elseif roll <= ORE_ROLL + MARKET_ROLL then
+        elseif roll <= ORE_ROLL + market_roll then
             kind = 'market'
         end
         -- 虫巢通道内禁止方块矿生成（只保留品质市场块）
         if kind == 'ore' and in_nest then
+            kind = nil
+        end
+        -- 闪电线外（上方）不生成野外市场；骑线区块（中心恰在线 y）同样不生成，
+        -- 避免市场落在闪电线上（玩家买一下就死）
+        if kind == 'market' and c_cy <= LIGHTNING_Y then
             kind = nil
         end
         if kind then
@@ -538,7 +648,7 @@ local function on_chunk_generated(event)
                 end
             elseif kind == 'market' then
                 entry.rarity = math.floor((math.abs(c_cx) + math.abs(c_cy)) / 70)
-                -- 虫巢通道内的市场块 → 品质市场（2/3/4/5 品）
+                -- 虫巢通道内的市场块 → 1/2/3 品品质市场
                 entry.quality_market = in_nest
             end
             this.world21_ore_chunks[lt_x .. ',' .. lt_y] = entry
@@ -566,8 +676,8 @@ local function on_chunk_generated(event)
     -- 默认资源/树/自动虫巢分区清理：
     --   主基地：只清 autoplace 生成的 calcite/scrap（保留默认矿同四季）
     --   黑暗带：全清
-    --   虫巢通道：清资源与 autoplace 虫巢（保留树木；敌人由地形生成器按失落之城规则手动放置）
-    --   防御通道/岩浆区（含虫巢通道两侧）：清全部资源/树/虫巢/散兵
+    --   虫巢通道（梯形内）：清资源与 autoplace 虫巢（保留树木；敌人由地形生成器按赤壁规则手动放置）
+    --   防御通道/岩浆区（含虫巢通道梯形外两侧）：清全部资源/树/虫巢/散兵
     local entities = surface.find_entities_filtered({area = area})
     for _, e in pairs(entities) do
         if e.valid then
@@ -575,7 +685,7 @@ local function on_chunk_generated(event)
             local in_square_e = math.abs(px) <= SQUARE_HALF and math.abs(py) <= SQUARE_HALF
             local in_dark_e = math.abs(px) > CHANNEL_HALF and math.abs(px) <= DARK_HALF
                 and py >= CHANNEL_TOP and py <= CHANNEL_BOTTOM
-            local in_nest_e = math.abs(px) <= DARK_HALF and py < CHANNEL_TOP
+            local in_nest_e = in_nest_point(px, py)
             if in_dark_e then
                 e.destroy()
             elseif in_square_e then
@@ -596,7 +706,7 @@ local function on_chunk_generated(event)
 end
 
 --==============================================================================
--- 新机制1：基地扩张（科研完成 / 玩家累计杀虫 4444 / 击杀撼地虫）
+-- 新机制1：基地扩张（唯一触发：科技点亮新科技瓶，左/右/下各 N 格）
 --   先左 N 列、再右 N 列（高度=当时基地高度），最后下 N 行（宽度=当时基地宽度，含新列）
 --==============================================================================
 
@@ -604,8 +714,8 @@ local function world21_get_surface(this)
     return this.active_surface_index and game.surfaces[this.active_surface_index]
 end
 
--- 在一列/一行上铺草地（跳过被矿/市场/堡垒占据的格子）
-local function world21_place_land_line(surface, tiles, fixed, from_v, to_v, horizontal)
+-- 在一列/一行上铺草地（跳过被矿/市场/堡垒占据的格子；blocked=预计算占地集合）
+local function world21_place_land_line(tiles, blocked, fixed, from_v, to_v, horizontal)
     for v = from_v, to_v do
         local x, y
         if horizontal then
@@ -613,13 +723,15 @@ local function world21_place_land_line(surface, tiles, fixed, from_v, to_v, hori
         else
             x, y = fixed, v
         end
-        if not world21_tile_blocked(surface, x, y) then
+        if not blocked[x .. ',' .. y] then
             tiles[#tiles + 1] = {name = 'grass-1', position = {x = x, y = y}}
         end
     end
 end
 
-local function world21_expand_base(tiles_count, kill_player_name)
+-- @param tiles_count 各边扩张格数
+-- @param expand_pack 触发扩张的科技瓶名（非 nil 时全服播报）
+local function world21_expand_base(tiles_count, expand_pack)
     local this = WPT.get()
     if (this and this.world_number or 0) ~= 21 then return end
     local surface = world21_get_surface(this)
@@ -629,19 +741,22 @@ local function world21_expand_base(tiles_count, kill_player_name)
     local n = tiles_count or 1
 
     -- 三块新增区域整体预生成（避免未生成区块上 set_tiles / 后续矿块滚动竞争）
-    ensure_area_generated(surface, b.min_x - n, b.min_y, b.max_x + n, b.max_y + 16)
+    ensure_area_generated(surface, b.min_x - n, b.min_y, b.max_x + n, b.max_y + n)
+
+    -- 占地集合一次算好（左右列 + 下行的并集范围）
+    local blocked = world21_collect_blocked(surface, b.min_x - n, b.min_y, b.max_x + n, b.max_y + n)
 
     -- 先左 N 列、再右 N 列（每列高度=当时基地高度）
     local tiles = {}
     for i = 1, n do
-        world21_place_land_line(surface, tiles, b.min_x - 1, b.min_y, b.max_y, false)
+        world21_place_land_line(tiles, blocked, b.min_x - 1, b.min_y, b.max_y, false)
         b.min_x = b.min_x - 1
-        world21_place_land_line(surface, tiles, b.max_x + 1, b.min_y, b.max_y, false)
+        world21_place_land_line(tiles, blocked, b.max_x + 1, b.min_y, b.max_y, false)
         b.max_x = b.max_x + 1
     end
     -- 后下 N 行（每行宽度=当时基地宽度，已包含刚扩张的左右新列）
     for i = 1, n do
-        world21_place_land_line(surface, tiles, b.max_y + 1, b.min_x, b.max_x, true)
+        world21_place_land_line(tiles, blocked, b.max_y + 1, b.min_x, b.max_x, true)
         b.max_y = b.max_y + 1
     end
 
@@ -649,41 +764,39 @@ local function world21_expand_base(tiles_count, kill_player_name)
         surface.set_tiles(tiles)
     end
 
-    -- 杀虫触发的扩张需要播报（科研/撼地虫触发由各自播报或静默处理）
-    if kill_player_name then
-        game.print({'amap.world21_expand_kill', kill_player_name}, {r = 0.4, g = 1, b = 0.4})
+    if expand_pack then
+        game.print({'amap.world21_expand_pack', {'item-name.' .. expand_pack}}, {r = 0.4, g = 1, b = 0.4})
+    end
+end
+
+-- 只向下扩张 N 行（宽度 = 当前基地宽度，含已有左右列；跳过被矿/市场/堡垒占据的格子）
+local function world21_expand_down(tiles_count)
+    local this = WPT.get()
+    if (this and this.world_number or 0) ~= 21 then return end
+    local surface = world21_get_surface(this)
+    if not surface or not surface.valid then return end
+    local b = this.world21_base_bounds
+    if not b then return end
+    local n = tiles_count or 1
+
+    -- 新行区域预生成 + 占地集合
+    ensure_area_generated(surface, b.min_x, b.max_y, b.max_x, b.max_y + n)
+    local blocked = world21_collect_blocked(surface, b.min_x, b.max_y, b.max_x, b.max_y + n)
+
+    local tiles = {}
+    for i = 1, n do
+        world21_place_land_line(tiles, blocked, b.max_y + 1, b.min_x, b.max_x, true)
+        b.max_y = b.max_y + 1
+    end
+    if #tiles > 0 then
+        surface.set_tiles(tiles)
     end
 end
 
 --==============================================================================
--- 新机制2：撼地虫循环（虫巢通道内，离玩家基地最近的敌方虫巢处原地生成，
--- 活动范围限生成点往上 128 格）
+-- 新机制2：撼地虫循环（虫巢通道梯形内随机生成，闪电线以下、通道底部以上，
+-- 只在虫巢通道活动，进入防御通道才清除）
 --==============================================================================
-
--- 虫巢通道内离玩家基地最近的敌方虫巢（y 最大且 < CHANNEL_TOP 的 unit-spawner）
-local NEST_SEARCH_MIN_Y = CHANNEL_TOP - 2600
-
-local function world21_find_frontier_nest(surface)
-    local area = {
-        left_top = {x = -DARK_HALF, y = NEST_SEARCH_MIN_Y},
-        right_bottom = {x = DARK_HALF, y = CHANNEL_TOP},
-    }
-    local nests = surface.find_entities_filtered({
-        type = 'unit-spawner',
-        force = game.forces.enemy,
-        area = area,
-    })
-    local best, best_y
-    for _, n in ipairs(nests) do
-        if n and n.valid then
-            local ny = n.position.y
-            if ny < CHANNEL_TOP and (best_y == nil or ny > best_y) then
-                best, best_y = n, ny
-            end
-        end
-    end
-    return best
-end
 
 -- 按波次选撼地虫型号：<1000 小型 / 1000~2000 中型 / >2000 大型
 local function world21_demolisher_name(wave_number)
@@ -717,7 +830,7 @@ local function world21_demolisher_monitor()
     end
     if not this.world21_demo_epoch then return end
 
-    -- 先做存活管理（进入防御通道才清除；北/侧越出预生成区则拉回出生点，不消失），
+    -- 先做存活管理（任一越界 → teleport 拉回出生点，不消失、不销毁），
     -- 再判断是否到点生成
     local demo = this.world21_demo_ref
     if demo then
@@ -729,37 +842,51 @@ local function world21_demolisher_monitor()
                 this.world21_demo_spawn_x = demo.position.x
             end
             local py = demo.position.y
-            -- 活动范围 = 虫巢通道：只有进入防御通道（y > CHANNEL_TOP）才清除；
-            -- 北向/横向越出预生成区（分段身体会探进未生成区块被引擎回收）→ teleport 拉回出生点
-            local entered_defense = py > CHANNEL_TOP
-            local too_far = py < (this.world21_demo_spawn_y - DEMO_PREGEN_RADIUS)
-                or math.abs(demo.position.x) > DARK_HALF
-            if entered_defense then
-                demo.destroy()
-                world21_clear_demolisher_state(this)
-                game.print({'amap.world21_demolisher_despawn'}, {r = 1, g = 0.6, b = 0.3})
-            elseif too_far then
+            -- 活动范围 = 虫巢通道（梯形）：
+            --   南界：距防御通道顶端 DEMO_SOUTH_GUARD 格内即拉回（永不进入防御通道）；
+            --   北界：越过闪电线（py < LIGHTNING_Y+1）即拉回（永不进入线上方死亡区域）；
+            --   预生成界：越过出生点以北 DEMO_PREGEN_RADIUS 格；
+            --   侧界：超出梯形边界（分段身体探进未生成区块会被引擎回收）
+            local too_far = py > CHANNEL_TOP - DEMO_SOUTH_GUARD
+                or py < (this.world21_demo_spawn_y - DEMO_PREGEN_RADIUS)
+                or py < LIGHTNING_Y + 1
+                or math.abs(demo.position.x) > nest_half_width(py)
+            if too_far then
                 demo.teleport({x = this.world21_demo_spawn_x, y = this.world21_demo_spawn_y}, surface)
             end
         end
     end
 
     if game.tick >= (this.world21_demo_next or math.huge) then
+        -- 数量帽（2026-09 用户要求）：防御通道顶端到闪电线区间内活着的撼地虫 > 3 时
+        -- 本轮不再生成（也不让位旧的一只），1 分钟后重试
+        local alive_count = 0
+        for _, e in ipairs(surface.find_entities_filtered({
+            area = {left_top = {x = -2000, y = LIGHTNING_Y}, right_bottom = {x = 2000, y = CHANNEL_TOP}},
+            type = 'segmented-unit',
+            force = 'enemy',
+        })) do
+            if DEMOLISHER_NAMES[e.name] and in_nest_point(e.position.x, e.position.y) then
+                alive_count = alive_count + 1
+            end
+        end
+        if alive_count > DEMO_MAX_ALIVE then
+            this.world21_demo_next = game.tick + 60 * 60
+            return
+        end
         if demo and demo.valid then
             -- 下一只撼地虫刷新：旧的一只让位（销毁，不播报），再生成新的
             demo.destroy()
             world21_clear_demolisher_state(this)
         end
-        local nest = world21_find_frontier_nest(surface)
-        if not nest then
-            -- 虫巢通道还没有虫巢：1 分钟后重试
-            this.world21_demo_next = game.tick + 60 * 60
-            return
-        end
         local name = world21_demolisher_name(wave_number)
-        -- 生成点 = 离玩家基地最近的虫巢位置再往北偏移 96 格（保证活动带全在虫巢通道内、
-        -- 绝不进入防御通道）；生成前把该点周边 ±96 预生成，保证分段身体落在已生成区块。
-        local spawn_pos = {x = nest.position.x, y = nest.position.y - DEMO_SPAWN_NORTH_OFFSET}
+        -- 生成点 = 闪电线以下（y > LIGHTNING_Y）、虫巢通道底部（y < CHANNEL_TOP）以上，
+        -- 即在梯形虫巢通道内随机取一点；x 在对应深度的梯形半宽内随机。
+        -- 生成范围上沿预留 DEMO_SOUTH_GUARD 安全距（出生点靠近南界时拉回后会立即再越界、抖动）
+        -- 生成前把该点周边 ±96 预生成，保证分段身体落在已生成区块。
+        local demo_y = math.random(LIGHTNING_Y + 1, CHANNEL_TOP - DEMO_SOUTH_GUARD)
+        local demo_hw = nest_half_width(demo_y)
+        local spawn_pos = {x = math.random(-demo_hw, demo_hw), y = demo_y}
         local pregen_ok = ensure_area_generated(
             surface,
             spawn_pos.x - DEMO_PREGEN_RADIUS, spawn_pos.y - DEMO_PREGEN_RADIUS,
@@ -805,13 +932,18 @@ local function world21_demolisher_monitor()
     end
 end
 
--- 撼地虫被击杀奖励：基地扩张 5 格（同科研/杀虫扩张）+ 全员金币/工程基座 + 击杀者金币，并广播
+-- 撼地虫被击杀奖励（2026-09 改版）：不再扩张基地；全员金币/工程基座与击杀者金币
+-- 较旧版减半；击杀点就地出现一个不可摧毁、可开采拾取的好运连连钢箱
+-- （小/中/大 = 稀有好运连连 500/750/1000 魔法对应的钢箱）；广播
 local function world21_demolisher_kill_reward(entity, cause)
-    local this = WPT.get()
-    world21_expand_base(EXPAND_DEMOLISHER_TILES, nil)
-
     local reward = DEMOLISHER_REWARDS[entity.name]
     if not reward then return end
+
+    -- 就地钢箱（击杀瞬间实体尚未销毁，取当前位置）
+    local tier = DEMOLISHER_HYLL_CHEST[entity.name]
+    if tier then
+        world21_hyll_chest(entity.surface, entity.position, tier.luck, tier.q)
+    end
 
     for _, player in pairs(game.connected_players) do
         if player and player.valid and player.force.name == 'player' then
@@ -826,7 +958,6 @@ local function world21_demolisher_kill_reward(entity, cause)
         killer.insert({name = 'coin', count = reward.killer_coin})
         game.print({'amap.world21_demolisher_reward',
             {'amap.world21_demo_tier_' .. entity.name},
-            EXPAND_DEMOLISHER_TILES,
             reward.coin,
             reward.foundation,
             killer.name,
@@ -834,14 +965,16 @@ local function world21_demolisher_kill_reward(entity, cause)
     else
         game.print({'amap.world21_demolisher_reward_nk',
             {'amap.world21_demo_tier_' .. entity.name},
-            EXPAND_DEMOLISHER_TILES,
             reward.coin,
             reward.foundation}, {r = 1, g = 0.8, b = 0.2})
     end
 end
 
 --==============================================================================
--- 堡垒山谷模式监视：存活堡垒数 > 8 → 创建敌方核弹发射井；此后每 3 分钟发射核弹
+-- 堡垒：1 个 1 个生成（2026-09 用户决定取消「3 座并列成组」）。落回共享
+-- get_new_arty 的 only_below 模式（约每 20 分钟 1 座，落点避让全部由共享
+-- stronghold_generation_algorithm_v2 处理，本模块不干预）。
+-- 存活堡垒数 ≥ 4（> FORTRESS_NUKE_THRESHOLD=3）时由本模块监视器创建核弹发射井。
 --==============================================================================
 
 local fire_nuke_token
@@ -884,7 +1017,7 @@ local function world21_fortress_monitor()
     -- 重统计存活堡垒数（同步 this.baolei_count）
     local count = enemy_arty.recount_baolei()
 
-    -- 堡垒数 > 8 且尚无发射井 → 在随机存活堡垒旁创建（≤8 格，保证共享
+    -- 堡垒数 ≥ 4（> 3）且尚无发射井 → 在随机存活堡垒旁创建（≤8 格，保证共享
     -- unprotect_nuke_silo 的半径 10 解锁搜索能命中；找不到位置放宽到 14 格）
     if count > FORTRESS_NUKE_THRESHOLD and not this.world21_nuke_silo then
         local positions = enemy_arty.get_valid_fortress_positions()
@@ -942,8 +1075,12 @@ local function world21_fortress_monitor()
 end
 
 --==============================================================================
--- 出生市场价格巡检：工程基座永久 44 金 / 机甲 69000 金
---（rock.lua 每次 refresh_shop 会按波次重建商品且共享代码不可改，这里每秒纠偏）
+-- 出生市场巡检（2026-09-10 简化）：
+--   1) foundation 永久 44 金（不受波次影响）；
+--   2) 取消方解石售卖：剔除全部 calcite 栏；
+--   3) 机甲 mech-armor 恒为 69000 金且排在最后（即传说插件塔 beacon 特供栏之后）。
+-- 除上述三类栏外，其余栏目（含按 offer_index 定位的功能购买栏）原序保留，
+-- 绝不插到列表头部——旧版把机甲/方解石前置，导致价格与商品错位。
 --==============================================================================
 
 local function world21_enforce_shop_prices()
@@ -955,35 +1092,45 @@ local function world21_enforce_shop_prices()
     local items = shop.get_market_items()
     local changed = false
     local out = {}
-    local mech_done = false
-    for _, item in ipairs(items) do
+    local mech_entry = nil
+    local mech_ok_at_end = false
+    local n = #items
+    for i = 1, n do
+        local item = items[i]
         local offer = item.offer
         -- 注意：get_market_items 对无品质商品返回 quality='normal'（非 nil）
         local is_plain_item = offer and offer.type == 'give-item'
             and (offer.quality == nil or offer.quality == 'normal')
-        if is_plain_item and offer.item == 'foundation' then
-            if item.price[1] and item.price[1].count ~= FOUNDATION_PRICE then
-                item.price[1].count = FOUNDATION_PRICE
-                changed = true
-            end
-            out[#out + 1] = item
+        if is_plain_item and offer.item == 'calcite' then
+            changed = true  -- 取消方解石售卖：剔除（随机池不含方解石，剔除即绝迹）
         elseif is_plain_item and offer.item == 'mech-armor' then
-            -- 只保留一条机甲出售（69k）
-            if not mech_done then
-                if item.price[1] and item.price[1].count ~= MECH_ARMOR_PRICE then
-                    item.price[1].count = MECH_ARMOR_PRICE
-                    changed = true
-                end
+            if i == n and not mech_entry
+                and item.price[1] and item.price[1].count == MECH_ARMOR_PRICE then
+                mech_ok_at_end = true  -- 已在队尾且价格正确，保持原位
                 out[#out + 1] = item
-                mech_done = true
+            elseif not mech_entry then
+                mech_entry = item      -- 取一条挪到队尾，重复条目丢弃
+                changed = true
             else
                 changed = true
             end
         else
+            if is_plain_item and offer.item == 'foundation'
+                and item.price[1] and item.price[1].count ~= FOUNDATION_PRICE then
+                item.price[1].count = FOUNDATION_PRICE
+                changed = true
+            end
             out[#out + 1] = item
         end
     end
-    if not mech_done then
+    if mech_entry then
+        if mech_entry.price[1] then
+            mech_entry.price[1].count = MECH_ARMOR_PRICE
+        end
+        mech_entry.offer.count = 1
+        out[#out + 1] = mech_entry
+    elseif not mech_ok_at_end then
+        -- 池中无机甲栏：在队尾（beacon 特供之后）补一条固定价售卖
         out[#out + 1] = {
             price = {{name = 'coin', count = MECH_ARMOR_PRICE}},
             offer = {type = 'give-item', item = 'mech-armor', count = 1},
@@ -1000,9 +1147,27 @@ local function world21_enforce_shop_prices()
 end
 
 --==============================================================================
--- 方解石掉落 + 杀虫计数（打死任意敌方虫子 3/250 概率直接生成方解石到传说红箱；
--- 玩家累计击杀 4444 只虫 → 基地扩张）
+-- 方解石掉落 + 杀虫计数（打死任意敌方虫子 1/60 概率直接生成方解石到传说红箱；
+-- 每玩家累计击杀 9999 只虫 → 全服通报 + 按波次获得好运连连钢箱）
 --==============================================================================
+
+-- 累计 9999 杀虫的奖励：按当前波次选品质档（<500 波=稀有 / 500~2000 波=史诗 /
+-- >2000 波=传说），均为 1000 魔法对应的钢箱，出现在该玩家身旁（不可摧毁/可开采）；
+-- 额外奖励：基地下边往下扩 EXPAND_KILL_DOWN_TILES 格。
+local function world21_kill_chest(player)
+    local wave_number = WD.get('wave_number') or 0
+    local q_idx
+    if wave_number < 500 then
+        q_idx = 3
+    elseif wave_number <= 2000 then
+        q_idx = 4
+    else
+        q_idx = 5
+    end
+    world21_hyll_chest(player.physical_surface, player.physical_position, 1000, q_idx)
+    world21_expand_down(EXPAND_KILL_DOWN_TILES)
+    game.print({'amap.world21_kill_chest', player.name, {'amap.world21_quality_' .. q_idx}}, {r = 0.4, g = 1, b = 0.4})
+end
 
 local function on_entity_died(event)
     local this = WPT.get()
@@ -1011,14 +1176,14 @@ local function on_entity_died(event)
     if not entity or not entity.valid then return end
     if entity.force.name ~= 'enemy' then return end
 
-    -- 撼地虫被击杀 → 基地扩张 5 格 + 金币/工程基座奖励 + 广播
+    -- 撼地虫被击杀 → 就地好运连连钢箱 + 金币/工程基座奖励 + 广播（不再扩张基地）
     if DEMOLISHER_NAMES[entity.name] and this.world21_demo_ref == entity then
         world21_clear_demolisher_state(this)
         world21_demolisher_kill_reward(entity, event.cause)
     end
 
-    -- 方解石掉落（原机制不变）
-    if entity.type == 'unit' and math.random(1, CALCITE_ROLL) <= 3 then
+    -- 方解石掉落：1/60
+    if entity.type == 'unit' and math.random(1, CALCITE_ROLL) == 1 then
         local chest = this.world21_calcite_chest
         if chest and chest.valid then
             local inv = chest.get_inventory(defines.inventory.chest)
@@ -1028,17 +1193,65 @@ local function on_entity_died(event)
         end
     end
 
-    -- 杀虫计数（可归属玩家的击杀；每 9999 重置积累并扩张基地）
+    -- 杀虫计数（可归属玩家的击杀；每 9999 通报并按波次送好运连连钢箱）
     if world21_is_worm_kill(entity) then
         local players = world21_get_kill_players(event.cause)
         for _, player in ipairs(players) do
             if player and player.valid and player.force.name == 'player' then
                 if not this.world21_kill_accum then this.world21_kill_accum = {} end
                 this.world21_kill_accum[player.name] = (this.world21_kill_accum[player.name] or 0) + 1
-                if this.world21_kill_accum[player.name] >= KILL_EXPAND_THRESHOLD then
+                if this.world21_kill_accum[player.name] >= KILL_CHEST_THRESHOLD then
                     this.world21_kill_accum[player.name] = 0
-                    world21_expand_base(EXPAND_KILL_TILES, player.name)
+                    world21_kill_chest(player)
                 end
+            end
+        end
+    end
+end
+
+--==============================================================================
+-- 死亡区域（闪电线以上，y < LIGHTNING_Y = 虫巢通道起点往上 256 的横贯整个 x 轴的
+-- 闪电线之上的地块）：玩家越过闪电线 → 公告提醒玩家；越过持续 2 秒 → 玩家立即死亡。
+-- 判定按玩家物理坐标，与视觉无关、全 x 轴生效；视觉线段由各区块 on_chunk_generated
+-- 铺 electric-beam（参照 ComfyFactorio fish_defender 的 lightning wall 做法）。
+--==============================================================================
+
+local DEATHZONE_KILL_TICKS = 2 * 60  -- 越过闪电线持续 2 秒 → 立即死亡
+
+local function world21_deathzone_monitor()
+    local this = WPT.get()
+    if (this and this.world_number or 0) ~= 21 then return end
+    if not this.world21_deathzone_notified then
+        this.world21_deathzone_notified = {}
+    end
+    for _, player in pairs(game.connected_players) do
+        if player and player.valid and player.force.name == 'player' then
+            local pos = player.physical_position
+            local surface = player.physical_surface
+            local in_zone = pos.y < LIGHTNING_Y
+                and surface and surface.valid
+                and (this.active_surface_index == nil or surface.index == this.active_surface_index)
+            if in_zone then
+                local entered = this.world21_deathzone_notified[player.name]
+                -- 兼容旧存档：旧版存的是布尔标记 true，按 tick 数值参与减法会崩，视为未记录
+                if entered ~= nil and type(entered) ~= 'number' then
+                    entered = nil
+                    this.world21_deathzone_notified[player.name] = nil
+                end
+                if not entered then
+                    -- 首次越线：公告提醒并开始计时（值 = 越线时刻 tick）
+                    this.world21_deathzone_notified[player.name] = game.tick
+                    player.print({'amap.world21_deathzone_enter'}, {r = 1, g = 0.4, b = 0.4})
+                elseif game.tick - entered >= DEATHZONE_KILL_TICKS then
+                    -- 持续越线 2 秒：立即死亡
+                    local character = player.character
+                    if character and character.valid then
+                        character.die('enemy')
+                    end
+                end
+            elseif this.world21_deathzone_notified[player.name] then
+                -- 2 秒内退回线内：清除计时（再次越线重新提醒并重新计时）
+                this.world21_deathzone_notified[player.name] = nil
             end
         end
     end
@@ -1141,8 +1354,15 @@ local function on_research_finished(event)
 
     if SCRIPT_RESEARCH_BLACKLIST[tech.name] then return end
 
-    -- 新机制1：每研发 1 个科技 → 基地扩张 2 格（不播报）
-    world21_expand_base(EXPAND_RESEARCH_TILES, nil)
+    -- 新机制1：科技点亮新科技瓶（科技名即科技瓶名）→ 左/右/下各扩张 16 格，
+    -- 每种科技瓶本局只触发一次（on_world_start 清零）
+    if SCIENCE_PACK_TALENTS[tech.name] then
+        if not this.world21_packs_expanded then this.world21_packs_expanded = {} end
+        if not this.world21_packs_expanded[tech.name] then
+            this.world21_packs_expanded[tech.name] = true
+            world21_expand_base(EXPAND_PACK_TILES, tech.name)
+        end
+    end
 
     local proto = tech.prototype
     local ingredients = proto and proto.research_unit_ingredients
@@ -1233,6 +1453,9 @@ end
 local function world21_finish_reset()
     local this = WPT.get()
     if (this and this.world_number or 0) ~= 21 then return end
+    -- 科技倍率 ×2（研究成本 ×2；main.lua reset_map 在 on_world_start 之后会把
+    -- technology_price_multiplier 重置为 1，此处每个 [60] tick 幂等兜底，抄世界15模式）
+    game.difficulty_settings.technology_price_multiplier = 2
     if #game.connected_players == 0 then
         this.world21_science_granted = {}
         this.world21_talent_queue = {}
@@ -1250,7 +1473,9 @@ local function on_world_start(world_number)
     -- 除出生点外无白嫖组装机（出生点「组装机组」保留）
     this.enable_wild_factorio = false
 
-    -- 科技倍率：×1（不干预，main.lua reset_map 保持默认 1）
+    -- 科技倍率：×2（研究成本翻倍）。main.lua 在 on_world_start 之后仍会把
+    -- technology_price_multiplier 重置为 1，故实际生效在 [60] tick 的
+    -- world21_finish_reset 兜底（抄世界15模式，每秒幂等重设）。
 
     -- 通关奖励（铸造机概率）已迁入 diff.apply_world_bonuses 统一路径
     --（custom_bonus_map['foundry_chance_bonus']：每个玩家独立判定，所有地图开图生效）
@@ -1264,6 +1489,8 @@ local function on_world_start(world_number)
     -- 新机制状态复位：主基地 288×288（x∈[-144,143]，y∈[-144,143]）
     this.world21_base_bounds = {min_x = -SQUARE_HALF, max_x = SQUARE_HALF - 1, min_y = -SQUARE_HALF, max_y = SQUARE_HALF - 1}
     this.world21_kill_accum = {}
+    this.world21_packs_expanded = {}
+    this.world21_deathzone_notified = {}
     this.world21_demo_epoch = nil
     this.world21_demo_next = nil
     world21_clear_demolisher_state(this)
@@ -1339,12 +1566,12 @@ World.register(21, {
     enemy_expansion = nil,
 
     --==========================================================================
-    -- 堡垒生成：山谷模式（only_below：围绕目标螺旋搜索、只取 x 轴以下/y≥0 半圈），
-    -- 可生成在方块矿上（冲突判定不过滤矿：玩家建筑 110 / 敌堡垒 48 / 铁路 48 照旧）。
-    -- 存活堡垒数 > 8 时由本模块监视器创建核弹发射井（world21_fortress_monitor）。
+    -- 堡垒生成：1 个 1 个生成（2026-09 用户取消 3 座并列；2026-09-10 用户要求间隔 35→20）。
+    -- 走共享 get_new_arty 的 only_below 模式（约每 20 分钟 1 座，落点避让全部由共享 SGA 处理）。
+    -- 存活堡垒数 ≥ 4（> 3）时由本模块监视器创建核弹发射井（world21_fortress_monitor）。
     --==========================================================================
     arty_settings = {
-        interval = 35,
+        interval = 20,
         mode = 'only_below',
     },
 
@@ -1368,14 +1595,14 @@ World.register(21, {
     -- 传说木箱可用（不声明 disable_legendary_wood_chest）
 
     --==========================================================================
-    -- 通关奖励：通关（1500 波）后新开图 10% 概率全员得 1 铸造机，每多 500 波 +2%
-    --（发放逻辑在 on_world_start，此处仅用于 GUI 面板显示与记录）
+    -- 通关奖励：通关（1500 波）后新开图 20% 概率全员得 1 铸造机，每多 500 波 +10%
+    --（发放逻辑在 diff.apply_world_bonuses 统一路径，此处为概率参数与 GUI 面板显示）
     --==========================================================================
     world_bonus_type = {
         name = 'foundry_chance_bonus',
         custom_type = 'function',
-        base_value = 0.1,
-        growth_value = 0.02,
+        base_value = 0.2,
+        growth_value = 0.1,
     },
     world_bonus_start_wave = 1500,
     world_bonus_interval = 500,
@@ -1389,6 +1616,11 @@ World.register(21, {
 
     -- 全市场价格恢复原价（不再声明 market_price_multiplier 8 折，
     -- basic_markets.mountain_market / rock.refresh_shop 查不到该字段即跳过打折）
+
+    -- 野外市场只走本模块市场块（岩浆区/虫巢通道块），禁用共享 ywjz 的随机市场分支：
+    -- world_helpers.ywjz 查此字段把 weight_shop 置 0（否则线上方草地也会随机刷市场，
+    -- 且稀释「线下市场概率 ×4」的纯度）
+    wild_market_disabled = true,
 
     -- 岩浆瓦片跳过宝箱放置（world_helpers.rand_box 消费）
     chest_lava_skip = true,
@@ -1420,6 +1652,7 @@ World.register(21, {
             world21_enforce_shop_prices,
             world21_fortress_monitor,
             world21_demolisher_monitor,
+            world21_deathzone_monitor,
         },
     },
 })

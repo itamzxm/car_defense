@@ -215,6 +215,219 @@ local function on_chunk_generated(event)
 end
 
 --==============================================================================
+-- 建筑模块随机生成
+--   素材：存档「地图模块」中地图石炉右侧、石墙围起的三个建筑群（原封复制
+--   其内部实体与相对布局，石墙不复制；2026-09-10 无头加载该存档 RCON 导出）：
+--     组装机模块  = 15×15：史诗组装机3 ×1 + 史诗信标 ×12
+--     电磁机模块  = 16×16：史诗电磁化工厂 ×1 + 史诗信标 ×12
+--     铸造机模块  = 17×17：史诗铸造机 ×1 + 史诗信标 ×14
+--   规则：每局进入世界19随机放置 组装机模块×10 / 电磁机模块×4 / 铸造机模块×4；
+--   模块整体随机落在 y ∈ [-256, 256]、x ∈ [-288, 288]（不出两侧黑暗区）。
+--   压住的树/岩石清除，矿石不清除、直接建在矿上（2.1 实测：脚本放置与
+--   can_place 均不受资源实体阻挡，矿量完整保留在建筑下方）。
+--   放置方式同中线指令塔：玩家阵营、
+--   不可摧毁/不可开采、无自带电力（信标需玩家自行接电才生效）。
+--   区块未生成时挂起等待（on_world_start 即 request_to_generate_chunks），
+--   位置与其他建筑/虫巢/角色冲突时重选随机位置重试，直至放下。
+--==============================================================================
+
+local MODULE_Y_LIMIT = 256              -- 模块随机生成纵向范围：中心上下 256 格内
+
+-- entities 坐标 = 相对模块左上格中心(+0.5,+0.5)的偏移，direction 全部 0（省略）
+local BUILDING_MODULES = {
+    {   -- 组装机模块（原存档占位 15×15）
+        size = 15, count = 10,
+        entities = {
+            {name = 'assembling-machine-3', x = 7, y = 7, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 5, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 9, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 12, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 5, quality = 'epic'},
+            {name = 'beacon', x = 12, y = 5, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 9, quality = 'epic'},
+            {name = 'beacon', x = 12, y = 9, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 12, quality = 'epic'},
+            {name = 'beacon', x = 5, y = 12, quality = 'epic'},
+            {name = 'beacon', x = 9, y = 12, quality = 'epic'},
+            {name = 'beacon', x = 12, y = 12, quality = 'epic'},
+        },
+    },
+    {   -- 电磁机模块（原存档占位 16×16）
+        size = 16, count = 4,
+        entities = {
+            {name = 'electromagnetic-plant', x = 7.5, y = 7.5, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 5, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 10, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 13, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 5, quality = 'epic'},
+            {name = 'beacon', x = 13, y = 5, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 10, quality = 'epic'},
+            {name = 'beacon', x = 13, y = 10, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 13, quality = 'epic'},
+            {name = 'beacon', x = 5, y = 13, quality = 'epic'},
+            {name = 'beacon', x = 10, y = 13, quality = 'epic'},
+            {name = 'beacon', x = 13, y = 13, quality = 'epic'},
+        },
+    },
+    {   -- 铸造机模块（原存档占位 17×17）
+        size = 17, count = 4,
+        entities = {
+            {name = 'foundry', x = 8, y = 8, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 5, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 8, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 11, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 14, y = 2, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 5, quality = 'epic'},
+            {name = 'beacon', x = 14, y = 5, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 11, quality = 'epic'},
+            {name = 'beacon', x = 14, y = 11, quality = 'epic'},
+            {name = 'beacon', x = 2, y = 14, quality = 'epic'},
+            {name = 'beacon', x = 5, y = 14, quality = 'epic'},
+            {name = 'beacon', x = 8, y = 14, quality = 'epic'},
+            {name = 'beacon', x = 11, y = 14, quality = 'epic'},
+            {name = 'beacon', x = 14, y = 14, quality = 'epic'},
+        },
+    },
+}
+
+-- 随机取模块左上格坐标（整模块落在 |x| ≤ MAP_HALF_WIDTH、|y| ≤ MODULE_Y_LIMIT 内）
+local function random_module_pos(size)
+    return math.random(-MAP_HALF_WIDTH, MAP_HALF_WIDTH - size + 1),
+           math.random(-MODULE_Y_LIMIT, MODULE_Y_LIMIT - size + 1)
+end
+
+-- 模块覆盖的区块是否全部已生成（未生成时不能查询/放置）
+local function module_chunks_ready(surface, ax, ay, size)
+    for cx = math.floor(ax / 32), math.floor((ax + size - 1) / 32) do
+        for cy = math.floor(ay / 32), math.floor((ay + size - 1) / 32) do
+            if not surface.is_chunk_generated({x = cx, y = cy}) then
+                return false
+            end
+        end
+    end
+    return true
+end
+
+-- 模块范围内除 树/岩石（清除）/矿石（保留，直接建在矿上）外是否有其他实体
+-- （指令塔、玩家建筑、虫巢、虫、角色、其他已放置模块等，均视为冲突需重选位置）
+local function module_area_free(surface, ax, ay, size)
+    local ents = surface.find_entities_filtered({
+        area = {{x = ax, y = ay}, {x = ax + size, y = ay + size}},
+    })
+    for _, e in pairs(ents) do
+        if e.valid then
+            local t = e.type
+            if t ~= 'tree' and t ~= 'simple-entity' and t ~= 'resource' then
+                return false
+            end
+        end
+    end
+    return true
+end
+
+-- 尝试在 (ax, ay)（左上格整数坐标）放置一个模块：清除树/岩石（矿石保留，
+-- 直接建在矿上）→ 预检 → 逐个创建 → 打不可摧毁/不可开采标记；
+-- 任一实体放不下则回收本模块已建实体并返回失败
+local function try_place_module(surface, mod, ax, ay)
+    if not module_area_free(surface, ax, ay, mod.size) then
+        return false
+    end
+    local blockers = surface.find_entities_filtered({
+        area = {{x = ax, y = ay}, {x = ax + mod.size, y = ay + mod.size}},
+        type = {'tree', 'simple-entity'},
+    })
+    for _, e in pairs(blockers) do
+        if e.valid then
+            e.destroy()
+        end
+    end
+    local created = {}
+    for _, ent in ipairs(mod.entities) do
+        local pos = {x = ax + 0.5 + ent.x, y = ay + 0.5 + ent.y}
+        if not surface.can_place_entity({name = ent.name, position = pos}) then
+            for _, c in ipairs(created) do
+                if c.valid then
+                    c.destroy()
+                end
+            end
+            return false
+        end
+        created[#created + 1] = surface.create_entity({
+            name = ent.name,
+            position = pos,
+            force = 'player',
+            quality = ent.quality,
+            create_build_effect_smoke = false,
+        })
+    end
+    for _, e in ipairs(created) do
+        if e.valid then
+            e.destructible = false
+            e.minable_flag = false
+        end
+    end
+    return true
+end
+
+-- 开局：为全部模块随机选位、请求生成覆盖区块，存入待放置队列
+local function world19_setup_modules(this)
+    local pending = {}
+    for mi, mod in ipairs(BUILDING_MODULES) do
+        for _ = 1, mod.count do
+            local ax, ay = random_module_pos(mod.size)
+            pending[#pending + 1] = {mi = mi, ax = ax, ay = ay}
+        end
+    end
+    this.world19_module_pending = pending
+
+    local surface = this.active_surface_index and game.surfaces[this.active_surface_index]
+    if surface and surface.valid then
+        for _, item in ipairs(pending) do
+            local mod = BUILDING_MODULES[item.mi]
+            surface.request_to_generate_chunks(
+                {x = item.ax + mod.size / 2, y = item.ay + mod.size / 2}, 1)
+        end
+    end
+end
+
+-- 每 [60] tick：处理待放置队列——区块就绪才放置；冲突重选位置；全部放完清队列
+local function world19_place_modules()
+    local this = WPT.get()
+    if (this and this.world_number or 0) ~= 19 then return end
+    local pending = this.world19_module_pending
+    if not pending or #pending == 0 then return end
+    local surface = this.active_surface_index and game.surfaces[this.active_surface_index]
+    if not surface or not surface.valid then return end
+
+    local still = {}
+    for _, item in ipairs(pending) do
+        local mod = BUILDING_MODULES[item.mi]
+        local done = false
+        if module_chunks_ready(surface, item.ax, item.ay, mod.size) then
+            if try_place_module(surface, mod, item.ax, item.ay) then
+                done = true
+            else
+                -- 位置冲突（指令塔/建筑/虫巢/水面等）：重选随机位置并请求生成
+                item.ax, item.ay = random_module_pos(mod.size)
+                surface.request_to_generate_chunks(
+                    {x = item.ax + mod.size / 2, y = item.ay + mod.size / 2}, 1)
+            end
+        end
+        if not done then
+            still[#still + 1] = item
+        end
+    end
+    if #still == 0 then
+        this.world19_module_pending = nil
+    else
+        this.world19_module_pending = still
+    end
+end
+
+--==============================================================================
 -- 波虫：上下双向出波，生成点可随建筑后移
 --==============================================================================
 
@@ -591,6 +804,10 @@ local function on_world_start(world_number)
         end
     end
 
+    -- 建筑模块（组装机/电磁机/铸造机）：随机选位 + 请求生成覆盖区块，
+    -- 实际放置由 nth_tick[60] 的 world19_place_modules 在区块就绪后完成
+    world19_setup_modules(this)
+
     -- 去除开局自动研发「高级星岩处理 / 星岩再处理」：main.lua reset_map 末尾会强制把
     -- 非 14/21 世界的这两个科技设为 researched=true（晚于本钩子），此处无法直接撤销，
     -- 标记由进入世界后的首个 [60] tick 兜底撤销。
@@ -729,6 +946,7 @@ World.register(19, {
         [60] = {
             world19_finish_reset,        -- 开局首个 tick 清空重置期脚本研究的科技瓶天赋
             world19_unresearch_advanced_asteroid, -- 撤销开局自动研发的高级星岩处理
+            world19_place_modules,       -- 建筑模块：区块就绪后随机放置
             world19_enforce_talent_cap,  -- 天赋 ≤60 封锁
             world19_process_talent_queue,-- 科技瓶天赋逐次发放
             world19_apply_wave_interval, -- 2000 波后波次间隔 +2%/100波（≤+30%）
