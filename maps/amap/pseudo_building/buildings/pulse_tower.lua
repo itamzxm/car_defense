@@ -57,7 +57,7 @@ M.on_tick = function(e, data, ctx)
     if not e.valid then return end
     -- 抑制原生开火（仅保留脉冲）
     if e.energy then e.energy = 0 end
-    pcall(fire_pulse, e, ctx)
+    fire_pulse(e, ctx)
 end
 
 Framework.register('pulse', M)

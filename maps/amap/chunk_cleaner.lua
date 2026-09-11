@@ -31,25 +31,8 @@ local initial_state = {
 
 local cleaner = initial_state
 
--- K2 旧存档兼容：storage.tokens 无本 token → callback 收到 nil → 绑定初始表；
--- 就地字段归一化（or 默认值）+ 残缺 cleaning 态（cleaning 且 chunk_list 空）回退 idle
 Global.register(initial_state, function(tbl)
-    cleaner = tbl or initial_state                    -- 旧存档 storage.tokens 无本 token → nil
-    if cleaner ~= initial_state then                  -- 就地补默认值（C1：老存档加载即 idle）
-        cleaner.state = cleaner.state or 'idle'
-        cleaner.stop_reason = cleaner.stop_reason
-        cleaner.active = cleaner.active or false
-        cleaner.chunk_list = cleaner.chunk_list or {}
-        cleaner.cursor = cleaner.cursor or 1
-        cleaner.ring_index = cleaner.ring_index or 0
-        cleaner.batch_id = cleaner.batch_id or 0
-        cleaner.batch_destroyed = cleaner.batch_destroyed or 0
-        cleaner.total_destroyed = cleaner.total_destroyed or 0
-        cleaner.per_tick_chunks = cleaner.per_tick_chunks or 1
-        if cleaner.state == 'cleaning' and #cleaner.chunk_list == 0 then
-            cleaner.state = 'idle'                    -- 残缺状态回退，由下次 start_game==3 重新快照
-        end
-    end
+    cleaner = tbl
 end)
 
 -- C6 取消判定：start_game ~= 3（摆车/silo 复活/重置均置 2）或 silo 有效即停

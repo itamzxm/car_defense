@@ -34,15 +34,15 @@ M.on_interval = function(e, data, ctx)
                     return
                 end
             end
-            local ok, built_entity = pcall(surface.create_entity, {
+            local built_entity = surface.create_entity{
                 name = name,
                 position = g.position,
                 direction = g.direction or 0,
                 force = g.force,
                 raise_built = false,
-            })
-            if ok and built_entity then
-                pcall(function() g.destroy() end)
+            }
+            if built_entity then
+                g.destroy()
                 built = built + 1
             elseif ctx.side ~= 'enemy' then
                 -- 建不成则退还鱼

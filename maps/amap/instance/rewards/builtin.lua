@@ -189,21 +189,7 @@ end
 
 local function grant_recipe_productivity(player, data, multiplier, params)
     local force = data and data.original_force and game.forces[data.original_force] or player.force
-    local recipe_name = params and params.recipe_name
-    if not recipe_name then
-        -- 兜底：无预抽参数时随机一个（不应发生）
-        local recipes = collect_unlocked_ground_recipes(force)
-        if #recipes == 0 then
-            player.print({'amap.reward_recipe_productivity_no_recipe'}, {r = 1, g = 0.5, b = 0})
-            return
-        end
-        local picked_name = recipes[math.random(1, #recipes)]
-        local picked = force.recipes[picked_name]
-        picked.productivity_bonus = picked.productivity_bonus + 0.03
-        player.print({'amap.reward_recipe_productivity_granted', picked.localised_name},
-                     {r = 0, g = 1, b = 0})
-        return
-    end
+    local recipe_name = params.recipe_name
     local recipe = force.recipes[recipe_name]
     if not recipe then
         player.print({'amap.reward_recipe_productivity_no_recipe'}, {r = 1, g = 0.5, b = 0})
@@ -248,21 +234,10 @@ end
 
 local function grant_force_modifier(player, data, multiplier, params)
     local force = data and data.original_force and game.forces[data.original_force] or player.force
-    local key = params and params.modifier_key
-    local mod_type = params and params.modifier_type
-    local name_key = params and params.modifier_name_key
-    local value = params and params.modifier_value
-    if not key or not mod_type then
-        -- 兜底：无预抽参数时随机一个（不应发生）
-        local picked = FORCE_MODIFIERS[math.random(1, #FORCE_MODIFIERS)]
-        key = picked.key
-        mod_type = picked.type
-        name_key = picked.name_key
-        value = picked.value or (mod_type == 'percentage' and 0.03 or 1)
-    end
-    if not value then
-        value = mod_type == 'percentage' and 0.03 or 1
-    end
+    local key = params.modifier_key
+    local mod_type = params.modifier_type
+    local name_key = params.modifier_name_key
+    local value = params.modifier_value
     force[key] = force[key] + value
     local display_value = format_force_mod_display(mod_type, value)
     player.print({'amap.reward_force_modifier_granted', {name_key}, display_value},
@@ -300,21 +275,7 @@ end
 
 local function grant_damage_bonus(player, data, multiplier, params)
     local force = data and data.original_force and game.forces[data.original_force] or player.force
-    local kind = params and params.kind
-
-    if not kind then
-        -- 兜底：无预抽参数时随机一种（不应发生）
-        if math.random() < 0.5 then
-            local unlocked_ammo = get_unlocked_ammo_categories(force)
-            local picked_ammo = unlocked_ammo[math.random(1, #unlocked_ammo)]
-            params = {kind = 'ammo', ammo_category = picked_ammo}
-        else
-            local unlocked_turrets = get_unlocked_turrets(force)
-            local picked_turret = unlocked_turrets[math.random(1, #unlocked_turrets)]
-            params = {kind = 'turret', turret = picked_turret}
-        end
-        kind = params.kind
-    end
+    local kind = params.kind
 
     if kind == 'ammo' then
         local ammo = params.ammo_category
@@ -429,7 +390,7 @@ local function pet_skill_book_roll_preview(player, difficulty, book_type)
 end
 
 local function grant_pet_skill_book(player, data, multiplier, params)
-    local book_type = params and params.book_type or 'low'
+    local book_type = params.book_type
     -- 直接增加技能书计数器（参考 modules/pet_system/main.lua:170-197 的 purchase_skill_book 内部逻辑）
     -- Pet.get_player_pet_data 在 modules/pet_system/table.lua:353 定义
     local pet_data = Pet.get_player_pet_data(player)
@@ -466,14 +427,8 @@ local function rpg_attr_roll_preview(player, difficulty)
 end
 
 local function grant_rpg_attr(player, data, multiplier, params)
-    local attr_key = params and params.attr_key
-    local name_key = params and params.attr_name_key
-    if not attr_key then
-        -- 兜底：无预抽参数时随机选一个（不应发生）
-        local picked = RPG_ATTRS[math.random(1, #RPG_ATTRS)]
-        attr_key = picked.key
-        name_key = picked.name_key
-    end
+    local attr_key = params.attr_key
+    local name_key = params.attr_name_key
     local rpg_t = RPG.get('rpg_t')
     local entry = rpg_t and rpg_t[player.index]
     if not entry then
@@ -499,7 +454,7 @@ local function tianfu_roll_preview(player, difficulty)
 end
 
 local function grant_tianfu(player, data, multiplier, params)
-    local tier = params and params.tier or 'low'
+    local tier = params.tier
     -- 调用天赋系统弹 5 选 1 GUI（参考 rock.lua:441-481 购买天赋的实现）
     if not Tianfu or not Tianfu.get_new_tianfu then
         player.print({'amap.reward_tianfu_failed'}, {r = 1, g = 0.5, b = 0})

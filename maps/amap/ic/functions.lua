@@ -16,9 +16,6 @@ local function validate_entity(entity)
     if not (entity and entity.valid ) then
         return false
     end
-    if type(entity) == 'boolean' then
-        return false
-    end
 
     return true
 end

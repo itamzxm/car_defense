@@ -22,16 +22,12 @@ local ft = require"maps.amap.rock".ft
 local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：global 实体引用改为可序列化 record
 local Collapse = require 'modules.collapse'
 
--- ★ 毒值修复：surface 引用反查（record 形态存 surface_index；兼容旧 LuaSurface 引用）
--- 写点目前在 main.lua（本批不动），过渡期两种形态都可能出现
+-- ★ 毒值修复：surface 引用反查（record 形态存 surface_index）
+-- 写点在 main.lua（统一存 record）
 local resolve_surface_ref = function(ref)
     if not ref then return nil end
-    if type(ref) == 'table' then
-        local s = game.surfaces[ref.surface_index]
-        if s and s.valid then return s end
-        return nil
-    end
-    if ref.valid then return ref end
+    local s = game.surfaces[ref.surface_index]
+    if s and s.valid then return s end
     return nil
 end
 

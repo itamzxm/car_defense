@@ -99,14 +99,14 @@ local function apply_render(entity, opts)
     end
 
     if opts.icon then
-        local ok, id = pcall(rendering.draw_sprite, {
+        local id = rendering.draw_sprite{
             sprite = opts.icon,
             surface = surf,
             target = {entity = entity, offset = {0, 1.3}},
             x_scale = 0.6,
             y_scale = 0.6,
-        })
-        if ok and id then ids[#ids + 1] = id end
+        }
+        if id then ids[#ids + 1] = id end
     end
 
     return ids
@@ -118,7 +118,7 @@ function Public.destroy_render(unit_number)
     render_store[unit_number] = nil
     if not objs then return end
     for _, obj in ipairs(objs) do
-        pcall(function() if obj and obj.destroy then obj:destroy() end end)
+        if obj and obj.destroy then obj:destroy() end
     end
 end
 
@@ -161,15 +161,13 @@ function Public.cleanup(unit_number)
     if not entry then return end
     if entry.def and entry.def.on_destroy then
         local ctx = {owner = entry.owner, side = entry.side, opts = entry.opts, category = entry.category}
-        pcall(entry.def.on_destroy, entry.entity, entry.data, ctx)
+        entry.def.on_destroy(entry.entity, entry.data, ctx)
     end
     Public.destroy_render(unit_number)
     -- 真正移除实体（自毁/死亡兜底）
-    pcall(function()
-        if entry.entity and entry.entity.valid then
-            entry.entity.destroy()
-        end
-    end)
+    if entry.entity and entry.entity.valid then
+        entry.entity.destroy()
+    end
     registry[unit_number] = nil
 end
 
@@ -248,7 +246,7 @@ local function create_common(category, surface, position, opts)
 
     if def and def.on_create then
         local ctx = {owner = entry.owner, side = entry.side, opts = opts, category = category}
-        pcall(def.on_create, entity, entry.data, ctx)
+        def.on_create(entity, entry.data, ctx)
     end
 
     if opts.timed then

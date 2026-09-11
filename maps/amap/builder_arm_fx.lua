@@ -33,13 +33,10 @@ local ARM_COST = 8 * ARM_TTL
 
 local arms = {}
 
--- 执行建造回调（动画不可播/中断时的退化直建共用入口；错误只记日志，不中断调用方）
+-- 执行建造回调（动画不可播/中断时的退化直建共用入口）
 local function call_exec(on_exec)
     if not on_exec then return end
-    local ok, err = pcall(on_exec)
-    if not ok then
-        log('[BuilderArm] on_exec error: ' .. tostring(err))
-    end
+    on_exec()
 end
 
 -- 销毁单个动画的全部绘制对象（幂等，character 失效后 rendering 对象可能已自动销毁）
@@ -162,8 +159,7 @@ local function update_arms()
             end
         else
             -- 玩家死亡/换角色/传送 → character 失效：动画无法继续绘制。
-            -- 未执行的建造回调立即退化执行（建造不因动画中断而丢失），随后清理本动画；
-            -- 绝不让一个失效动画抛错中断整批动画的更新（否则后续动画的 on_exec 也会被吞）
+            -- 未执行的建造回调立即退化执行（建造不因动画中断而丢失），随后清理本动画
             call_exec(arm.on_exec)
             destroy_arm(arm)
             table.remove(arms, i)

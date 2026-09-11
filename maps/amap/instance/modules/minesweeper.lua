@@ -164,8 +164,7 @@ local function generate_mines(module_data, exclude_positions)
         end
     end
 
-    -- 防御：若雷数超过可用格子数，截断
-    local actual_count = math.min(target_mine_count, #available)
+    local actual_count = target_mine_count
 
     -- Fisher-Yates 完整洗牌，取前 actual_count 个作为雷
     for i = #available, 2, -1 do
@@ -394,15 +393,12 @@ end
 -- 退出副本：清理 rendering + 顶栏自定义 GUI
 function M.on_exit(player, data, reason)
     -- 清理所有 rendering（Factorio 2.x: draw_text 返回 LuaRenderObject，用 :destroy() 方法）
-    -- on_exit 在退出主流程开头调用，若此处报错会导致玩家卡在副本无法退出，用 pcall 保护
     local module_data = data.module_data
     if module_data and module_data.rendering_ids then
         for key, obj in pairs(module_data.rendering_ids) do
-            pcall(function()
-                if obj and obj.valid then
-                    obj.destroy()
-                end
-            end)
+            if obj and obj.valid then
+                obj.destroy()
+            end
         end
         module_data.rendering_ids = {}
     end

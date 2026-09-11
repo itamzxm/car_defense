@@ -98,10 +98,9 @@ local function on_player_mined_entity(event)
   local surface = entity.surface
   local this = WPT.get()
 
-  -- ★ 毒值修复：surface 引用兼容 record/index 双形态（失效安静跳过）
+  -- ★ 毒值修复：surface 引用 record 反查（失效安静跳过）
   local ysys = this.yiciyuan_surface
   if type(ysys) == 'table' and ysys.surface_index then ysys = game.surfaces[ysys.surface_index] end
-  if type(ysys) == 'number' then ysys = game.surfaces[ysys] end
   if ysys and surface == ysys then return end
  
   if event.player_index then game.players[event.player_index].insert({name = "coin", count = 1}) end

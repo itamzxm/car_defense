@@ -695,18 +695,16 @@ function M.on_exit(player, data, reason)
     if not md then return end
 
     -- 清理模块 GUI
-    pcall(cleanup_top_gui, player)
+    cleanup_top_gui(player)
 
     -- 恢复 force modifier（避免污染主世界，虽然 force 会被 cleanup，但保险起见）
     if player.force then
-        pcall(function()
-            player.force.set_ammo_damage_modifier('bullet', 0)
-            player.force.set_gun_speed_modifier('bullet', 0)
-        end)
+        player.force.set_ammo_damage_modifier('bullet', 0)
+        player.force.set_gun_speed_modifier('bullet', 0)
     end
 
     -- 清理副本专属 enemy force
-    pcall(cleanup_dungeon_enemy_force, md.enemy_force_name)
+    cleanup_dungeon_enemy_force(md.enemy_force_name)
 
     -- 通关/失败消息
     if md.victory then

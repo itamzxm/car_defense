@@ -160,8 +160,7 @@ function Public.roll_choices(difficulty, count, player)
         local def = reward_registry[id]
         local w = def.weight or 1
         if type(w) == 'function' then
-            local ok, dyn_w = pcall(w, player)
-            w = (ok and type(dyn_w) == 'number') and dyn_w or 1
+            w = w(player)
         end
         if w < 0 then w = 0 end
         candidates[#candidates + 1] = {
@@ -201,8 +200,7 @@ function Public.roll_choices(difficulty, count, player)
         -- 滚 preview（具体奖励参数）
         local preview = nil
         if def.roll_preview then
-            local ok, pv = pcall(def.roll_preview, player, difficulty)
-            if ok then preview = pv end
+            preview = def.roll_preview(player, difficulty)
         end
 
         result[#result + 1] = {
@@ -231,11 +229,8 @@ function Public.grant(player, reward_id, data, multiplier, params)
         return false
     end
 
-    -- 系数必须 > 0（防御性：若传入 0 或负数，视为 1 避免发不出东西）
+    -- 系数必须 > 0（由调用方保证）
     local mult = multiplier
-    if not mult or mult <= 0 then
-        mult = 1
-    end
 
     local ok, err = pcall(def.grant_scaled, player, data, mult, params)
     if not ok then

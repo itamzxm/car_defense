@@ -471,9 +471,7 @@ local function apply_all_stats(player, md)
         char.character_health_bonus = (stats.vitality or 0) * 30
         -- 护甲 (物理抗性)
         local armor_pct = math.min(80, (stats.armor or 0) * 10)
-        pcall(function()
-            char.set_resistance(defines.resistance_type.physical, {decrease = 0, percent = armor_pct})
-        end)
+        char.set_resistance(defines.resistance_type.physical, {decrease = 0, percent = armor_pct})
     end
 end
 
@@ -547,9 +545,7 @@ local function apply_upgrade(player, md, upgrade_def)
         local char = player.character
         if char and char.valid then
             local armor_pct = math.min(80, stats.armor * 10)
-            pcall(function()
-                char.set_resistance(defines.resistance_type.physical, {decrease = 0, percent = armor_pct})
-            end)
+            char.set_resistance(defines.resistance_type.physical, {decrease = 0, percent = armor_pct})
         end
     elseif id == 'lifesteal' then
         stats.lifesteal = (stats.lifesteal or 0) + 1

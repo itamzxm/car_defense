@@ -119,12 +119,7 @@ end
 
 -- 执行单个分批任务
 function Public.execute_batch_task(task)
-    local success, result = pcall(task.func, unpack(task.params))
-    if not success then
-        game.print("堡垒分批任务执行失败: " .. tostring(result))
-        game.print("任务类型: " .. task.type)
-    end
-    return success
+    task.func(unpack(task.params))
 end
 
 -- 启动新的堡垒分批创建
@@ -2395,13 +2390,8 @@ local function process_construction_queue()
     while Public.has_pending_tasks() and executed_count < max_tasks_per_tick do
         local task = Public.get_next_task()
         if task then
-            local success = Public.execute_batch_task(task)
-            if success then
-                executed_count = executed_count + 1
-            else
-                -- 任务失败时记录错误，但继续处理其他任务
-                game.print("分批任务执行失败: " .. task.type)
-            end
+            Public.execute_batch_task(task)
+            executed_count = executed_count + 1
         else
             break
         end

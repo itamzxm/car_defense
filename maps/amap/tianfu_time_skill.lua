@@ -4749,13 +4749,7 @@ local function zishenzhuanjia(player, q_idx)
     if new_building and new_building.valid then
         -- 在还原库存前设置配方
         if recipe_name then
-            local success, err = pcall(function()
-                new_building.set_recipe(recipe_name)
-            end)
-            
-            if not success then
-                -- 设置配方失败，通常是因为该建筑不支持此配方
-            end
+            new_building.set_recipe(recipe_name)
         end
         
         -- 设置完配方后，再还原物品和模块
@@ -4884,9 +4878,6 @@ local function hushenfu(player, q_idx)
         end
 
         -- 确保护盾数据结构存在
-        if not this.hushenfu_shield then
-            this.hushenfu_shield = {}
-        end
         if not this.hushenfu_shield[player.index] then
             this.hushenfu_shield[player.index] = 0
         end

@@ -148,8 +148,7 @@ local is_sh_conflict = function(sh_pos,surface)
   -- 返回 false 表示该点不可用；未声明该字段的世界不受影响。
   local fortress_valid = World.get_field(this.world_number, 'fortress_position_valid')
   if fortress_valid then
-    local okpos, res = pcall(fortress_valid, position, surface)
-    if okpos and res == false then
+    if fortress_valid(position, surface) == false then
       return false
     end
   end

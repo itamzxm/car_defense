@@ -491,7 +491,7 @@ local function set_next_wave()
     -- 世界武器伤害科技随波次进度自动解锁（由世界 def 定义接口）
     local unlock_fn = World.get_field(this.world_number, 'unlock_progressive_techs')
     if unlock_fn and wave_number > 0 then
-        pcall(unlock_fn, wave_number)
+        unlock_fn(wave_number)
     end
 
     BiterRolls.wave_defense_set_unit_raffle(wave_number)

@@ -732,8 +732,8 @@ local function spawn_plants(surface, cx, cy, name)
             y = cy + math.random(-ORE_HALF, ORE_HALF) + math.random()
         }
         if surface.can_place_entity({name = name, position = pos}) then
-            local ok, e = pcall(surface.create_entity, {name = name, position = pos, force = game.forces.neutral})
-            if ok and e and e.valid then
+            local e = surface.create_entity({name = name, position = pos, force = game.forces.neutral})
+            if e and e.valid then
                 placed = placed + 1
             end
         end

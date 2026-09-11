@@ -439,113 +439,12 @@ Gui.on_click(
     end
 )
 
--- 旧存档 GUI 清理（玩家加入时执行）
--- 根因：Factorio 存档会保存玩家的 GUI 状态。testsave3 这类旧存档是老代码时代创建的，
--- 当时顶栏按钮直接挂在 gui.top 原生位置（gui.top.add），右下角也有旧版 bottom_frame 框。
--- 新代码把按钮迁移到 get_button_flow（mod_gui 大框）后，加载旧存档会恢复旧 GUI 结构，
--- 与新代码创建的大框按钮并存，造成"老按钮 + 大框"重复。
--- 清理策略：
---   1. gui.top：删除所有非 mod-gui 容器（mod_gui_top_frame / mod_gui_inner_frame / mod_gui_button_flow）的子元素
---   2. gui.screen：删除含"清理尸体"按钮（sprite = entity/behemoth-biter）的旧 bottom_frame 框
--- 清理后由新代码按 get_button_flow 重新创建，不会残留旧结构。
--- 注意：不能在 on_load 执行（该阶段 game 全局不可用），必须在玩家加入时执行。
--- 白名单保护：副本（instance）框架的退出按钮/计时器/金币等直接挂 gui.top 的元素
--- （dungeon_ 前缀）必须保留，否则副本内玩家掉线重连会被误删、困在副本出不来。
--- 维护：新增的非 get_button_flow 顶栏元素（直接挂 gui.top 的）需在此注册白名单。
--- 注意：波防条 wave_defense 不在白名单——旧存档残留实例必须被清理删除，
--- 由新代码在 on_tick 中重建到 mod_gui_top_frame 右侧（否则旧实例占位导致顺序错乱）。
-local function is_protected_top_element(name)
-    if not name then
-        return true
-    end
-    -- 副本框架通用 GUI（退出按钮/计时器/金币）+ 各副本玩法 GUI（dungeon_ 前缀）
-    if name:sub(1, 8) == 'dungeon_' then
-        return true
-    end
-    -- coin_mine 副本的回收价格按钮（不带 dungeon_ 前缀）
-    if name == 'recycling_prices_button' then
-        return true
-    end
-    return false
-end
-
-local function cleanup_legacy_top_gui(player)
-    local keep = {
-        ['mod_gui_top_frame'] = true,
-        ['mod_gui_inner_frame'] = true,
-        ['mod_gui_button_flow'] = true,
-    }
-    if not player or not player.valid then
-        return
-    end
-    local top = player.gui.top
-    if top then
-        for _, child in pairs(top.children) do
-            if not keep[child.name] and not is_protected_top_element(child.name) then
-                Gui.remove_data_recursively(child)
-                child.destroy()
-            end
-        end
-    end
-
-    -- 清理 mod_gui 大框（mod_gui_top_frame）内全部子元素：
-    -- 根因：按钮名 = Token.uid() 数字，uid 序列依赖模块加载顺序（require 链）。
-    -- 代码版本切换（模块增减 / require 顺序变化）后 uid 序列改变，存档恢复的旧 uid 按钮
-    -- 无法被各模块"同名幂等检查"识别（旧数字名常与当前代码其他元素的 uid 名撞车），
-    -- 玩家重连时新按钮追加，造成重复按钮（实测：宠物按钮 161+162、地图信息按钮 192+193 双份并存）。
-    -- 策略：清空 mod_gui_top_frame（含 mod_gui_inner_frame 按钮流），mod-gui lualib 会在下次
-    -- get_button_flow 调用时惰性重建按钮流容器；各模块 on_player_joined_game / on_player_created
-    -- handler 按注册顺序幂等重建全部按钮（顶栏按钮模块均在玩家加入时重建；MAIN_FRAME 地图信息条
-    -- 由点击地图信息按钮时重建）。固定名按钮（comfy_panel_top_button / poll_button / tianfu /
-    -- charging_station / auto_stash / minimap_button 等）不受 uid 错位影响，同样由各自模块重建。
-    -- legacy 结构：老版 mod-gui 的按钮流可能挂在 gui.top.mod_gui_button_flow（get_button_flow 的
-    -- legacy 分支），一并删除，让 get_button_flow 回到 mod_gui_top_frame.mod_gui_inner_frame 主路径。
-    local top_frame = player.gui.top.mod_gui_top_frame
-    if top_frame then
-        for _, child in pairs(top_frame.children) do
-            Gui.remove_data_recursively(child)
-            child.destroy()
-        end
-    end
-    local legacy_flow = player.gui.top['mod_gui_button_flow']
-    if legacy_flow and legacy_flow.valid then
-        Gui.remove_data_recursively(legacy_flow)
-        legacy_flow.destroy()
-    end
-    local screen = player.gui.screen
-    if screen then
-        for _, child in pairs(screen.children) do
-            if child.type == 'frame' then
-                local has_corpse_button = false
-                for _, sub in pairs(child.children) do
-                    if sub.type == 'frame' then
-                        for _, btn in pairs(sub.children) do
-                            if btn.type == 'sprite-button' and btn.sprite == 'entity/behemoth-biter' then
-                                has_corpse_button = true
-                                break
-                            end
-                        end
-                    end
-                    if has_corpse_button then
-                        break
-                    end
-                end
-                if has_corpse_button then
-                    Gui.remove_data_recursively(child)
-                    child.destroy()
-                end
-            end
-        end
-    end
-end
-
 --- 玩家加入时创建 toggle 按钮
 Event.add(
     defines.events.on_player_joined_game,
     function(event)
         local player = game.get_player(event.player_index)
         if player and player.valid then
-            cleanup_legacy_top_gui(player)
             create_toggle_button(player)
         end
     end
@@ -557,7 +456,6 @@ Event.add(
     function(event)
         local player = game.get_player(event.player_index)
         if player and player.valid then
-            cleanup_legacy_top_gui(player)
             create_toggle_button(player)
         end
     end

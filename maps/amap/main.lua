@@ -630,11 +630,7 @@ game.forces.player.technologies['atomic-bomb'].enabled=false
   end
 
 
-    if this.yiciyuan_surface and this.yiciyuan_surface.valid then
-        this.yiciyuan_surface.ignore_surface_conditions = false
-    end
     game.surfaces["nauvis"].ignore_surface_conditions = false
-
     diff.apply_world_bonuses()
 
     
@@ -1029,7 +1025,6 @@ local on_tick = function()
         -- 编辑器模式进入远程视图时 controller_type 会变 remote(7)，仅查 controller_type 会误判"无角色"
         -- physical_controller_type 忽略远程视图，编辑器+远程视图时仍为 editor(4)
         -- 普通玩家缺角色持续 300 tick（5 秒）才补建，吸收编辑器切换瞬态
-        this.no_character_since = this.no_character_since or {}
         for _, player in pairs(game.connected_players) do
             local phys_ct = player.physical_controller_type
             local is_editor = player.controller_type == defines.controllers.editor

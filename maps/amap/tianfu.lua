@@ -356,9 +356,6 @@ end
 
     -- ★ 天赋刷新：暂存本次选择的品质档位（商店中级/高级购买传 mid/high，刷新保持同档）；
     -- 除刷新重抽外的所有入口都算新一轮选择，刷新次数清零（递增价回到首刷价）。
-    -- 旧档兼容：字段缺失时惰性建表（同 due_buckets 守卫惯例）
-    if not this.tianfu_refresh_tier then this.tianfu_refresh_tier = {} end
-    if not this.tianfu_refresh_count then this.tianfu_refresh_count = {} end
     this.tianfu_refresh_tier[player.index] = tier or 'low'
     if not is_refresh then
         this.tianfu_refresh_count[player.index] = 0
@@ -805,9 +802,6 @@ local function on_gui_click(event)
 
     -- ★ 天赋刷新按钮：花金币重新随机当前 5 张候选（按 tags 识别，先于天赋卡处理）
     if elem_tags and elem_tags.tianfu_refresh then
-        -- 旧档兼容：字段未初始化时惰性建表（与 due_buckets 守卫同款）
-        if not this.tianfu_refresh_tier then this.tianfu_refresh_tier = {} end
-        if not this.tianfu_refresh_count then this.tianfu_refresh_count = {} end
         -- 选择框已关闭（刚选完卡/地图重置）时忽略点击，防止凭空扣币
         local refresh_screen_frame = player.gui.screen['选择你的天赋']
         if not (refresh_screen_frame and refresh_screen_frame.valid) then
@@ -886,7 +880,6 @@ local function on_gui_click(event)
             -- ★ 方案 C：学习 time_skill 后，登记第一次到期到 due_buckets
             -- 所有 time_skill 学习后下一 tick 立即首次触发，之后按冷却循环
             local next_tick = game.tick + 1
-            if not this.due_buckets then this.due_buckets = {} end
             local next_bucket = this.due_buckets[next_tick]
             if not next_bucket then
                 next_bucket = {}
@@ -906,7 +899,6 @@ local function on_gui_click(event)
 
     -- ★ 方案 B：倒排索引——所有类型天赋（time/trigger/once）学习后都登记
     -- 事件 handler 用 skill_owners[skill_id] 直接遍历学过的玩家，避免全玩家扫描
-    if not this.skill_owners then this.skill_owners = {} end
     if not this.skill_owners[skill_name] then this.skill_owners[skill_name] = {} end
     this.skill_owners[skill_name][player.index] = true
     -- 销毁整个天赋选择界面（按钮parent是卡片frame，需销毁外层'选择你的天赋'）
@@ -979,54 +971,6 @@ end
 local function on_tick()
     local this = TPT.get()
     local current_tick = game.tick
-
-    -- 确保必要的表已初始化（兼容旧存档）
-    if not this.player_time_skills then
-        this.player_time_skills = {}
-    end
-    if not this.due_buckets then
-        this.due_buckets = {}
-    end
-    if not this.batch_player_index then
-        this.batch_player_index = 1
-    end
-
-    -- ===== 方案 C：旧存档迁移 =====
-    -- 旧存档的 due_buckets 是空的，但玩家已经学了 time_skill
-    -- 需要做一次全量迁移：遍历所有 player_time_skills，登记到 due_buckets
-    if not this.due_buckets_migrated then
-        for player_name, skills in pairs(this.player_time_skills) do
-            -- 通过 player_name 找 player_index（玩家可能不在线，用 game.players 遍历）
-            local player_index = nil
-            for idx, p in pairs(game.players) do
-                if p.name == player_name then
-                    player_index = idx
-                    break
-                end
-            end
-            if player_index then
-                for skill_name, _ in pairs(skills) do
-                    local cooldown = (time_skills[skill_name] or {}).time or 60
-                    if cooldown <= 0 then cooldown = 1 end
-                    -- T3-B 超频电网：法力上限转化为周期天赋触发频率
-                    cooldown = get_chaopin_cooldown(player_index, player.name, cooldown)
-                    local next_tick = current_tick + cooldown
-                    local next_bucket = this.due_buckets[next_tick]
-                    if not next_bucket then
-                        next_bucket = {}
-                        this.due_buckets[next_tick] = next_bucket
-                    end
-                    local next_player_skills = next_bucket[player_index]
-                    if not next_player_skills then
-                        next_player_skills = {}
-                        next_bucket[player_index] = next_player_skills
-                    end
-                    next_player_skills[#next_player_skills + 1] = skill_name
-                end
-            end
-        end
-        this.due_buckets_migrated = true
-    end
 
     -- ===== 方案 C：tick 分桶调度 =====
     -- 查当前 tick 的到期桶，桶里只放当前 tick 到期的 time_skill

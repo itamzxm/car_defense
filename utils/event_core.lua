@@ -32,9 +32,6 @@ local function handler_error(err)
     log('\n\t' .. trace(err))
 end
 
---[[ 诊断钩子（排查 roboport 蓝图崩溃用，可安全还原）
-     任何 event handler 抛错时，额外打印 [AMAP-DIAG] + 出错 handler 的 文件:行号，
-     便于复现崩溃时精确定位。正常路径不受影响。--]]
 local function call_handlers(handlers, event)
     if _DEBUG then
         for i = 1, #handlers do
@@ -44,15 +41,7 @@ local function call_handlers(handlers, event)
     else
         for i = 1, #handlers do
             local h = handlers[i]
-            local info = debug.getinfo(h, 'S')
-            local src = info and info.source or '?'
-            if info and info.linedefined then
-                src = src .. ':' .. info.linedefined
-            end
-            local function diag_handler(err)
-                log('\n[AMAP-DIAG] event handler crashed -> ' .. src .. '\n' .. trace(err))
-            end
-            xpcall(h, diag_handler, event)
+            xpcall(h, handler_error, event)
         end
     end
 end

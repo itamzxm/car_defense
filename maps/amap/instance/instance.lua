@@ -160,7 +160,6 @@ end
 local function find_active_dungeons_on_surface(surface_name)
     local result = {}
     local this = WPT.get()
-    if not this.dungeons then return result end
     for player_index, data in pairs(this.dungeons) do
         if data.active and data.surface_name == surface_name then
             result[#result + 1] = {
@@ -475,7 +474,7 @@ local function render_instance_cards(cards_flow, options, player_data)
         local def = instance_registry[opt.instance_type]
         if not def then goto continue end
 
-        local diff_settings = def.difficulty_settings or {}
+        local diff_settings = def.difficulty_settings
         local difficulty_data = diff_settings[opt.difficulty]
         if not difficulty_data then goto continue end
         local color = DIFFICULTY_COLOR[opt.difficulty] or {r = 1, g = 1, b = 1}
@@ -697,7 +696,7 @@ function Public.show_difficulty_selection_gui(player, type_name, cache_key)
             if not def then goto continue end
 
             -- 2. 随机难度（从该副本支持的难度中随机选一个）
-            local diff_settings = def.difficulty_settings or {}
+            local diff_settings = def.difficulty_settings
             local available_diffs = {}
             for _, dk in ipairs(DIFFICULTY_ORDER) do
                 if diff_settings[dk] then
@@ -872,12 +871,8 @@ function Public.enter(player, type_name, difficulty, previewed_reward_id, previe
 
     -- 难度校验
     local difficulty_key = difficulty or "easy"
-    local diff_settings = def.difficulty_settings or {}
+    local diff_settings = def.difficulty_settings
     local difficulty_data = diff_settings[difficulty_key]
-    if not difficulty_data then
-        difficulty_key = "easy"
-        difficulty_data = diff_settings.easy
-    end
     if not difficulty_data then
         player.print({'amap.instance_no_difficulty'}, {r = 1, g = 0, b = 0})
         return
@@ -1291,9 +1286,7 @@ end
 --   1. 删除绑定表记录（先删再 remove_epic_chest：后者会 destroy 实体，需先解除绑定）
 --   2. remove_epic_chest 同步清理 epic_chests 注册数组 + 地图标签（实体可能已失效，需容忍）
 --   3. 遍历 dungeons，把在该 surface 上的玩家逐个 Public.exit(player, 'lounge_destroyed')（强制删 surface）
---   4. 兜底 game.delete_surface（存在才删）
 function Public.destroy_lounge(unit_number)
-    if not unit_number then return end
     local bindings = get_lounge_bindings()
     local binding = bindings[unit_number]
     if not binding then return end
@@ -1310,42 +1303,34 @@ function Public.destroy_lounge(unit_number)
 
     -- 3. 遍历所有副本，把在该 surface 上的玩家逐个强制退出
     local this = WPT.get()
-    if this.dungeons then
-        for player_index, data in pairs(this.dungeons) do
-            if data.active and data.surface_name == surface_name then
-                local player = game.players[player_index]
+    for player_index, data in pairs(this.dungeons) do
+        if data.active and data.surface_name == surface_name then
+            local player = game.players[player_index]
+            if player and player.valid then
+                Public.exit(player, 'lounge_destroyed')
+            else
+                -- 玩家不在线：强制清理（还原 force / destructible 仅在玩家对象有效时执行，同 timeout 分支）
                 if player and player.valid then
-                    Public.exit(player, 'lounge_destroyed')
-                else
-                    -- 玩家不在线：强制清理（还原 force / destructible 仅在玩家对象有效时执行，同 timeout 分支）
-                    if player and player.valid then
-                        if data.original_force then
-                            local original_force = game.forces[data.original_force]
-                            if original_force and original_force.valid then
-                                player.force = original_force
-                            else
-                                player.force = game.forces.player
-                            end
-                        end
-                        -- 还原原角色可摧毁（进入副本时 destructible=false 保护；
-                        -- 离线分支曾漏还原 → 玩家重连后主世界角色永久无敌，2026-08-11 修复）
-                        if data.original_character and data.original_character.valid then
-                            data.original_character.destructible = true
+                    if data.original_force then
+                        local original_force = game.forces[data.original_force]
+                        if original_force and original_force.valid then
+                            player.force = original_force
+                        else
+                            player.force = game.forces.player
                         end
                     end
-                    if data.dungeon_force then
-                        cleanup_force(data.dungeon_force)
+                    -- 还原原角色可摧毁（进入副本时 destructible=false 保护；
+                    -- 离线分支曾漏还原 → 玩家重连后主世界角色永久无敌，2026-08-11 修复）
+                    if data.original_character and data.original_character.valid then
+                        data.original_character.destructible = true
                     end
-                    this.dungeons[player_index] = nil
                 end
+                if data.dungeon_force then
+                    cleanup_force(data.dungeon_force)
+                end
+                this.dungeons[player_index] = nil
             end
         end
-    end
-
-    -- 4. 兜底删除 surface（exit 的 lounge_destroyed 路径已删，此处容错）
-    local surface = game.surfaces[surface_name]
-    if surface then
-        game.delete_surface(surface_name)
     end
 end
 
@@ -1549,7 +1534,7 @@ end
 -- 仅当玩家在副本中且玩法模块定义了对应钩子时调用
 local function dispatch_to_module(player_index, hook_name, ...)
     local this = WPT.get()
-    if not this.dungeons or not this.dungeons[player_index] then return end
+    if not this.dungeons[player_index] then return end
     local data = this.dungeons[player_index]
     if not data.active then return end
 
@@ -1569,8 +1554,6 @@ end
 -- 每 600 tick（10 秒）：超时检测 + 超时预警
 local function on_nth_tick_timeout()
     local this = WPT.get()
-    if not this.dungeons then return end
-
     for player_index, data in pairs(this.dungeons) do
         if data.active then
             local elapsed = game.tick - data.start_tick

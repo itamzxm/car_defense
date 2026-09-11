@@ -99,16 +99,15 @@ local function on_main_tick(event)
             -- check_active：判定能否工作
             local active = true
             if def and def.check_active then
-                local ok, res = pcall(def.check_active, e, ctx)
-                active = ok and (res ~= false)
+                active = (def.check_active(e, ctx) ~= false)
             end
             entry.active = active
             if active and def and def.on_tick then
-                pcall(def.on_tick, e, entry.data, ctx)
+                def.on_tick(e, entry.data, ctx)
             end
             if active and entry.opts.timed and def and def.on_interval then
                 if now >= entry.next_trigger then
-                    pcall(def.on_interval, e, entry.data, ctx)
+                    def.on_interval(e, entry.data, ctx)
                     entry.next_trigger = now + (entry.opts.interval or 1800)
                 end
             end
@@ -200,17 +199,11 @@ local function cmd_pb(cmd)
     end
     local surface = player.physical_surface
     local pos = player.physical_position
-    local ok, err = pcall(spawn_fn, player, surface, pos, side)
-    if not ok then
-        player.print({'', '[伪建筑] 创建失败: ' .. tostring(err)})
-    else
-        player.print({'', '[伪建筑] 已创建: ' .. type_name .. ' @ ' .. math.floor(pos.x) .. ',' .. math.floor(pos.y)})
-    end
+    spawn_fn(player, surface, pos, side)
+    player.print({'', '[伪建筑] 已创建: ' .. type_name .. ' @ ' .. math.floor(pos.x) .. ',' .. math.floor(pos.y)})
 end
 
-pcall(function()
-    commands.add_command('pb', '创建伪建筑: /pb <类型> [enemy]', cmd_pb)
-end)
+commands.add_command('pb', '创建伪建筑: /pb <类型> [enemy]', cmd_pb)
 
 -- 供 RCON 测试 / 外部调试访问
 rawset(_G, 'PseudoBuilding', Public)

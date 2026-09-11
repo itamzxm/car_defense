@@ -437,9 +437,6 @@ function Public.can_purchase_upgrade(player, offer_index)
 
     -- offer_index 7/8/9: 天赋购买上限检查
     if offer_index == 7 or offer_index == 8 or offer_index == 9 then
-        if not this.tianfu_buy_count or type(this.tianfu_buy_count) ~= 'table' then
-            this.tianfu_buy_count = {}
-        end
         if not this.tianfu_buy_count[player.index] then
             this.tianfu_buy_count[player.index] = 0
         end
@@ -491,13 +488,9 @@ function Public.apply_upgrade_effect(player, offer_index)
         game.print({'amap.buy_biter_worm', player.name, this.max_worm_number})
 
     elseif offer_index == 7 then
-        if not this.tianfu_buy_count or type(this.tianfu_buy_count) ~= 'table' then
-            this.tianfu_buy_count = {}
-        end
         if not this.tianfu_buy_count[player.index] then
             this.tianfu_buy_count[player.index] = 0
         end
-        if not this.tianfu_count then this.tianfu_count = {} end
         if not this.tianfu_count[player.index] then this.tianfu_count[player.index] = 0 end
         tianfu.get_new_tianfu(player)
         this.tianfu_count[player.index] = this.tianfu_count[player.index] - 1
@@ -505,13 +498,9 @@ function Public.apply_upgrade_effect(player, offer_index)
         game.print(player.name .. '购买了1个天赋（已购买' .. this.tianfu_buy_count[player.index] .. '次）')
 
     elseif offer_index == 8 then
-        if not this.tianfu_buy_count or type(this.tianfu_buy_count) ~= 'table' then
-            this.tianfu_buy_count = {}
-        end
         if not this.tianfu_buy_count[player.index] then
             this.tianfu_buy_count[player.index] = 0
         end
-        if not this.tianfu_count then this.tianfu_count = {} end
         if not this.tianfu_count[player.index] then this.tianfu_count[player.index] = 0 end
         tianfu.get_new_tianfu(player, 'mid')
         this.tianfu_count[player.index] = this.tianfu_count[player.index] - 1
@@ -519,13 +508,9 @@ function Public.apply_upgrade_effect(player, offer_index)
         game.print(player.name .. '购买了1个中级天赋（已购买' .. this.tianfu_buy_count[player.index] .. '次）')
 
     elseif offer_index == 9 then
-        if not this.tianfu_buy_count or type(this.tianfu_buy_count) ~= 'table' then
-            this.tianfu_buy_count = {}
-        end
         if not this.tianfu_buy_count[player.index] then
             this.tianfu_buy_count[player.index] = 0
         end
-        if not this.tianfu_count then this.tianfu_count = {} end
         if not this.tianfu_count[player.index] then this.tianfu_count[player.index] = 0 end
         tianfu.get_new_tianfu(player, 'high')
         this.tianfu_count[player.index] = this.tianfu_count[player.index] - 1
@@ -985,9 +970,6 @@ local function on_market_item_purchased(event)
     end
 
     if offer_index == 7 or offer_index == 8 or offer_index == 9 then
-        if not this.tianfu_buy_count or type(this.tianfu_buy_count) ~= 'table' then
-            this.tianfu_buy_count = {}
-        end
         if not this.tianfu_buy_count[player.index] then
             this.tianfu_buy_count[player.index] = 0
         end

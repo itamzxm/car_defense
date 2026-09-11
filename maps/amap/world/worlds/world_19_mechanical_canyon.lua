@@ -372,9 +372,7 @@ local function world19_grant_science_talent(pack, count)
         this.world19_science_granted = {}
     end
     local pack_tbl = this.world19_science_granted[pack]
-    -- 兼容旧存档：旧代码存的是布尔标记（science_granted[pack] = true），按表索引会崩溃，
-    -- 遇到非表值重建为玩家记录表（旧标记作废，视为本局重新获得资格）
-    if type(pack_tbl) ~= 'table' then
+    if pack_tbl == nil then
         pack_tbl = {}
         this.world19_science_granted[pack] = pack_tbl
     end
@@ -422,7 +420,7 @@ local function world19_grant_missing_science_talents(player)
     local granted = this.world19_science_granted
     if not granted then return end
     for pack, pack_tbl in pairs(granted) do
-        if type(pack_tbl) == 'table' and not pack_tbl[player.name] then
+        if not pack_tbl[player.name] then
             local count = SCIENCE_PACK_TALENTS[pack]
             if count then
                 pack_tbl[player.name] = true

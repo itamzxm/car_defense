@@ -208,12 +208,7 @@ function Public.world_cave_buff(surface,position,seed,get_tile)
 		local can_place = true
 		
 		-- 检查是否可以放置资源
-		if tile.collides_with then
-			can_place = not tile.collides_with("resource")
-		else
-			-- 兼容旧版本的方式
-			can_place = not tile.collision_mask or not tile.collision_mask["resource"]
-		end
+		can_place = not tile.collides_with("resource")
 		
 		if can_place then
 			local noise = get_noise("scrapyard", position, seed)
@@ -229,12 +224,7 @@ function Public.snowy_rock_generator(surface,position,seed,get_tile)
 	local can_place = true
 	
 	-- 检查是否可以放置资源
-	if tile.collides_with then
-		can_place = not tile.collides_with("resource")
-	else
-		-- 兼容旧版本的方式
-		can_place = not tile.collision_mask or not tile.collision_mask["resource"]
-	end
+	can_place = not tile.collides_with("resource")
 	
 	if can_place then
 		local noise = get_noise("scrapyard", position, seed)
@@ -256,12 +246,7 @@ function Public.aquilo_rock_generator(surface,position,seed,get_tile)
 	local can_place = true
 	
 	-- 检查是否可以放置资源
-	if tile.collides_with then
-		can_place = not tile.collides_with("resource")
-	else
-		-- 兼容旧版本的方式
-		can_place = not tile.collision_mask or not tile.collision_mask["resource"]
-	end
+	can_place = not tile.collides_with("resource")
 	
 	if can_place then
 		local noise = get_noise("scrapyard", position, seed)
@@ -283,12 +268,7 @@ function Public.gleba_rock_generator(surface,position,seed,get_tile)
 	local can_place = true
 	
 	-- 检查是否可以放置资源
-	if tile.collides_with then
-		can_place = not tile.collides_with("resource")
-	else
-		-- 兼容旧版本的方式
-		can_place = not tile.collision_mask or not tile.collision_mask["resource"]
-	end
+	can_place = not tile.collides_with("resource")
 	
 	if can_place then
 		local noise = get_noise("scrapyard", position, seed)
@@ -310,12 +290,7 @@ function Public.vulcanus_rock_generator(surface,position,seed,get_tile)
 	local can_place = true
 	
 	-- 检查是否可以放置资源
-	if tile.collides_with then
-		can_place = not tile.collides_with("resource")
-	else
-		-- 兼容旧版本的方式
-		can_place = not tile.collision_mask or not tile.collision_mask["resource"]
-	end
+	can_place = not tile.collides_with("resource")
 	
 	if can_place then
 		local noise = get_noise("scrapyard", position, seed)
@@ -337,12 +312,7 @@ function Public.fulgora_rock_generator(surface,position,seed,get_tile)
 	local can_place = true
 	
 	-- 检查是否可以放置资源
-	if tile.collides_with then
-		can_place = not tile.collides_with("resource")
-	else
-		-- 兼容旧版本的方式
-		can_place = not tile.collision_mask or not tile.collision_mask["resource"]
-	end
+	can_place = not tile.collides_with("resource")
 	
 	if can_place then
 		local noise = get_noise("scrapyard", position, seed)
