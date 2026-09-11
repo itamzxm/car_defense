@@ -7,7 +7,6 @@ local WPT = require 'maps.amap.table'
 local Event = require 'utils.event'
 local Gui = require 'utils.gui'
 local World = require 'maps.amap.world.framework'
-local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：实体引用安全存取
 
 local Public = {}
 
@@ -125,8 +124,7 @@ end
 function Public.is_allowed_surface(entity_surface)
     if entity_surface.name == 'nauvis' then return true end
     local this = G()
-    local shop = EntRef.resolve(this.shop) -- ★ 毒值修复：record 反查实体
-    if shop and entity_surface == shop.surface then
+    if this.shop and this.shop.valid and entity_surface == this.shop.surface then
         return true
     end
     return false

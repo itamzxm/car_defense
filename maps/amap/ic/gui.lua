@@ -28,7 +28,6 @@ local kick_player_name = Gui.uid_name()
 
 local rpgtable = require 'modules.rpg.table'
 local Alert = require 'utils.alert'
-local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：实体引用安全存取
 local Loot = require 'maps.amap.loot'
 local WPT = require 'maps.amap.table'
 local TPT = require 'maps.amap.tianfu_table'
@@ -1173,8 +1172,7 @@ Gui.on_click('integration_buy_resources', function(event)
             name = 'coin',
             count = need_coin
         }
-        local entity = EntRef.resolve(this.tank[player.index]) -- ★ 毒值修复：record 反查实体（失效安静跳过）
-        if not entity then return end
+        local entity = this.tank[player.index]
         local position = entity.position
         local surface = entity.surface
         

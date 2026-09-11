@@ -5,7 +5,6 @@ local Task = require 'utils.task'
 local Token = require 'utils.token'
 local IC = require 'maps.amap.ic.table'
 local WPT = require 'maps.amap.table'
-local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：实体引用安全存取
 
 local Public = {}
 local main_tile_name = 'black-refined-concrete'
@@ -790,13 +789,12 @@ function Public.save_car(event)
         return
     end
     local this= WPT.get()
-    local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-    if silo then
+    if this.silo and this.silo.valid then 
         car.entity.minable_flag = true
 else
     car.entity.minable_flag = false
     end
-
+   
     local position = entity.position
     local health = entity.health
 
@@ -1076,19 +1074,14 @@ function Public.create_car(event)
     local this=WPT.get()
     local yiciyuan=false
     if this.world_number == 8 or this.world_number == 7 then
-    -- ★ 毒值修复：surface 引用兼容 record/index 双形态（失效安静跳过）
-    local ysys = this.yiciyuan_surface
-    if type(ysys) == 'table' and ysys.surface_index then ysys = game.surfaces[ysys.surface_index] end
-    if type(ysys) == 'number' then ysys = game.surfaces[ysys] end
-    if  ysys and ce.surface.name==ysys.name then
+    if  ce.surface.name==this.yiciyuan_surface.name then 
         yiciyuan =true
     end
 end
  
     -- 检查是否在火车内部空间，允许在火车内使用汽车内部空间系统
-    -- 使用商店实体所在 surface 判断图层：商店实体所在的 surface 即为玩家当前所在的合法图层
-    local shop = EntRef.resolve(this.shop) -- ★ 毒值修复：record 反查实体
-    local shop_surface = shop and shop.surface
+    -- 使用 this.shop.surface 判断图层：商店实体所在的 surface 即为玩家当前所在的合法图层
+    local shop_surface = this.shop and this.shop.valid and this.shop.surface
 
     local is_allowed_planet = string.sub(ce.surface.name, 0, #map_name) == map_name or
                               ce.surface.name == 'aquilo' or
@@ -1279,8 +1272,7 @@ function Public.use_door_with_entity(player, door)
                 }
             )
             local this= WPT.get()
-            local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-            if silo then
+            if this.silo and this.silo.valid then 
                 car.entity.minable_flag = true
         else
             car.entity.minable_flag = false

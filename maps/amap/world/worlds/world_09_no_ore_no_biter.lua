@@ -13,7 +13,6 @@
 local World = require 'maps.amap.world.framework'
 local Helpers = require 'maps.amap.world.world_helpers'
 local world_function = require 'maps.amap.world.world_function'
-local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复
 
 --==============================================================================
 -- 地形生成器（原 world_main.lua 第 699-729 行 world_generators[9]）
@@ -57,9 +56,7 @@ end
 
 -- gain_xp 玩家级钩子：跟踪 baolei_y（原 main.lua 行 1013-1017）
 local function on_gain_xp(this, player, wave_number)
-    -- ★ 毒值修复：this.shop 已存为可序列化 record，反查真实实体（失效安静跳过）
-    local shop = EntRef.resolve(this.shop)
-    if player.physical_position.y < this.baolei_y and shop and player.physical_surface == shop.surface then
+    if player.physical_position.y < this.baolei_y and player.physical_surface == this.shop.surface then
         this.baolei_y = player.physical_position.y
     end
 end

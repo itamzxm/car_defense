@@ -17,7 +17,6 @@ local rpgtable = require 'modules.rpg.table'
 
 
 local tianfu = require 'maps.amap.tianfu'
-local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：global 实体引用改为可序列化 record
 local EnemyArty = require 'maps.amap.enemy_arty'
 local Dungeon = require 'maps.amap.dungeon'
 local ICW = require 'maps.amap.ICW.functions'
@@ -453,7 +452,7 @@ end
 -- 此函数从 on_market_item_purchased 中提取，供 GUI 和事件共用
 function Public.apply_upgrade_effect(player, offer_index)
     local this = WPT.get()
-    local market = EntRef.resolve(this.shop) -- ★ 毒值修复：record 反查实体
+    local market = this.shop
     if not market or not market.valid then
         return
     end
@@ -763,7 +762,7 @@ function Public.market(surface)
             },
             force = game.forces.player
         }
-        this.shop = EntRef.record(market) -- ★ 毒值修复：存可序列化 record
+        this.shop = market
         market.destructible = false
         Public.refresh_shop(market)
     else
@@ -825,7 +824,7 @@ function Public.market(surface)
                         position = {x = 0, y = area.left_top.y + 30},
                         force = game.forces.player
                     })
-                    this.shop = EntRef.record(market) -- ★ 毒值修复：存可序列化 record
+                    this.shop = market
                     market.destructible = false
                     Public.refresh_shop(market)
                     
@@ -849,7 +848,7 @@ function Public.market(surface)
 
 
 
-    this.silo = EntRef.record(silo) -- ★ 毒值修复：存可序列化 record
+    this.silo = silo
     silo.minable_flag = false
 
     if this.world_number == 14 then
@@ -939,8 +938,7 @@ end
 local function on_market_item_purchased(event)
     local this = WPT.get()
     local market = event.market
-    local shop = EntRef.resolve(this.shop) -- ★ 毒值修复：record 反查实体再比对
-    if market ~= shop then
+    if market ~= this.shop then
         return
     end
     local player = game.players[event.player_index]
@@ -993,9 +991,8 @@ Event.add(defines.events.on_market_item_purchased, on_market_item_purchased)
 
 local function on_research_finished(event)
     local this = WPT.get()
-    local shop = EntRef.resolve(this.shop) -- ★ 毒值修复：record 反查实体
-    if shop then
-        Public.refresh_shop(shop)
+    if this.shop and this.shop.valid then
+        Public.refresh_shop(this.shop)
     end
 end
 Event.add(defines.events.on_research_finished, on_research_finished)

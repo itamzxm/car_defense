@@ -15,21 +15,10 @@ local get_random_car = require"maps.amap.functions".get_random_car
 local Task = require 'utils.task'
 local Token = require 'utils.token'
 local Dungeon = require 'maps.amap.dungeon'
-local Factories = require 'maps.amap.production'
 
 local refresh_shop = require"maps.amap.rock".refresh_shop
 local ft = require"maps.amap.rock".ft
-local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：global 实体引用改为可序列化 record
 local Collapse = require 'modules.collapse'
-
--- ★ 毒值修复：surface 引用反查（record 形态存 surface_index）
--- 写点在 main.lua（统一存 record）
-local resolve_surface_ref = function(ref)
-    if not ref then return nil end
-    local s = game.surfaces[ref.surface_index]
-    if s and s.valid then return s end
-    return nil
-end
 
 local Reset_map = require 'maps.amap.main'.reset_map
 
@@ -74,38 +63,32 @@ end
 
 local zysc = Token.register(function()
     local this = WPT.get()
-    local shop = EntRef.resolve(this.shop) -- ★ 毒值修复：record 反查实体
-    if shop then
-        shop.destroy()
+    if this.shop and this.shop.valid then
+        this.shop.destroy()
     end
-    local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-    if not silo then
-        return
-    end
-    local surface = silo.surface
+    local surface = this.silo.surface
     local market = surface.create_entity {
         name = "market",
         position = {
             x = 0,
-            y = silo.position.y - 5
+            y = this.silo.position.y - 5
         },
         force = game.forces.player
     }
 
     market.minable_flag = false
     market.destructible = false
-    this.shop = EntRef.record(market) -- ★ 毒值修复：存可序列化 record
+    this.shop = market
     refresh_shop(market)
 
     for _, assemblers in pairs(this.productionsphere.train_assemblers) do
-        -- ★ 毒值修复：表里存的是 unit_number（不再存 entity 引用），反查后再销毁
-        local entity = Factories.resolve_entity(assemblers)
-        if entity then
+        local entity = assemblers.entity
+        if entity and entity.valid then
             entity.destroy()
         end
     end
     this.productionsphere.train_assemblers = {}
-    ft(surface, silo.position.y)
+    ft(surface, this.silo.position.y)
 
     for k, player in pairs(game.connected_players) do
         unstuck_player(player.index)
@@ -286,11 +269,10 @@ local function get_car_number()
     local active_surface_index = this.active_surface_index
     
     for k, player in pairs(game.connected_players) do
-        local tank = EntRef.resolve(this.tank[player.index]) -- ★ 毒值修复：record 反查实体
-        if tank then
-            if tank.surface.index == game.surfaces[active_surface_index].index then
+        if this.tank[player.index] and this.tank[player.index].valid then
+            if this.tank[player.index].surface.index == game.surfaces[active_surface_index].index then
                 car_number = car_number + 1
-                tank.destructible = true
+                this.tank[player.index].destructible = true
             end
         else
             this.tank[player.index] = nil
@@ -306,7 +288,7 @@ local function check_silo_and_car_status()
     local map = diff.get()
     
     -- 如果火箭发射井存在，则不执行重开逻辑
-    if EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体
+    if this.silo and this.silo.valid then
         return false
     end
     
@@ -405,8 +387,7 @@ local function on_player_build_entity(event)
 
     if entity.name == 'car' then
         if this.world_number == 7 or this.world_number == 8 then
-            local ys = resolve_surface_ref(this.yiciyuan_surface) -- ★ 毒值修复：surface 引用反查
-            if player.physical_surface ~= ys then
+            if player.physical_surface ~= this.yiciyuan_surface then
                 if not this.ciyuan_pos[index] then
                     this.ciyuan_pos[index] = {
                         x = 0,
@@ -416,13 +397,11 @@ local function on_player_build_entity(event)
                 end
 
                 this.now_pos[index] = player.physical_position
-                if ys then
-                    player.teleport(ys.find_non_colliding_position('character', this.ciyuan_pos[index],
-                        10, 1, true) or {
-                        x = 0,
-                        y = 0
-                    }, ys)
-                end
+                player.teleport(this.yiciyuan_surface.find_non_colliding_position('character', this.ciyuan_pos[index],
+                    10, 1, true) or {
+                    x = 0,
+                    y = 0
+                }, this.yiciyuan_surface)
                 entity.destroy()
                 Task.set_timeout_in_ticks(60, give_car, player)
 
@@ -430,9 +409,8 @@ local function on_player_build_entity(event)
                 local main_surface = game.surfaces[this.active_surface_index]
                 this.ciyuan_pos[index] = player.physical_position
                 local get_tile = main_surface.get_tile(this.now_pos[index])
-                local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-                if get_tile.valid and get_tile.name == 'out-of-map' and silo then
-                    player.teleport(main_surface.find_non_colliding_position('character', silo.position, 20, 1,
+                if get_tile.valid and get_tile.name == 'out-of-map' then
+                    player.teleport(main_surface.find_non_colliding_position('character', this.silo.position, 20, 1,
                         false) or {
                         x = 0,
                         y = 0
@@ -453,7 +431,7 @@ local function on_player_build_entity(event)
     end
 
     if (entity.name == 'tank' or entity.name == 'spidertron') and (this.world_number == 7 or this.world_number == 8) then
-        if player.physical_surface == resolve_surface_ref(this.yiciyuan_surface) then -- ★ 毒值修复：surface 引用反查
+        if player.physical_surface == this.yiciyuan_surface then
             if not this.first_build_car[index] then
                 item_build_car(player)
                 this.first_build_car[index] = true
@@ -471,7 +449,7 @@ local function on_player_build_entity(event)
                 this.whos_tank[index] = entity.unit_number
             end
             if this.tank[index] == nil then
-                this.tank[index] = EntRef.record(entity) -- ★ 毒值修复：存可序列化 record
+                this.tank[index] = entity
                 player.print({'amap.car_info'}, {
                     r = 100,
                     b = 200,
@@ -503,7 +481,7 @@ local function on_player_build_entity(event)
     -- end
 
     if car_name[entity.name] then
-        if this.tank[index] and not EntRef.resolve(this.tank[index]) then -- ★ 毒值修复：record 反查实体
+        if this.tank[index] and not this.tank[index].valid then
             this.tank[index] = nil
 
         end
@@ -531,8 +509,8 @@ local function on_player_build_entity(event)
             this.whos_tank[index] = entity.unit_number
         end
         if this.tank[index] == nil then
-            this.tank[index] = EntRef.record(entity) -- ★ 毒值修复：存可序列化 record
-            if not EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体
+            this.tank[index] = entity
+            if not this.silo or not this.silo.valid then
                 entity.minable_flag = false
             end
             player.print({'amap.car_info'}, {
@@ -578,16 +556,14 @@ local function on_player_build_entity(event)
 
             if entity.name ~= "car" or this.had_sipder[index] then
                 local wave_defense_table = WD.get_table()
-                -- ★ 毒值修复：target record 化，不再存实体引用
-                local car = get_random_car(true)
-                wave_defense_table.target = EntRef.record(car)
-                if car then car.destructible = true end
+                wave_defense_table.target = get_random_car(true)
+                wave_defense_table.target.destructible = true
             end
         end
         -- 如果没有放过坦克
     end
     if not this.have_been_put_tank[index] then
-        if not EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体
+        if not this.silo or not this.silo.valid then
             if entity.type ~= 'entity-ghost' and entity.name ~= 'tile-ghost' then
 
                 local health = entity.health
@@ -608,12 +584,11 @@ local function on_player_build_entity(event)
             return
         end
     end
-    if this.silo and EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体
+    if this.silo and this.silo.valid then
         return
     end
     -- 如果试图放蜘蛛
-    local player_tank = EntRef.resolve(this.tank[index]) -- ★ 毒值修复：record 反查实体
-    if entity.name == "spidertron" and player_tank and player_tank.name == "tank" then
+    if entity.name == "spidertron" and this.tank[index].name == "tank" then
         local surface = entity.surface
         local entities = surface.find_entities_filtered {
             position = player.physical_position,
@@ -623,19 +598,19 @@ local function on_player_build_entity(event)
         }
         local old_car_is_hear = false
         for i, car in ipairs(entities) do
-            if car == player_tank then
+            if car == this.tank[index] then
                 old_car_is_hear = true
             end
         end
         if old_car_is_hear then
             this.player_position[index] = player.physical_position
-            player_tank.minable_flag = true
+            this.tank[index].minable_flag = true
             player.print({'amap.try_to_put_zhizhu'})
         else
             player.print({'amap.old_car_is_hear'})
         end
     end
-    if entity.name == "tank" and player_tank and player_tank.name == "car" then
+    if entity.name == "tank" and this.tank[index].name == "car" then
         local surface = entity.surface
         --    local entities = surface.find_entities_filtered{position=player.physical_position, radius = 15 , force = game.forces.enemy}
         local entities = surface.find_entities_filtered {
@@ -646,19 +621,19 @@ local function on_player_build_entity(event)
         }
         local old_car_is_hear = false
         for i, car in ipairs(entities) do
-            if car == player_tank then
+            if car == this.tank[index] then
                 old_car_is_hear = true
             end
         end
         if old_car_is_hear then
             this.player_position[index] = player.physical_position
-            player_tank.minable_flag = true
+            this.tank[index].minable_flag = true
             player.print({'amap.try_to_put_zhizhu'})
         else
             player.print({'amap.old_car_is_hear'})
         end
     end
-    if entity.name == "spidertron" and player_tank and player_tank.name == "car" then
+    if entity.name == "spidertron" and this.tank[index].name == "car" then
         local surface = entity.surface
         local entities = surface.find_entities_filtered {
             position = player.physical_position,
@@ -668,13 +643,13 @@ local function on_player_build_entity(event)
         }
         local old_car_is_hear = false
         for i, car in ipairs(entities) do
-            if car == player_tank then
+            if car == this.tank[index] then
                 old_car_is_hear = true
             end
         end
         if old_car_is_hear then
             this.player_position[index] = player.physical_position
-            player_tank.minable_flag = true
+            this.tank[index].minable_flag = true
             player.print({'amap.try_to_put_zhizhu'})
         else
             player.print({'amap.old_car_is_hear'})
@@ -978,29 +953,26 @@ local function on_entity_died(event)
         end
     end
 
-    if entity == EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体再比对
+    if entity == this.silo then
         this.silo = nil
         for k, player in pairs(game.connected_players) do
-            local tank = EntRef.resolve(this.tank[player.index]) -- ★ 毒值修复：record 反查实体
-            if tank then
-                tank.minable_flag = false
+            if this.tank[player.index] and this.tank[player.index].valid then
+                this.tank[player.index].minable_flag = false
             end
         end
         game.print({'amap.rocket_silo_destroyed'}, {255, 0, 0})
         local wave_defense_table = WD.get_table()
         local car_number = get_car_number()
         if car_number ~= 0 then
-            -- ★ 毒值修复：target record 化，不再存实体引用
-            local car = get_random_car(true)
-            wave_defense_table.target = EntRef.record(car)
-            if car then car.destructible = true end
+            wave_defense_table.target = get_random_car(true)
+            wave_defense_table.target.destructible = true
         end
 
         -- 检查是否需要重开
         check_silo_and_car_status()
     end
 
-    if EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体
+    if this.silo and this.silo.valid then
         return
     end
     if car_name[entity.name] then
@@ -1015,7 +987,7 @@ local function on_entity_died(event)
             if this.whos_tank[player.index] == unit_number then
                 index = player.index
             end
-            if this.tank[index] and not EntRef.resolve(this.tank[index]) then -- ★ 毒值修复：record 反查实体
+            if this.tank[index] and not this.tank[index].valid then
                 this.tank[index] = nil
             end
 
@@ -1025,8 +997,7 @@ local function on_entity_died(event)
             this.die_time[index] = game.tick
 
             game.players[index].print({'amap.lost_jijin'})
-            -- ★ 毒值修复：车已死亡，record 无法反查，名字直接取自事件实体（即登记的那辆车）
-            if entity.name == "spidertron" then
+            if this.tank[index].name == "spidertron" then
                 this.had_sipder[index] = false
             end
             this.tank[index] = nil
@@ -1060,25 +1031,19 @@ local function on_entity_died(event)
         check_silo_and_car_status()
 
         if car_number ~= 0 then
-            -- ★ 毒值修复：target 已 record 化，比对改走 unit_number（实体/record 双形态通吃）
-            local cur_target = wave_defense_table.target
-            local my_tank = EntRef.resolve(this.tank[index])
-            if my_tank and cur_target and my_tank.unit_number == cur_target.unit_number then
-                local car = get_random_car(true)
-                wave_defense_table.target = EntRef.record(car)
-                if car then car.destructible = true end
+            if this.tank[index] == wave_defense_table.target then
+                wave_defense_table.target = get_random_car(true)
+                wave_defense_table.target.destructible = true
             end
 
             if not wave_defense_table.target then
-                local car = get_random_car(true)
-                wave_defense_table.target = EntRef.record(car)
-                if car then car.destructible = true end
+                wave_defense_table.target = get_random_car(true)
+                wave_defense_table.target.destructible = true
             end
 
-            if not EntRef.resolve(wave_defense_table.target) then
-                local car = get_random_car(true)
-                wave_defense_table.target = EntRef.record(car)
-                if car then car.destructible = true end
+            if not wave_defense_table.target.valid then
+                wave_defense_table.target = get_random_car(true)
+                wave_defense_table.target.destructible = true
             end
         end
 
@@ -1086,7 +1051,7 @@ local function on_entity_died(event)
 end
 local tpshop = function()
     local this = WPT.get()
-    if this.world_number == 7 and EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体
+    if this.world_number == 7 and this.silo and this.silo.valid then
         game.print('一分钟后市场将转移到蜘蛛所在位置!')
         Task.set_timeout_in_ticks(60 * 60, zysc)
     end
@@ -1103,12 +1068,10 @@ local choois_target = function()
         end
     end
 
-    local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-    if silo then
+    if this.silo and this.silo.valid then
         local wave_defense_table = WD.get_table()
-        -- ★ 毒值修复：target record 化，不再存实体引用
-        wave_defense_table.target = EntRef.record(silo)
-        silo.destructible = true
+        wave_defense_table.target = this.silo
+        wave_defense_table.target.destructible = true
         return
     end
     if this.start_game ~= 2 then
@@ -1119,10 +1082,8 @@ local choois_target = function()
     check_silo_and_car_status()
 
     local wave_defense_table = WD.get_table()
-    -- ★ 毒值修复：target record 化，不再存实体引用
-    local car = get_random_car(true)
-    wave_defense_table.target = EntRef.record(car)
-    if car then car.destructible = true end
+    wave_defense_table.target = get_random_car(true)
+    wave_defense_table.target.destructible = true
 end
 
 local function on_player_joined_game(event)
@@ -1134,11 +1095,10 @@ local function on_player_joined_game(event)
         this.have_been_put_tank[index] = false
     end
 
-    local tank = EntRef.resolve(this.tank[index]) -- ★ 毒值修复：record 反查实体
-    if tank then
-        tank.destructible = true
-        tank.operable = true
-        tank.disabled_by_script = false
+    if this.tank[index] and this.tank[index].valid then
+        this.tank[index].destructible = true
+        this.tank[index].operable = true
+        this.tank[index].disabled_by_script = false
         this.start_game = 2
     end
 
@@ -1153,8 +1113,11 @@ local function on_pre_player_left_game(event)
     
     
     if player.online_time <= 60 * 60 * 30 then
-        local car = EntRef.resolve(this.tank[index]) -- ★ 毒值修复：record 反查实体
-        if not car then
+        if not this.tank[index] then
+            return
+        end
+        local car = this.tank[index]
+        if not car.valid then
             return
         end
         car.die()
@@ -1164,8 +1127,11 @@ local function on_pre_player_left_game(event)
         }
         return
     end
-    local car = EntRef.resolve(this.tank[index]) -- ★ 毒值修复：record 反查实体
-    if not car then
+    if not this.tank[index] then
+        return
+    end
+    local car = this.tank[index]
+    if not car.valid then
         return
     end
     this.car_wudi[#this.car_wudi + 1] = car
@@ -1204,7 +1170,7 @@ local entity=event.entity
                     local player = cause.player
                     local index = player.index
                     local this = WPT.get()
-                    if EntRef.resolve(this.tank[index]) == entity then -- ★ 毒值修复：record 反查实体再比对
+                    if this.tank[index] == entity then
                         return
                     end
                 end
@@ -1219,30 +1185,28 @@ local function car_pollute()
     local wave_number = WD.get('wave_number')
 
     if this.world_number == 8 or this.world_number == 7 then
-        local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-        if silo then
+        if this.silo and this.silo.valid then
             local mian_surface = game.surfaces[this.active_surface_index]
-            local surface = resolve_surface_ref(this.yiciyuan_surface) -- ★ 毒值修复：surface 引用反查
+            local surface = this.yiciyuan_surface
             if not surface then
                 return
             end
             local pollution = surface.get_total_pollution()
-            mian_surface.pollute(silo.position, pollution)
+            mian_surface.pollute(this.silo.position, pollution)
             surface.clear_pollution()
         end
     end
 
     -- 世界13：将火车内部ICW空间的污染转移到火车位置
     if this.world_number == 13 then
-        local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-        if silo then
+        if this.silo and this.silo.valid then
             local train_surface_index = ICWTable.get('train_surface')
             if train_surface_index then
                 local train_surface = game.surfaces[train_surface_index]
                 if train_surface and train_surface.valid then
                     local mian_surface = game.surfaces[this.active_surface_index]
                     local pollution = train_surface.get_total_pollution()
-                    mian_surface.pollute(silo.position, pollution)
+                    mian_surface.pollute(this.silo.position, pollution)
                     train_surface.clear_pollution()
                 end
             end
@@ -1256,8 +1220,7 @@ local function car_pollute()
         local unit_number = this.whos_tank[index]
 
         if unit_number then
-            local entity = EntRef.resolve(this.tank[index]) -- ★ 毒值修复：record 反查实体
-            local shop = EntRef.resolve(this.shop) -- ★ 毒值修复：record 反查实体
+            local entity = this.tank[index]
             local mian_surface = game.surfaces[this.active_surface_index]
             local car = ic.cars[unit_number]
             if car then
@@ -1268,22 +1231,18 @@ local function car_pollute()
                 end
                 local pollution = surface.get_total_pollution() * 2
                 if this.world_number == 8 or this.world_number == 7 then
-                    if shop then
-                        mian_surface.pollute(shop.position, pollution)
-                    end
+                    mian_surface.pollute(this.shop.position, pollution)
                     else
-                        if entity then
-                            mian_surface.pollute(entity.position, pollution)
-                        end
+                        mian_surface.pollute(entity.position, pollution)
                     end
-
+         
                 surface.clear_pollution()
             end
         end
 
     end
 
-    if EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体
+    if this.silo and this.silo.valid then
         return
     end
     
@@ -1309,19 +1268,17 @@ local function on_player_respawned(event)
     local target_position = {x = 0, y = 0}
     local should_teleport = false
 
-    local player_tank = EntRef.resolve(this.tank[index]) -- ★ 毒值修复：record 反查实体
-    if player_tank then
-        local tank_surface = player_tank.surface
+    if this.tank[index] and this.tank[index].valid then
+        local tank_surface = this.tank[index].surface
         if tank_surface == player_surface then
-            target_position = player_tank.position
+            target_position = this.tank[player.index].position
             should_teleport = true
         end
     else
-        local shop = EntRef.resolve(this.shop) -- ★ 毒值修复：record 反查实体
-        if shop then
-            local shop_surface = shop.surface
+        if this.shop and this.shop.valid then
+            local shop_surface = this.shop.surface
             if shop_surface == player_surface then
-                target_position = shop.position
+                target_position = this.shop.position
                 should_teleport = true
             end
         else
@@ -1372,23 +1329,22 @@ local function daojishi()
     local this = WPT.get()
     local map = diff.get()
     
-    local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-    if this.world_number == 7 and silo then
+    if this.world_number == 7 and this.silo and this.silo.valid then
         local goal = {'turret', 'unit-spawner'}
 
-        local count = silo.surface.count_entities_filtered {
-            position = silo.position,
+        local count = this.silo.surface.count_entities_filtered {
+            position = this.silo.position,
             type = goal,
             radius = 20,
             force = "enemy"
         }
         if count > 0 then
-            silo.teleport({
-                x = silo.position.x,
-                y = silo.position.y + 10
-            }, silo.surface)
-            local player = silo.get_driver()
-            local passenger = silo.get_passenger()
+            this.silo.teleport({
+                x = this.silo.position.x,
+                y = this.silo.position.y + 10
+            }, this.silo.surface)
+            local player = this.silo.get_driver()
+            local passenger = this.silo.get_passenger()
             if player and player.player then
                 player.player.print('蜘蛛正处于危险位置', {255, 0, 0})
             end
@@ -1398,11 +1354,11 @@ local function daojishi()
         end
 
         local now_Pos = Collapse.get_position()
-        if silo.position.y > now_Pos.y - 20 then
-            silo.teleport({
-                x = silo.position.x,
+        if this.silo.position.y > now_Pos.y - 20 then
+            this.silo.teleport({
+                x = this.silo.position.x,
                 y = now_Pos.y - 20
-            }, silo.surface)
+            }, this.silo.surface)
         end
 
     end
@@ -1412,7 +1368,7 @@ local function daojishi()
     end
 
     -- 如果火箭发射井存在，则不执行重开
-    if EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体
+    if this.silo and this.silo.valid then
         this.start_game = 2
         this.reset_time = 0
         return

@@ -6,7 +6,6 @@ local ThreatEvent = require 'modules.wave_defense.threat_events'
 local update_gui = require 'modules.wave_defense.gui'
 local threat_values = require 'modules.wave_defense.threat_values'
 local WD = require 'modules.wave_defense.table'
-local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：实体引用安全存取
 local Alert = require 'utils.alert'
 local diff = require 'maps.amap.diff'
 local WPT = require 'maps.amap.table'
@@ -241,10 +240,12 @@ end
 
 local function is_unit_valid(biter)
     local max_biter_age = WD.get('max_biter_age')
-    -- ★ 毒值修复：record 反查实体（失效返回 nil）
-    local entity = EntRef.resolve(biter.entity)
-    if not entity then
+    if not biter.entity then
         -- game.print('no entity')
+        return false
+    end
+    if not biter.entity.valid then
+        -- game.print('not valid')
         return false
     end
     if biter.spawn_tick + max_biter_age < game.tick then
@@ -264,9 +265,9 @@ local function process_active_biters(check_timeout)
     
     for k, biter in pairs(active_biters) do
         local is_valid = false
-        local entity = EntRef.resolve(biter.entity) -- ★ 毒值修复：record 反查实体（失效返回 nil）
-
-        if entity then
+        local entity = biter.entity
+        
+        if entity and entity.valid then
             if check_timeout then
                 if biter.spawn_tick + max_biter_age >= game.tick then
                     is_valid = true
@@ -341,10 +342,8 @@ local function get_car_number()
     local active_surface_index = this.active_surface_index
 
     for k, player in pairs(game.connected_players) do
-        -- ★ 毒值修复：record 反查实体（失效安静跳过）
-        local tank = EntRef.resolve(this.tank[player.index])
-        if tank then
-            if tank.surface.index == game.surfaces[active_surface_index].index then
+        if this.tank[player.index] and this.tank[player.index].valid then
+            if this.tank[player.index].surface.index == game.surfaces[active_surface_index].index then
                 car_number = car_number + 1
             end
         end
@@ -355,7 +354,7 @@ end
 local function set_main_target()
     local this = WPT.get()
     if not this.active_surface_index or not game.surfaces[this.active_surface_index] then return end
-    local target = EntRef.resolve(WD.get('target')) -- ★ 毒值修复：record 反查实体
+    local target = WD.get('target')
     local main_surface = game.surfaces[this.active_surface_index]
     if target then
         if target.valid and target.destructible and target.surface == main_surface then
@@ -371,8 +370,7 @@ local function set_main_target()
         sec_target = get_random_character()
     end
 
-    -- ★ 毒值修复：target 存 record，不存实体引用（sec_target 可为 nil，record(nil) 返回 nil 合法）
-    WD.set('target', EntRef.record(sec_target))
+    WD.set('target', sec_target)
 
 end
 
@@ -524,8 +522,7 @@ local function set_next_wave()
     local threat_loss = 0
     
     for k, biter in pairs(active_biters) do
-        local entity = EntRef.resolve(biter.entity) -- ★ 毒值修复：record 反查实体（失效返回 nil）
-        if entity then
+        if biter.entity and biter.entity.valid then
             count = count + 1
         else
             -- 计算无效虫子的威胁值损失
@@ -623,7 +620,7 @@ local function get_main_command(group)
     }
 
     local step_length = unit_group_command_step_length
-    local target = EntRef.resolve(WD.get('target')) -- ★ 毒值修复：record 反查实体
+    local target = WD.get('target')
 
     if not valid(target) then
         return
@@ -764,7 +761,7 @@ local function command_to_main_target(group, bypass)
             this.enemy_missions = {}
         end
         
-        local target = EntRef.resolve(WD.get('target')) -- ★ 毒值修复：record 反查实体
+        local target = WD.get('target')
         if valid(target) then
             this.enemy_missions[group.unique_id] = {
                 target_pos = target.position,
@@ -842,7 +839,7 @@ local function spawn_one_group(surface, position, group_size, max_threat)
 
         for _, biter in pairs(spawned_biters) do
             active_biters[biter.unit_number] = {
-                entity = EntRef.record(biter), -- ★ 毒值修复：存 record，不存实体引用
+                entity = biter,
                 spawn_tick = tick
             }
             active_biter_count = active_biter_count + 1
@@ -875,8 +872,7 @@ local delayed_squad_token =
         if not (surface and surface.valid) then
             return
         end
-        -- ★ 毒值修复：record 反查实体后再判有效
-        if not EntRef.resolve(WD.get('target')) then
+        if not valid(WD.get('target')) then
             return
         end
         if not can_units_spawn() then
@@ -890,7 +886,7 @@ local function spawn_unit_group()
     if not can_units_spawn() then
         return
     end
-    local target = EntRef.resolve(WD.get('target')) -- ★ 毒值修复：record 反查实体
+    local target = WD.get('target')
     if not valid(target) then
         return
     end
@@ -1216,10 +1212,8 @@ local function spawn_player_biters_against_enemy_roboport()
     end
     
     -- 检查玩家是否有火箭发射井
-
-    -- ★ 毒值修复：record 反查实体（失效安静返回）
-    local silo = EntRef.resolve(this.silo)
-    if not silo then
+ 
+    if not this.silo or not this.silo.valid then
         return
     end
     
@@ -1242,7 +1236,7 @@ local function spawn_player_biters_against_enemy_roboport()
         local surface = game.surfaces['nauvis']
         
         -- 查找火箭发射井位置
-        local rocket_silo_position = silo.position
+        local rocket_silo_position = this.silo.position
         local group={}
         -- 如果找到火箭发射井，则在其附近生成虫子
         if rocket_silo_position then
@@ -1373,9 +1367,7 @@ local function spawn_player_biters_against_enemy_roboport()
         end
     else
         -- 如果敌方没有机器人平台但我方有火箭发射井，则将values转化为金币并平均分给在线玩家
-        -- ★ 毒值修复：record 反查实体（失效安静跳过）
-        local silo = EntRef.resolve(this.silo)
-        if silo then
+        if this.silo and this.silo.valid then
             local wave_number = WD.get('wave_number')
             local values= 50+1*wave_number+this.science*2+this.protectors_value*8
             
@@ -1408,7 +1400,7 @@ local function check_group_positions()
     if not resolve_pathing then return end
 
     local unit_groups = WD.get('unit_groups')
-    local target = EntRef.resolve(WD.get('target')) -- ★ 毒值修复：record 反查实体
+    local target = WD.get('target')
     if not valid(target) then return end
 
     local unit_group_pos = WD.get('unit_group_pos')

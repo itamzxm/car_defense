@@ -10,7 +10,6 @@
 local World = require 'maps.amap.world.framework'
 local world_function = require 'maps.amap.world.world_function'
 local Helpers = require 'maps.amap.world.world_helpers'
-local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复
 
 --==============================================================================
 -- 地形生成器（原 world_main.lua 第 1064-1068 行 world_generators[14]）
@@ -66,10 +65,8 @@ end
 
 -- on_tick 钩子：每 30 秒自动填充火箭进度至 100%（原 main.lua 行 1268-1272）
 local function on_tick(this, tick)
-    -- ★ 毒值修复：this.silo 已存为可序列化 record，反查真实实体（失效安静跳过）
-    local silo = EntRef.resolve(this.silo)
-    if silo and silo.name == 'rocket-silo' then
-        silo.rocket_parts = 100
+    if this.silo and this.silo.name == 'rocket-silo' then
+        this.silo.rocket_parts = 100
     end
 end
 

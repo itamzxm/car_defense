@@ -10,7 +10,6 @@ local WD = require 'modules.wave_defense.table'
 local tianfu = require 'maps.amap.tianfu'
 local rpgtable = require 'modules.rpg.table'
 local TianfuQuality = require 'maps.amap.tianfu_quality'  -- 天赋品质系统 helper（方案 D）
-local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：global 实体引用改为可序列化 record
 local World = require 'maps.amap.world.framework'  -- 世界框架（world_bonus_type 声明式查表）
 
 -- 模块公开接口
@@ -1757,9 +1756,8 @@ local function update_gui(player)
     local best_record = math.max(map.map_record[map.world] or 0, wave_number)
     
     local car_name = "  "
-    local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-    if silo then
-        car_name = silo.name
+    if this.silo and this.silo.valid then
+        car_name = this.silo.name
     elseif this.start_game == 2 and this.car_index and game.players[this.car_index] then
         car_name = game.players[this.car_index].name
     end

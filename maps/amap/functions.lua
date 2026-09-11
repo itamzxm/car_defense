@@ -6,16 +6,6 @@ local Rand = require 'maps.amap.random'
 local WD = require 'modules.wave_defense.table'
 local RPG = require 'modules.rpg.table'
 local Alert = require 'utils.alert'
-local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：global 实体引用改为可序列化 record
-
--- ★ 毒值修复：surface 引用反查（record 形态存 surface_index）
--- 写点在 main.lua（统一存 record）
-local resolve_surface_ref = function(ref)
-    if not ref then return nil end
-    local s = game.surfaces[ref.surface_index]
-    if s and s.valid then return s end
-    return nil
-end
 
 local car_weiht = {
     ["car"] = 10,
@@ -56,11 +46,10 @@ local function get_car_number()
     local active_surface_index = this.active_surface_index
 
     for k, player in pairs(game.connected_players) do
-        local tank = EntRef.resolve(this.tank[player.index]) -- ★ 毒值修复：record 反查实体
-        if tank then
-            if tank.surface.index == game.surfaces[active_surface_index].index then
+        if this.tank[player.index] and this.tank[player.index].valid then
+            if this.tank[player.index].surface.index == game.surfaces[active_surface_index].index then
                 car_number = car_number + 1
-                tank.destructible = true
+                this.tank[player.index].destructible = true
             end
         else
             this.tank[player.index] = nil
@@ -81,12 +70,12 @@ local function get_car_index()
     
     for k, player in pairs(game.connected_players) do
 
-        local car = EntRef.resolve(this.tank[player.index]) -- ★ 毒值修复：record 反查实体
-        if car then
-            if car.surface.index ~= game.surfaces[active_surface_index].index then
+        if this.tank[player.index] and this.tank[player.index].valid then
+            if this.tank[player.index].surface.index ~= game.surfaces[active_surface_index].index then
                 goto continue
             end
 
+            local car = this.tank[player.index]
             local base_weight = car_weiht[car.name]
             if this.had_sipder[player.index] == true then
                 base_weight = 360
@@ -160,9 +149,8 @@ end
 function Public.get_random_car(print)
 
     local this = WPT.get()
-    local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-    if silo then
-        return silo
+    if this.silo and this.silo.valid then
+        return this.silo
     end
     local index = get_car_index()
     --   game.print("随机结果为:" .. index .. '')
@@ -177,11 +165,9 @@ function Public.get_random_car(print)
         this.diff_change = 0
         this.diff_roll = 0
         if this.last_sipder then
-            -- ★ 毒值修复：last_sipder 存的是 this.tank 的数字键（非实体），但其值已 record 化，需反查
-            local last_spider_car = EntRef.resolve(this.tank[this.last_sipder])
-            if last_spider_car then
-                if last_spider_car.name == "spidertron" then
-                    last_spider_car.grid.inhibit_movement_bonus = false
+            if this.tank[this.last_sipder] then
+                if this.tank[this.last_sipder].name == "spidertron" then
+                    this.tank[this.last_sipder].grid.inhibit_movement_bonus = false
                 else
                     this.last_sipder = nil
                 end
@@ -189,10 +175,9 @@ function Public.get_random_car(print)
         else
             this.last_sipder = nil
         end
-        local target_car = EntRef.resolve(this.tank[index]) -- ★ 毒值修复：record 反查实体
-        if target_car and target_car.name == "spidertron" and get_car_number() <= 4 then
+        if this.tank[index].name == "spidertron" and get_car_number() <= 4 then
 
-            target_car.grid.inhibit_movement_bonus = true
+            this.tank[index].grid.inhibit_movement_bonus = true
             this.last_sipder = index
             game.players[index].print(({'amap.reduce_sipder_speed'}), {
                 r = 0,
@@ -202,14 +187,13 @@ function Public.get_random_car(print)
         end
     end
 
-    local target_car = EntRef.resolve(this.tank[index]) -- ★ 毒值修复：record 反查实体
     if this.world_number == 7 or this.world_number == 8 then
-        this.silo = EntRef.record(target_car) -- ★ 毒值修复：存可序列化 record
+        this.silo = this.tank[index]
         --禁止挖掘
-        target_car.minable_flag = false
-        target_car.destructible=true
+        this.tank[index].minable_flag = false
+        this.tank[index].destructible=true
     end
-    return target_car
+    return this.tank[index]
 end
 
 
@@ -304,9 +288,8 @@ end
     -- end
 
     local get_tile = main_surface.get_tile(player.physical_position)
-    local silo = EntRef.resolve(this.silo) -- ★ 毒值修复：record 反查实体
-    if get_tile.valid and get_tile.name == 'out-of-map' and silo then
-        player.teleport(main_surface.find_non_colliding_position('character', silo.position, 20, 1, false) or {
+    if get_tile.valid and get_tile.name == 'out-of-map' then
+        player.teleport(main_surface.find_non_colliding_position('character', this.silo.position, 20, 1, false) or {
             x = 0,
             y = 0
         }, main_surface)
@@ -675,7 +658,7 @@ local on_player_or_robot_built_entity = function(event)
     local index = player.index
 
     if name == 'flamethrower-turret' then
-        if this.have_been_put_tank[index] or EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体（防 record 恒真）
+        if this.have_been_put_tank[index] or this.silo then
             build_flame(player, event.entity)
         else
             entity.destroy()
@@ -683,7 +666,7 @@ local on_player_or_robot_built_entity = function(event)
         end
     end
     if name == 'land-mine' then
-        if this.have_been_put_tank[index] or EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体（防 record 恒真）
+        if this.have_been_put_tank[index] or this.silo then
             if this.now_mine >= this.max_mine then
                 game.print({'amap.too_many_mine'})
                 entity.destroy()
@@ -697,7 +680,7 @@ local on_player_or_robot_built_entity = function(event)
     
     -- 世界7和8的激光塔限制
     if name == 'laser-turret' and (this.world_number == 7 or this.world_number == 8) then
-        if this.have_been_put_tank[index] or EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体（防 record 恒真）
+        if this.have_been_put_tank[index] or this.silo then
             build_laser(player, event.entity)
         else
             entity.destroy()
@@ -707,7 +690,7 @@ local on_player_or_robot_built_entity = function(event)
     
     -- 世界7和8的特斯拉电塔限制
     if name == 'tesla-turret' and (this.world_number == 7 or this.world_number == 8) then
-        if this.have_been_put_tank[index] or EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体（防 record 恒真）
+        if this.have_been_put_tank[index] or this.silo then
             if this.tesla >= this.max_tesla then
                 game.print({'amap.too_many_tesla', this.tesla, this.max_tesla})
                 entity.destroy()
@@ -722,7 +705,7 @@ local on_player_or_robot_built_entity = function(event)
     
     -- 世界7和8的轨道炮塔限制
     if name == 'railgun-turret' and (this.world_number == 7 or this.world_number == 8) then
-        if this.have_been_put_tank[index] or EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体（防 record 恒真）
+        if this.have_been_put_tank[index] or this.silo then
             if this.railgun >= this.max_railgun then
                 game.print({'amap.too_many_railgun', this.railgun, this.max_railgun})
                 entity.destroy()
@@ -814,7 +797,7 @@ function Public.on_research_finished(event)
         local point = math.random(1, 3)
         local coin = math.random(1, 100)
         local index = player.index
-        if this.tank[index] or EntRef.resolve(this.silo) then -- ★ 毒值修复：record 反查实体（防 record 恒真）
+        if this.tank[index] or this.silo then
             gain_player[#gain_player + 1] = player
             should_reward[index] = {}
             should_reward[index].point = point
@@ -862,9 +845,8 @@ function Public.on_research_finished(event)
     if "utility-science-pack" == research.name  then
         game.forces.player.technologies['landfill'].enabled = true
     
-        local ys = resolve_surface_ref(this.yiciyuan_surface) -- ★ 毒值修复：surface 引用反查
-        if ys then
-            ys.ignore_surface_conditions = true
+        if this.yiciyuan_surface and this.yiciyuan_surface.valid then
+            this.yiciyuan_surface.ignore_surface_conditions = true
         end
         -- 设置标志，表示气候条件限制已被取消
         game.surfaces["nauvis"].ignore_surface_conditions = true
