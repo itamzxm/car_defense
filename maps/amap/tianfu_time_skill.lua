@@ -7609,6 +7609,12 @@ Public.guanjia = function(player, q_idx)
                 n = n + trunk.get_item_count(name)
             end
         end
+        -- 手搓队列已排产的份数计入存量：否则补产期间每轮清点都重复下单，队列滚雪球
+        for _, job in pairs(player.crafting_queue or {}) do
+            if job.item == name or job.recipe == name then
+                n = n + (job.count or 0)
+            end
+        end
         if lowest_count == nil or n < lowest_count then
             lowest_name, lowest_count = name, n
         end

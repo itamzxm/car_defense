@@ -170,6 +170,7 @@ Data.trigger_skills = {
     ['lianzhanlianjie'] = {
     },
     ['yichanzhixingren'] = {
+        time = 60 * 120 -- 抚恤冷却2分钟（复活仅10秒，无冷却可送人头循环刷金币）
     },
     ['huoshuidongyin'] = {
         -- CD 逐档 {12,10,8,7,6} 秒由函数内自门控（this.huoshuidongyin_last）

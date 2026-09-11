@@ -3825,10 +3825,16 @@ end
 
 -- 遗产执行人（抚恤档2·死者资产百分比+反向馈赠，先例：低阶教徒/忠实粉丝）
 -- 玩家死亡：凭空铸造其 {5,8,10,15,20}% 金币的抚恤给学习者（上限5000，不扣死者）；
--- 死者复活后3分钟内获得 +50% 经验获取（结算式：3分钟后补发期间经验的一半）
+-- 死者复活后3分钟内获得 +50% 经验获取（结算式：3分钟后补发期间经验的一半）。
+-- 冷却2分钟（trigger_skills 配置表 time 驱动，UI 冷却条同步）：复活仅10秒，无冷却可"送人头"循环刷抚恤。
+-- 馈赠窗口去重：同一名死者同时只保留最新一个3分钟窗口，窗口期内再次死亡作废旧窗口（防经验叠加复制）。
 local yichanzhixingren_exp_timeout = Token.register(function(data)
     local player = data.player
     if not player or not player.valid then
+        return
+    end
+    local this = TPT.get()
+    if not this.yichanzhixingren_window or this.yichanzhixingren_window[player.index] ~= data.window_id then
         return
     end
     local rpg_t = rpgtable.get('rpg_t')
@@ -3840,17 +3846,25 @@ local yichanzhixingren_exp_timeout = Token.register(function(data)
 end)
 
 Public.yichanzhixingren = function(player1, dead_player, q_idx)
+    if not check_tick(player1, 'yichanzhixingren') then
+        return false
+    end
+    local this = TPT.get()
     local pension = math.min(math.floor(dead_player.get_item_count('coin') * ({5, 8, 10, 15, 20})[q_idx or 1] / 100), 5000)
     if pension > 0 then
         insert_item_to_player(player1, 'coin', pension)
         new_print(player1, { 'tianfu.yichanzhixingren_over', pension, dead_player.name })
     end
-    -- 反向馈赠：快照死者经验，3分钟后补发期间所得的 50%
+    -- 反向馈赠：快照死者经验，3分钟后补发期间所得的 50%（窗口去重防叠加复制）
     local rpg_t = rpgtable.get('rpg_t')
     if rpg_t[dead_player.index] then
+        this.yichanzhixingren_window = this.yichanzhixingren_window or {}
+        local window_id = (this.yichanzhixingren_window[dead_player.index] or 0) + 1
+        this.yichanzhixingren_window[dead_player.index] = window_id
         Task.set_timeout_in_ticks(60 * 60 * 3, yichanzhixingren_exp_timeout, {
             player = dead_player,
-            xp_snapshot = rpg_t[dead_player.index].xp or 0
+            xp_snapshot = rpg_t[dead_player.index].xp or 0,
+            window_id = window_id
         })
     end
     return true
