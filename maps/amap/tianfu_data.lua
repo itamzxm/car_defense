@@ -135,7 +135,6 @@ Data.tianfu_categories = {
         'tianshitouzi',    -- 天使投资
         'zhuleishu',       -- 筑垒术
         'gongbingcanmou',  -- 工兵参谋
-        'guanjia',         -- 管家
     },
     fighter = {          -- 战斗者类天赋（通过增强自身能力战斗，力量和活力相关）
         'shengguangzhongji', -- 圣光重击
@@ -515,7 +514,6 @@ Data.tianfu_icons = {
     ['qiling'] = 'entity/medium-biter',                -- 起灵（唤起残骸）
     ['zhuanyun'] = 'item/raw-fish',                    -- 转运（保底；T3F-1：原 utility/heart 在 core 中无此 sprite 定义，真实客户端报 Unknown sprite，改用图标缺省语义同源）
     ['gongbingcanmou'] = 'item/blueprint',             -- 工兵参谋（按图施工）
-    ['guanjia'] = 'item/requester-chest',              -- 管家（中控补产；T3F-1：2.0 起物品更名 logistic-chest-requester→requester-chest，旧路径真实客户端报 Unknown sprite）
     ['qiushengbenneng'] = 'item/energy-shield-mk2-equipment', -- 求生本能（绝境回涌）
 }
 

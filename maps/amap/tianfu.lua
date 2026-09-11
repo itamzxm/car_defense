@@ -28,6 +28,10 @@ local tianfu_blacklist = {
     ['wlfs'] = '亡灵法师',
     ['wanglingdajun'] = '秽土转生',
     ['mdt'] = '魔盗团',
+    -- ★ 删除（2026-09-11 用户裁决：不平衡+机制死卡）——管家的补产目标全是熔炉配方
+    -- （铁板/铜板/石砖），begin_crafting 必败且 silent=false 每分钟弹「无法手动制作」；
+    -- 池条目/图标/品质/调度/效果函数/locale 已整卡移除，本表+json 收口：已学玩家不再触发
+    ['guanjia'] = '管家',
     -- ★ 修复（2026-08-01）：以下 3 个是"半吊子禁用"留下的废卡。
     -- 它们已从 tianfu_categories 注释掉（意图禁用），但仍注册在 trigger_skills 表里，
     -- 而 all_skill = time ∪ once ∪ trigger 三表并集 —— 于是「随机」职业玩家依旧能抽到、

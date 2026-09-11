@@ -459,9 +459,6 @@ Data.time_skills = {
     ['qiling'] = {
         time = 60 * 12 -- 调度下限12秒；实际间隔按品质逐档 {30,25,20,16,12} 秒自门控
     },
-    ['guanjia'] = {
-        time = 60 * 60 -- 每分钟清点补产一次（原误填60=1秒，且会在手搓队列未消化时反复排队）
-    },
     ['huixiang'] = {
         time = 60 -- 占位 tick（延迟复读在 deal_damage_with_floating_text 内结算）
     },

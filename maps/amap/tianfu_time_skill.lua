@@ -7583,41 +7583,6 @@ Public.qiling = function(player, q_idx)
     return true
 end
 
--- 管家（资源枝智能中控·需求驱动补产，先例：装备研发中心"优先制作身上没有的"）
--- 每分钟清点背包与车内物资：自动生产存量最低的基础资源，补至 500×品质 份为止（真实消耗材料手搓）
-local GUANJIA_RESOURCES = { 'iron-plate', 'copper-plate', 'stone-brick' }
-Public.guanjia = function(player, q_idx)
-    local target = math.floor(500 * COEFF_REG[q_idx or 1])
-    local main_table = WPT.get()
-    local car = main_table.tank and main_table.tank[player.index]
-    local lowest_name, lowest_count = nil, nil
-    for _, name in pairs(GUANJIA_RESOURCES) do
-        local n = player.get_item_count(name)
-        if car and car.valid then
-            local trunk = car.get_inventory(defines.inventory.car_trunk)
-            if trunk and trunk.valid then
-                n = n + trunk.get_item_count(name)
-            end
-        end
-        -- 手搓队列已排产的份数计入存量：否则补产期间每轮清点都重复下单，队列滚雪球
-        for _, job in pairs(player.crafting_queue or {}) do
-            if job.item == name or job.recipe == name then
-                n = n + (job.count or 0)
-            end
-        end
-        if lowest_count == nil or n < lowest_count then
-            lowest_name, lowest_count = name, n
-        end
-    end
-    local deficit = target - lowest_count
-    if deficit <= 0 then
-        return true
-    end
-    player.begin_crafting({ count = deficit, recipe = lowest_name, silent = false })
-    new_print(player, { 'tianfu.guanjia_over', lowest_name, deficit })
-    return true
-end
-
 -- 回响（元素放大档2·延迟回响）：效果在 deal_damage_with_floating_text 内结算，此处为 tick 占位
 Public.huixiang = function(player, q_idx)
     return true

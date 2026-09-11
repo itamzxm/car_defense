@@ -243,7 +243,6 @@ local DISPLAY = {
     chaopindianwang = { coeff = 'LOW', vals = {30} },              -- 超频电网：间隔缩短封顶 30%×LOW
     qiling = { arr = {30, 25, 20, 16, 12} },                       -- 起灵：触发间隔 {30..12} 秒
     gongbingcanmou = { coeff = 'REG', vals = {20} },               -- 工兵参谋：单次施工 20×REG 段
-    guanjia = { coeff = 'REG', vals = {500} },                     -- 管家：补足目标 500×REG
     qiushengbenneng = { coeff = 'REG', vals = {100} },             -- 求生本能：低血回复效果+100%×REG
 }
 
