@@ -75,6 +75,8 @@ function Public.reset_table()
     this.chaoshikongshangdian_items = {}  -- 超时空商店物品列表：this.chaoshikongshangdian_items[player_index] = {item_name, price}
     this.chaoshikongshangdian_last_refresh = {}  -- 超时空商店上次刷新时间：this.chaoshikongshangdian_last_refresh[player_index] = tick
     this.chaoshikongshangdian_spent = {}  -- 超时空商店已花费金币：this.chaoshikongshangdian_spent[player_index] = amount
+    this.tianfu_refresh_count = {}  -- 天赋选择刷新：本次选择期内已刷新次数（新一轮选择重置，递增价回首刷）
+    this.tianfu_refresh_tier = {}   -- 天赋选择刷新：暂存本次选择的品质档位（low/mid/high），刷新时保持同档
 end
 
 -- 在模块加载时注册初始化函数

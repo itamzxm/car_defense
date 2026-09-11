@@ -12,6 +12,12 @@ local WD = require 'modules.wave_defense.table'
 local World = require 'maps.amap.world.framework'
 local TianfuQuality = require 'maps.amap.tianfu_quality'  -- 天赋品质系统 helper（方案 D）
 
+-- ===== 天赋刷新（5选1重抽）=====
+-- 首刷 TIANFU_REFRESH_BASE_COST 金币，本次选择期内每刷一次 +TIANFU_REFRESH_COST_STEP，
+-- 选完天赋（新一轮 choise_skill）后自动重置回首刷价
+local TIANFU_REFRESH_BASE_COST = 10000
+local TIANFU_REFRESH_COST_STEP = 5000
+
 -- ===== 天赋黑名单 =====
 -- 黑名单中的天赋：①无法在天赋选择界面被选中；②不会在周期性天赋触发函数（on_tick）中生效。
 -- 如需增删黑名单，请同步修改 maps/amap/tianfu_blacklist.json 与本表。
@@ -324,7 +330,8 @@ end
 
 -- tier: 品质档位 'low'(默认) / 'mid' / 'high'，仅透传给候选卡片 roll，不落 global。
 -- 只有商店"中级/高级购买天赋"会传 mid/high；其余调用(进游戏/选职业/重开)不传→默认 low。
-local function choise_skill(player, tier)
+-- is_refresh: 天赋刷新按钮的重抽标记；true 时不重置刷新计数（递增价继续），并在暂存表读档位
+local function choise_skill(player, tier, is_refresh)
     local this = TPT.get()
     -- 获取main_table
     local main_table = WPT.get()
@@ -345,6 +352,16 @@ end
             return
         end
         this.xuanze[player.index] = 1
+    end
+
+    -- ★ 天赋刷新：暂存本次选择的品质档位（商店中级/高级购买传 mid/high，刷新保持同档）；
+    -- 除刷新重抽外的所有入口都算新一轮选择，刷新次数清零（递增价回到首刷价）。
+    -- 旧档兼容：字段缺失时惰性建表（同 due_buckets 守卫惯例）
+    if not this.tianfu_refresh_tier then this.tianfu_refresh_tier = {} end
+    if not this.tianfu_refresh_count then this.tianfu_refresh_count = {} end
+    this.tianfu_refresh_tier[player.index] = tier or 'low'
+    if not is_refresh then
+        this.tianfu_refresh_count[player.index] = 0
     end
 
     -- 移除可能已存在的天赋选择框
@@ -682,6 +699,29 @@ end
         -- 选取按钮已移除：点击图标即视为选取该天赋（见上方 icon_btn 的 tags）
     end
 
+    -- ★ 天赋刷新按钮：花金币重新随机当前 5 张候选（已学天赋不会重复出现，品质重 roll）
+    local refresh_count = this.tianfu_refresh_count[player.index] or 0
+    local refresh_cost = TIANFU_REFRESH_BASE_COST + refresh_count * TIANFU_REFRESH_COST_STEP
+    local refresh_flow = frame.add({
+        type = 'flow',
+        name = 'tianfu_refresh_flow',
+        direction = 'horizontal'
+    })
+    refresh_flow.style.horizontally_stretchable = true
+    refresh_flow.style.horizontal_align = 'right'
+    refresh_flow.style.top_padding = 8
+    local refresh_btn = refresh_flow.add({
+        type = 'button',
+        name = 'tianfu_refresh_button',
+        caption = { 'amap.tianfu_refresh_btn', refresh_cost },
+        tooltip = { 'amap.tianfu_refresh_tip', TIANFU_REFRESH_BASE_COST, TIANFU_REFRESH_COST_STEP },
+        tags = { tianfu_refresh = true },
+        mouse_button_filter = { 'left' }
+    })
+    refresh_btn.style.font = 'heading-2'
+    refresh_btn.style.minimal_width = 220
+    refresh_btn.style.minimal_height = 40
+
     if not main_table.tianfu_count[player.index] then
         main_table.tianfu_count[player.index] = 0
     end
@@ -761,9 +801,40 @@ local function on_gui_click(event)
         return
     end
 
+    local elem_tags = event.element.tags
+
+    -- ★ 天赋刷新按钮：花金币重新随机当前 5 张候选（按 tags 识别，先于天赋卡处理）
+    if elem_tags and elem_tags.tianfu_refresh then
+        -- 旧档兼容：字段未初始化时惰性建表（与 due_buckets 守卫同款）
+        if not this.tianfu_refresh_tier then this.tianfu_refresh_tier = {} end
+        if not this.tianfu_refresh_count then this.tianfu_refresh_count = {} end
+        -- 选择框已关闭（刚选完卡/地图重置）时忽略点击，防止凭空扣币
+        local refresh_screen_frame = player.gui.screen['选择你的天赋']
+        if not (refresh_screen_frame and refresh_screen_frame.valid) then
+            return
+        end
+        local refresh_count = this.tianfu_refresh_count[player.index] or 0
+        local refresh_cost = TIANFU_REFRESH_BASE_COST + refresh_count * TIANFU_REFRESH_COST_STEP
+        if player.get_item_count('coin') < refresh_cost then
+            player.print({ 'amap.tianfu_refresh_no_coins', refresh_cost }, { r = 255, g = 0, b = 0 })
+            return
+        end
+        player.remove_item({ name = 'coin', count = refresh_cost })
+        this.tianfu_refresh_count[player.index] = refresh_count + 1
+        -- 重置选择状态后按暂存档位重抽（is_refresh=true：不清刷新计数，价格继续递增）
+        this.xuanze[player.index] = 0
+        choise_skill(player, this.tianfu_refresh_tier[player.index], true)
+        -- choise_skill 结尾会 +1 免费资格计数（tianfu_count），刷新不占升级档位，回扣
+        if main_table.tianfu_count[player.index] then
+            main_table.tianfu_count[player.index] = main_table.tianfu_count[player.index] - 1
+        end
+        local next_cost = TIANFU_REFRESH_BASE_COST + this.tianfu_refresh_count[player.index] * TIANFU_REFRESH_COST_STEP
+        player.print({ 'amap.tianfu_refresh_done', refresh_cost, next_cost })
+        return
+    end
+
     -- 处理天赋卡片按钮点击：通过tags识别
     -- （卡片布局下按钮parent是卡片frame，不再直接是'选择你的天赋'，改用tags标记识别）
-    local elem_tags = event.element.tags
     if not (elem_tags and elem_tags.tianfu_card) then
         return
     end
