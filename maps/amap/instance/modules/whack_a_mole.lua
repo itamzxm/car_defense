@@ -43,7 +43,7 @@ M.display_name_key = 'amap.instance_whack_a_mole_name'
 M.description_key = 'amap.instance_whack_a_mole_desc'
 M.gameplay_desc_key = 'amap.instance_whack_a_mole_gameplay'
 M.victory_condition_key = 'amap.instance_whack_a_mole_victory'
-M.icon = 'item/steel-axe'
+M.icon = 'item/pistol'  -- 打枪打地鼠；原 'item/steel-axe' 已随 2.0 移除（T3F-1 同款：真实客户端 Unknown sprite，难度卡片渲染到图标即抛错中断，卡面只剩名称与难度）
 M.time_limit_default = 60 * 60
 
 --==============================================================================

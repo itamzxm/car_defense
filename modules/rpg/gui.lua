@@ -43,7 +43,7 @@ local panel_spell1_dropdown_name = Gui.uid_name()
 local panel_spell2_dropdown_name = Gui.uid_name()
 local panel_spell3_dropdown_name = Gui.uid_name()
 local panel_spell_dropdown_names = {panel_spell1_dropdown_name, panel_spell2_dropdown_name, panel_spell3_dropdown_name}
--- D6 v3：法术区自动施法开关（中文文字两态按钮，toggle enable_entity_spawn，不承担开弹窗副作用）
+-- D6 v3：法术区自动施法开关（中文文字两态按钮，toggle auto_cast_enabled，不承担开弹窗副作用）
 local panel_cast_toggle_name = Gui.uid_name()
 -- D6 v3.2：法术区「施法面板」按钮（只 toggle spell_gui_settings 弹窗，不写任何 rpg_t 状态）
 local panel_spell_gui_button_name = Gui.uid_name()
@@ -209,7 +209,7 @@ function Public.panel_spell_dropdown_write(rpg_t, n, selected_index)
     return Public.panel_spell_target_index(rpg_t, n)
 end
 
--- D6 v3 纯逻辑：自动施法开关翻转（单一真值源 enable_entity_spawn；只做取反不做分支副作用）
+-- D6 v3 纯逻辑：自动施法开关翻转（单一真值源 auto_cast_enabled；只做取反不做分支副作用）
 function Public.panel_cast_toggle_state(state)
     return not state
 end
@@ -604,7 +604,7 @@ local function draw_main_frame(player, location)
         spell_title_row.style.cell_padding = 0
         local title_cell = spell_title_row.add({type = 'flow', direction = 'horizontal'})
         add_group_title(title_cell, 'spell_zone_title')
-        local cast_on = rpg_t.enable_entity_spawn == true
+        local cast_on = rpg_t.auto_cast_enabled == true
         -- v3.2 中文化：文字按钮替鱼形图标——caption 直接表达两态（开绿/关灰，沿 font_color 两态实证范式）
         local cast_btn =
             spell_title_row.add(
@@ -712,7 +712,7 @@ local function draw_main_frame(player, location)
         else
             status_caption = {'rpg_gui.spell_zone_unset'}
         end
-        if not rpg_t.enable_entity_spawn then
+        if not rpg_t.auto_cast_enabled then
             status_caption = {'', status_caption, ' ', {'rpg_gui.spell_zone_cast_off'}}
         end
         local spell_status = scroll_pane.add({type = 'label', caption = status_caption})
@@ -1045,6 +1045,7 @@ Gui.on_click(
         local stone_path_gui_input = data.stone_path_gui_input
         local one_punch_gui_input = data.one_punch_gui_input
         local auto_cast_gui_input = data.auto_cast_gui_input
+        local auto_allocate_gui_input = data.auto_allocate_gui_input
 
         local rpg_t = Public.get_value_from_player(player.index)
 
@@ -1123,6 +1124,9 @@ Gui.on_click(
             end
             if spell_gui_input3 and spell_gui_input3.valid and spell_gui_input3.selected_index then
                 rpg_t.dropdown_select_index3 = spell_gui_input3.selected_index
+            end
+            if auto_allocate_gui_input and auto_allocate_gui_input.valid and auto_allocate_gui_input.selected_index then
+                rpg_t.allocate_index = auto_allocate_gui_input.selected_index
             end
             if player.gui.screen[spell_gui_frame_name] then
                 Public.update_spell_gui(player, nil)
@@ -1368,7 +1372,7 @@ for n = 1, 3 do
 end
 
 -- D6 v3：主面板鱼形按钮 = 自动施法开关（与 spell_gui_button_name 处理器 toggle 同语义：
--- 消息 + 音效保留；不打开/关闭法术弹窗——弹窗配置职责已被主面板槽位下拉框覆盖）
+-- 开启时连带补齐 enable_entity_spawn 总开关；不打开/关闭法术弹窗——弹窗配置职责已被主面板槽位下拉框覆盖）
 Gui.on_click(
     panel_cast_toggle_name,
     function(event)
@@ -1380,13 +1384,15 @@ Gui.on_click(
         if not rpg_t then
             return
         end
-        local new_state = Public.panel_cast_toggle_state(rpg_t.enable_entity_spawn)
-        rpg_t.enable_entity_spawn = new_state
+        local new_state = Public.panel_cast_toggle_state(rpg_t.auto_cast_enabled)
+        rpg_t.auto_cast_enabled = new_state
         if new_state then
-            player.print({'rpg_settings.cast_spell_enabled_label'}, Color.success)
+            -- auto_skill 引擎的前置总开关必须同时补齐，否则按钮是假的（BUG-P1：只开 auto_cast_enabled 会在 main.lua auto_skill 的 enable_entity_spawn 检查处静默返回）
+            rpg_t.enable_entity_spawn = true
+            player.print({'rpg_settings.auto_cast_enabled_label'}, Color.success)
             player.play_sound({path = 'utility/armor_insert', volume_modifier = 0.75})
         else
-            player.print({'rpg_settings.cast_spell_disabled_label'}, Color.warning)
+            player.print({'rpg_settings.auto_cast_disabled_label'}, Color.warning)
             player.play_sound({path = 'utility/cannot_build', volume_modifier = 0.75})
         end
         Public.refresh_panel(player)
