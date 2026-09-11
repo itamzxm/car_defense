@@ -14,6 +14,7 @@ local Collapse = require 'modules.collapse'
 local WPT = require 'maps.amap.table'
 local WD = require 'modules.wave_defense.table'
 local enemy_arty = require 'maps.amap.enemy_arty'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复
 
 --==============================================================================
 -- 地形生成器（原 world_main.lua 第 957-1061 行 world_generators[13]）
@@ -179,15 +180,19 @@ local function on_gain_xp_global(this, wave_number)
     end
     Collapse.set_amount(speed)
 
-    for _, player in pairs(game.connected_players) do
-        local index = player.index
+    -- ★ 毒值修复：this.shop 已存为可序列化 record，反查真实实体（失效安静跳过）
+    local shop = EntRef.resolve(this.shop)
+    if shop then
+        for _, player in pairs(game.connected_players) do
+            local index = player.index
 
-        if not this.now_pos[index] then
-            this.now_pos[index] = this.shop.position
-        end
+            if not this.now_pos[index] then
+                this.now_pos[index] = shop.position
+            end
 
-        if this.now_pos[index].y > now_pos.y then
-            this.now_pos[index] = this.shop.position
+            if this.now_pos[index].y > now_pos.y then
+                this.now_pos[index] = shop.position
+            end
         end
     end
 end

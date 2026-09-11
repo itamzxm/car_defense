@@ -459,10 +459,12 @@ function Public.reset_map()
     -- 死亡复活链路，若池中还有上一局余额，清图瞬间就会把旧虫复活到新图上。
     WD.clear_health_pools()
 
-    if this.yiciyuan_surface and this.yiciyuan_surface.valid then
-        game.delete_surface(this.yiciyuan_surface.name)
-        this.yiciyuan_surface = nil
+    -- ★ 毒值修复：yiciyuan_surface 存 {surface_index=} record（LuaSurface 不可序列化），用时反查
+    local ysz_old = this.yiciyuan_surface and game.surfaces[this.yiciyuan_surface.surface_index]
+    if ysz_old and ysz_old.valid then
+        game.delete_surface(ysz_old.name)
     end
+    this.yiciyuan_surface = nil
    -- if not this.first_time then
     --    this.first_time = true
      --   this.active_surface_index = game.surfaces['nauvis'].index
@@ -472,8 +474,10 @@ function Public.reset_map()
     
 
     if world_number == 8 or world_number == 7 or world_number == 13 then
-        this.yiciyuan_surface = CS.create_yiciyuan_surface()
-        local e3 = this.yiciyuan_surface.create_entity({
+        -- ★ 毒值修复：存 record（surface_index），局部保留真实体供本段创建实体
+        local ysz = CS.create_yiciyuan_surface()
+        this.yiciyuan_surface = { surface_index = ysz.index }
+        local e3 = ysz.create_entity({
             name = 'linked-chest',
             position = {
                 x = 0,
@@ -490,7 +494,7 @@ function Public.reset_map()
                 x = 0,
                 y = 0
             }
-            local surface = this.yiciyuan_surface
+            local surface = ysz
             create_ore(surface, position)
             create_water(surface, position)
         end

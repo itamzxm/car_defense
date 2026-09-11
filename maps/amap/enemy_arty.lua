@@ -1,4 +1,5 @@
 local Event = require 'utils.event'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复
 
 local Global = require 'utils.global'
 local Task = require 'utils.task'
@@ -371,13 +372,11 @@ local shot_hd = Token.register(function(entity)
         return
     end
     local wave_defense_table = WD.get_table()
-    if not wave_defense_table.target then
+    -- ★ 毒值修复：target 已 record 化，反查真实实体（失效安静跳过）
+    local target = EntRef.resolve(wave_defense_table.target)
+    if not target then
         return
     end
-    if not wave_defense_table.target.valid then
-        return
-    end
-    local target = wave_defense_table.target
     local e = entity.surface.create_entity({
         name = 'atomic-rocket',
         position = {
@@ -1547,8 +1546,9 @@ local function handle_fixed_wave_mode(this, arty_settings)
     -- 满 30 分钟就生成一座（保证最少每 30 分钟一座）；
     -- 100 波边界触发时同样生成并重置间隔时钟 →「100 波生成也算到间隔里」
     local wave_defense_table = WD.get_table()
-    local target = wave_defense_table.target
-    if not target or not target.valid then
+    -- ★ 毒值修复：target 已 record 化，反查真实实体（失效安静跳过）
+    local target = EntRef.resolve(wave_defense_table.target)
+    if not target then
         return
     end
     local position = get_baolei_pos(target.position, 120, surface, target, false)
@@ -1654,13 +1654,11 @@ local function get_new_arty()
     end
 
     local wave_defense_table = WD.get_table()
-    if not wave_defense_table.target then
+    -- ★ 毒值修复：target 已 record 化，反查真实实体（失效安静跳过）
+    local target = EntRef.resolve(wave_defense_table.target)
+    if not target then
         return
     end
-    if not wave_defense_table.target.valid then
-        return
-    end
-    local target = wave_defense_table.target
     local surface = target.surface
 
     local temp_pos

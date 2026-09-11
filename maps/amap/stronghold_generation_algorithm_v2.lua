@@ -7,6 +7,7 @@ local Global = require 'utils.global'
 local Task = require 'utils.task'
 local Token = require 'utils.token'
 local WD = require 'modules.wave_defense.table'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复
 local World = require 'maps.amap.world.framework'
 
 Global.register(
@@ -107,13 +108,11 @@ local launch_nuclear_missile = Token.register(function(data)
         return
     end
     local wave_defense_table = WD.get_table()
-    if not wave_defense_table.target then
+    -- ★ 毒值修复：target 已 record 化，反查真实实体（失效安静跳过）
+    local target = EntRef.resolve(wave_defense_table.target)
+    if not target then
         return
     end
-    if not wave_defense_table.target.valid then
-        return
-    end
-    local target = wave_defense_table.target
     
     -- 发射原子火箭
     surface.create_entity {
@@ -209,7 +208,7 @@ end
     ok=false
     if not table.rail then
       table.rail=true
-      table.target=rails[1]
+      table.target = EntRef.record(rails[1]) -- ★ 毒值修复：target record 化
       table.tongbu=false
     end
     return ok

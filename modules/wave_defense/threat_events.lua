@@ -1,4 +1,5 @@
 local WD = require 'modules.wave_defense.table'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复
 local threat_values = require 'modules.wave_defense.threat_values'
 local Event = require 'utils.event'
 local BiterRolls = require 'modules.wave_defense.biter_rolls'
@@ -331,8 +332,9 @@ function(data)
     end
 
     -- 加入 active_biters 管理
+    -- ★ 毒值修复：entity 存可序列化 record（LuaEntity 引用会中断存档分块序列化）
     active_biters[biter.unit_number] = {
-      entity = biter,
+      entity = EntRef.record(biter),
       spawn_tick = tick
     }
     active_biter_count = active_biter_count + 1

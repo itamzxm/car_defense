@@ -4,6 +4,13 @@ local WPT = require 'maps.amap.table'
 
 local Public = {}
 local List = require 'maps.amap.production_list'
+local EntRef = require 'maps.amap.entity_ref'
+
+-- ★ 毒值修复（2026-09-11）：global 里禁止存 LuaEntity/LuaChartTag（userdata 不可序列化，
+-- 存档/多人地图下载的分块序列化走到即中断 → 客户端 cannot-load-downloaded-map("bad conversion")）。
+-- 一律改存 unit_number + surface_index（数字），用时反查（契约见 entity_ref.lua）。
+local resolve_entity = function(factory) return EntRef.resolve(factory) end
+function Public.resolve_entity(factory) return resolve_entity(factory) end
 
 local function roll_assembler(maxs)
   local giao = (maxs/45)
@@ -33,7 +40,8 @@ end
 
 local function produce(factory, train)
   if factory.active then
-    if not factory.entity.valid then
+    local entity = resolve_entity(factory)
+    if not entity then
       factory.active = false
       return
     end
@@ -44,10 +52,10 @@ local function produce(factory, train)
     if progress_excess >= 0  then
       local multi = math.floor(progress_excess / (List[id].base_time * 60*2))
       factory.progress = factory.progress - (1 + multi) * List[id].base_time * 60*2
-      local inserted = factory.entity.get_output_inventory().insert{name = List[id].name, count = 1 + multi}
+      local inserted = entity.get_output_inventory().insert{name = List[id].name, count = 1 + multi}
       factory.produced = factory.produced + inserted
-      local surface = factory.entity.surface
-      surface.pollute(factory.entity.position, inserted * pollution_coef)
+      local surface = entity.surface
+      surface.pollute(entity.position, inserted * pollution_coef)
       if train then
         game.get_pollution_statistics(surface).on_flow("cargo-wagon", inserted * pollution_coef)
         game.forces.player.get_item_production_statistics(surface).on_flow(List[id].name, inserted)
@@ -63,7 +71,8 @@ end
 function Public.register_train_assembler(entity, id)
   local production = Chrono_table.get_production_table()
   production.train_assemblers[id] = {
-    entity = entity,
+    unit_number = entity.unit_number,
+    surface_index = entity.surface_index,
     id = id,
     progress = 0,
     produced = 0,
@@ -139,17 +148,19 @@ local name = List[id].recipe_override or List[id].name
         text = '',
     })
   end
-  
+
   local key = production.next_assembler_key + 1
   production.next_assembler_key = key
+  -- 注意：tag（LuaChartTag）不进 global——tag_position 备用于失效清理时反查
   production.assemblers[key] = {
-    entity = entity,
+    unit_number = entity.unit_number,
+    surface_index = entity.surface_index,
+    tag_position = entity.position,
     id = id,
     progress = 0,
     produced = 0,
     tier = tier,
     active = false,
-    tag = tag,
     group_id = group_id,
   }
 
@@ -162,8 +173,8 @@ function Public.check_activity()
 
   local to_remove = {}
   for key, factory in pairs(production.assemblers) do
-    local entity = factory.entity
-    if not entity or not entity.valid then
+    local entity = resolve_entity(factory)
+    if not entity then
       local gid = factory.group_id
       if gid and production.groups[gid] then
         local new_members = {}
@@ -175,8 +186,14 @@ function Public.check_activity()
           production.groups[gid] = nil
         end
       end
-      if factory.tag then
-        factory.tag.destroy()
+      -- 实体已失效：按注册时的位置反查并清掉生产标签（tag 本体不进 global）
+      if factory.tag_position then
+        local surface = game.surfaces[factory.surface_index]
+        if surface and surface.valid then
+          local pos = factory.tag_position
+          local tags = surface.find_chart_tags{ force = 'player', area = {{pos.x - 0.5, pos.y - 0.5}, {pos.x + 0.5, pos.y + 0.5}} }
+          for _, t in pairs(tags) do t.destroy() end
+        end
       end
       table.insert(to_remove, key)
     end
@@ -195,8 +212,8 @@ function Public.check_activity()
     for _, mkey in ipairs(group.members) do
       local factory = production.assemblers[mkey]
       if not factory then goto continue_member_check end
-      local entity = factory.entity
-      if not entity or not entity.valid then goto continue_member_check end
+      local entity = resolve_entity(factory)
+      if not entity then goto continue_member_check end
       local surface = entity.surface
       local count_ghost = surface.count_entities_filtered{type="entity-ghost", position = entity.position, radius = 5, force = "player"}
       local count_all = surface.count_entities_filtered{position = entity.position, radius = 5, force = "player"}
@@ -214,8 +231,8 @@ function Public.check_activity()
   end
 
   for key, factory in pairs(production.assemblers) do
-    local entity = factory.entity
-    if entity and entity.valid then
+    local entity = resolve_entity(factory)
+    if entity then
       local gid = factory.group_id
       if gid and production.groups[gid] then
         entity.destructible = production.groups[gid].active

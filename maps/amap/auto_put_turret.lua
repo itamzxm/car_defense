@@ -1,6 +1,7 @@
 local Event = require("utils.event")
 local WPT = require 'maps.amap.table'
 local World = require 'maps.amap.world.framework'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：实体引用安全存取
 
 local ammo={
   [1]={name='firearm-magazine'},
@@ -17,9 +18,11 @@ local on_built_entity = function (event)
   if World.get_field(this.world_number, 'free_turret_ammo') then return end
   local player = game.get_player(event.player_index)
   local index=player.index
-  if not this.silo then 
-  if not this.tank[index]
-   then 
+  -- ★ 毒值修复：record 反查实体（失效按原 nil 逻辑处理）
+  local silo = EntRef.resolve(this.silo)
+  if not silo then
+  if not EntRef.resolve(this.tank[index])
+   then
     return
    end
   end

@@ -7,6 +7,7 @@ local Alert = require 'utils.alert'
 local WD = require 'modules.wave_defense.table'
 local Task = require 'utils.task'
 local Token = require 'utils.token'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：实体引用安全存取
 local random = math.random
 
 local ent_to_create = {'biter-spawner', 'spitter-spawner'}
@@ -97,7 +98,11 @@ local function on_player_mined_entity(event)
   local surface = entity.surface
   local this = WPT.get()
 
-  if	surface== this.yiciyuan_surface then return end
+  -- ★ 毒值修复：surface 引用兼容 record/index 双形态（失效安静跳过）
+  local ysys = this.yiciyuan_surface
+  if type(ysys) == 'table' and ysys.surface_index then ysys = game.surfaces[ysys.surface_index] end
+  if type(ysys) == 'number' then ysys = game.surfaces[ysys] end
+  if ysys and surface == ysys then return end
  
   if event.player_index then game.players[event.player_index].insert({name = "coin", count = 1}) end
   local player = game.players[event.player_index]

@@ -14,6 +14,7 @@ local world_function = require 'maps.amap.world.world_function'
 local WD = require 'modules.wave_defense.table'
 local enemy_arty = require 'maps.amap.enemy_arty'
 local Collapse = require 'modules.collapse'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复
 
 --==============================================================================
 -- 地形生成器（原 world_main.lua 第 557-671 行 world_generators[7]）
@@ -138,8 +139,10 @@ end
 -- car_buff 全局钩子：设置 silo 出生点 + 提示放车
 local function on_car_buff(this, rpg_t)
     -- 原 main.lua 行 900-902：世界 7 把出生点设到 silo 位置
-    if this.silo and this.silo.valid then
-        game.forces.player.set_spawn_position(this.silo.position, this.silo.surface)
+    -- ★ 毒值修复：this.silo 已存为可序列化 record，反查真实实体（失效安静跳过）
+    local silo = EntRef.resolve(this.silo)
+    if silo then
+        game.forces.player.set_spawn_position(silo.position, silo.surface)
     end
 
     -- 原 main.lua 行 911-918：世界 7/8 提示放车
@@ -179,15 +182,19 @@ local function on_gain_xp_global(this, wave_number)
     end
     Collapse.set_amount(speed)
 
-    for _, player in pairs(game.connected_players) do
-        local index = player.index
+    -- ★ 毒值修复：this.shop 已存为可序列化 record，反查真实实体（失效安静跳过）
+    local shop = EntRef.resolve(this.shop)
+    if shop then
+        for _, player in pairs(game.connected_players) do
+            local index = player.index
 
-        if not this.now_pos[index] then
-            this.now_pos[index] = this.shop.position
-        end
+            if not this.now_pos[index] then
+                this.now_pos[index] = shop.position
+            end
 
-        if this.now_pos[index].y > now_pos.y then
-            this.now_pos[index] = this.shop.position
+            if this.now_pos[index].y > now_pos.y then
+                this.now_pos[index] = shop.position
+            end
         end
     end
 end

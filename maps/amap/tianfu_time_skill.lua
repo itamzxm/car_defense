@@ -13,6 +13,7 @@ local EntityCache = require 'maps.amap.entity_cache'
 local BasicMarkets = require 'maps.amap.basic_markets'
 local TianfuQuality = require 'maps.amap.tianfu_quality'
 local PetSys = require 'modules.pet_system.table'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：实体引用安全存取
 local Event = require 'utils.event'
 local P = require 'player_modifiers'
 local Public = {}
@@ -32,8 +33,8 @@ local goal = {'unit', 'turret', 'unit-spawner','spider-leg','combat-robot','spid
 
 local function get_player_car_entity(player, q_idx)
     local this = WPT.get()
-    local car_entity = this.tank[player.index]
-    if car_entity and car_entity.valid then
+    local car_entity = EntRef.resolve(this.tank[player.index]) -- ★ 毒值修复：record 反查实体
+    if car_entity then
         return car_entity
     end
     return false

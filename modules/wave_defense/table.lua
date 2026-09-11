@@ -1,6 +1,7 @@
 local Global = require 'utils.global'
 local Event = require 'utils.event'
 local threat_values = require 'modules.wave_defense.threat_values'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复：实体引用安全存取
 
 local this = {}
 local Public = {}
@@ -68,8 +69,8 @@ function Public.reconcile_pentapod_counts()
     local stomper = 0
     local strafer = 0
     for _, biter in pairs(active_biters) do
-        local entity = biter.entity
-        if entity and entity.valid then
+        local entity = EntRef.resolve(biter.entity) -- ★ 毒值修复：record 反查实体（失效返回 nil）
+        if entity then
             local cat = BiterCategoryMap[entity.name]
             if cat == 'stomper' then
                 stomper = stomper + 1
@@ -279,7 +280,7 @@ function Public.on_managed_biter_death(entity, is_managed)
             local active_biters = Public.get('active_biters')
             if active_biters then
                 active_biters[revived.unit_number] = {
-                    entity = revived,
+                    entity = EntRef.record(revived), -- ★ 毒值修复：存 record，不存实体引用
                     spawn_tick = game.tick
                 }
             end

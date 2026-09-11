@@ -15,7 +15,12 @@ Global.register(
 
 local directions = {
     ['north'] = function(position)
-        local width = collapse.surface.map_gen_settings.width
+        -- ★ 毒值修复：surface 改存 index，此处反查（失效安静返回）
+        local surface = game.surfaces[collapse.surface_index]
+        if not surface or not surface.valid then
+            return
+        end
+        local width = surface.map_gen_settings.width
         if width > collapse.max_line_size then
             width = collapse.max_line_size
         end
@@ -24,7 +29,12 @@ local directions = {
         collapse.area = {{position.x - a, position.y - 1}, {position.x + a, position.y}}
     end,
     ['south'] = function(position)
-        local width = collapse.surface.map_gen_settings.width
+        -- ★ 毒值修复：surface 改存 index，此处反查（失效安静返回）
+        local surface = game.surfaces[collapse.surface_index]
+        if not surface or not surface.valid then
+            return
+        end
+        local width = surface.map_gen_settings.width
         if width > collapse.max_line_size then
             width = collapse.max_line_size
         end
@@ -33,7 +43,12 @@ local directions = {
         collapse.area = {{position.x - a, position.y}, {position.x + a, position.y + 1}}
     end,
     ['west'] = function(position)
-        local width = collapse.surface.map_gen_settings.height
+        -- ★ 毒值修复：surface 改存 index，此处反查（失效安静返回）
+        local surface = game.surfaces[collapse.surface_index]
+        if not surface or not surface.valid then
+            return
+        end
+        local width = surface.map_gen_settings.height
         if width > collapse.max_line_size then
             width = collapse.max_line_size
         end
@@ -42,7 +57,12 @@ local directions = {
         collapse.area = {{position.x - 1, position.y - a}, {position.x, position.y + a}}
     end,
     ['east'] = function(position)
-        local width = collapse.surface.map_gen_settings.height
+        -- ★ 毒值修复：surface 改存 index，此处反查（失效安静返回）
+        local surface = game.surfaces[collapse.surface_index]
+        if not surface or not surface.valid then
+            return
+        end
+        local width = surface.map_gen_settings.height
         if width > collapse.max_line_size then
             width = collapse.max_line_size
         end
@@ -80,7 +100,11 @@ local function set_collapse_tiles(surface)
 end
 
 local function progress()
-    local surface = collapse.surface
+    -- ★ 毒值修复：surface 改存 index，此处反查（失效安静返回）
+    local surface = game.surfaces[collapse.surface_index]
+    if not surface or not surface.valid then
+        return
+    end
 
     if not collapse.start_now then
         collapse.tiles = nil
@@ -142,7 +166,8 @@ function Public.set_surface(surface)
         print_debug(3)
         return
     end
-    collapse.surface = surface
+    -- ★ 毒值修复：global 禁存 LuaSurface（userdata），改存 surface.index
+    collapse.surface_index = surface.index
 end
 
 function Public.set_direction(direction)

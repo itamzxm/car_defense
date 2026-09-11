@@ -11,6 +11,7 @@
 local World = require 'maps.amap.world.framework'
 local WPT = require 'maps.amap.table'
 local WD = require 'modules.wave_defense.table'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复
 local diff = require 'maps.amap.diff'
 local world_function = require 'maps.amap.world.world_function'
 local tianfu = require 'maps.amap.tianfu'
@@ -225,8 +226,9 @@ local function world19_refresh_spawn_positions()
     local this = WPT.get()
     if (this and this.world_number or 0) ~= 19 then return end
 
-    local target = WD.get('target')
-    if not target or not target.valid then return end
+    -- ★ 毒值修复：target 已 record 化，反查真实实体（失效安静跳过）
+    local target = EntRef.resolve(WD.get('target'))
+    if not target then return end
     local surface = target.surface
     if not surface or not surface.valid then return end
 

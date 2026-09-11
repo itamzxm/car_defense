@@ -46,6 +46,7 @@
 
 local World = require 'maps.amap.world.framework'
 local WPT = require 'maps.amap.table'
+local EntRef = require 'maps.amap.entity_ref' -- ★ 毒值修复
 local WD = require 'modules.wave_defense.table'
 local diff = require 'maps.amap.diff'
 local tianfu = require 'maps.amap.tianfu'
@@ -848,8 +849,9 @@ local fire_nuke_token
 fire_nuke_token = Token.register(function(silo)
     if not silo or not silo.valid then return end
     local wave_defense_table = WD.get_table()
-    local target = wave_defense_table.target
-    if not target or not target.valid then return end
+    -- ★ 毒值修复：target 已 record 化，反查真实实体（失效安静跳过）
+    local target = EntRef.resolve(wave_defense_table.target)
+    if not target then return end
     silo.surface.create_entity({
         name = 'atomic-rocket',
         position = {x = target.position.x, y = target.position.y - 100},
@@ -928,8 +930,9 @@ local function world21_fortress_monitor()
     -- 发射节奏与 silo 世界一致：每 3 分钟警告后发射一枚 atomic-rocket
     if game.tick >= (this.world21_nuke_next_fire or math.huge) then
         this.world21_nuke_next_fire = game.tick + NUKE_INTERVAL_TICKS
-        local target = WD.get_table().target
-        if target and target.valid then
+        -- ★ 毒值修复：target 已 record 化，反查真实实体（失效安静跳过）
+        local target = EntRef.resolve(WD.get_table().target)
+        if target then
             game.print('警告：敌方核弹发射井将在3分钟后发射核弹！', {255, 0, 0})
             game.print('警告：敌方核弹发射井将在3分钟后发射核弹！！', {255, 0, 0})
             game.print('警告：敌方核弹发射井将在3分钟后发射核弹！！！', {255, 0, 0})
@@ -949,8 +952,9 @@ end
 local function world21_enforce_shop_prices()
     local this = WPT.get()
     if (this and this.world_number or 0) ~= 21 then return end
-    local shop = this.shop
-    if not shop or not shop.valid then return end
+    -- ★ 毒值修复：this.shop 已存为可序列化 record，反查真实实体（失效安静跳过）
+    local shop = EntRef.resolve(this.shop)
+    if not shop then return end
 
     local items = shop.get_market_items()
     local changed = false
