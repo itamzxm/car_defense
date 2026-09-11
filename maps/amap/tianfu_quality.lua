@@ -3,7 +3,7 @@
 -- 不缓存任何运行时状态到模块级 local，避免 desync（见项目记忆 utils/gui.lua 红线）。
 
 local WPT = require 'maps.amap.table'
-local pet = require 'modules.pet_system.table'
+local QRoll = require 'utils.quality_roll'
 local Public = {}
 
 -- 品质档位（整数 1..5 对应）
@@ -14,6 +14,16 @@ local QUALITY_SPRITES = {
     'quality/rare',
     'quality/epic',
     'quality/legendary'
+}
+
+-- 品质颜色（0-255 系；原 modules/pet_system/table.lua quality_colors 原样迁入，
+-- Factorio GUI font_color / print color 需 /255）
+local QUALITY_COLORS = {
+    {r = 200, g = 200, b = 200}, -- 1 普通 灰
+    {r = 50,  g = 205, b = 50 }, -- 2 精良 绿(uncommon)
+    {r = 30,  g = 144, b = 255}, -- 3 稀有 蓝(rare)
+    {r = 147, g = 112, b = 219}, -- 4 史诗 紫
+    {r = 255, g = 165, b = 0  }, -- 5 传说 橙
 }
 
 -- 品质系数（与三个 skill 文件保持一致；LOW=低基础值天赋，REG=常规天赋）
@@ -246,12 +256,12 @@ local DISPLAY = {
     qiushengbenneng = { coeff = 'REG', vals = {100} },             -- 求生本能：低血回复效果+100%×REG
 }
 
--- 学天赋时调用一次：宠物直接返回品质整数 1..5
--- tier: 'low'(默认,普通购买) / 'mid'(中级购买) / 'high'(高级购买)，对应宠物 quality_weights 三档
+-- 学天赋时调用一次：直接返回品质整数 1..5
+-- tier: 'low'(默认,普通购买) / 'mid'(中级购买) / 'high'(高级购买)，对应 quality_weights 三档（utils/quality_roll.lua）
 -- player（T3-B 转运）：传入时结算品质保底——学了「转运」的玩家连续 threshold 次未出最高两档，
 -- 下一次必出最高两档（史诗/传说）；threshold 逐档 {3,3,2,2,2}
 function Public.roll(tier, player)
-    local q = pet.roll_quality(tier or 'low')
+    local q = QRoll.roll_quality(tier or 'low')
     if player then
         local this = WPT.get()
         local learned = this.skill and this.skill[player.name] or nil
@@ -298,7 +308,7 @@ end
 
 -- 返回 0-255 系 {r,g,b}（Factorio GUI font_color / print color 需 /255）
 function Public.color(q)
-    return pet.quality_colors[q]
+    return QUALITY_COLORS[q]
 end
 
 -- 返回 GUI sprite 路径（Factorio 2.0 quality 图标）

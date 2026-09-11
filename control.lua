@@ -95,13 +95,10 @@ if config.map.amap_tank.enabled then
 end
 
 -- =============================================================================
--- 更多模块（RPG/宠物，需在地图后加载）
+-- 更多模块（RPG，需在地图后加载）
 -- =============================================================================
 if config.modules.rpg.enabled then
     require 'modules.rpg.main'
-end
-if config.modules.pet_system.enabled then
-    require 'modules.pet_system.main'
 end
 
 -- =============================================================================

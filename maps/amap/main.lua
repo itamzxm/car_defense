@@ -81,7 +81,6 @@ require 'modules.shotgun_buff'
 require 'modules.wave_defense.main'
 require 'modules.charging_station'
 
-local pet_system = require 'modules.pet_system.table'
 local PseudoBuilding = require 'maps.amap.pseudo_building.main'  -- 伪建筑框架（门面，内部 require 5 个 buildings）
 
 require 'maps.amap.wheel_of_fortune'
@@ -571,7 +570,6 @@ function Public.reset_map()
     
     WorldTable.reset_table()
     tianfu.reset_table()
-    pet_system.reset_table()
     PseudoBuilding.reset_table()
 
     Balance.init_enemy_weapon_damage()

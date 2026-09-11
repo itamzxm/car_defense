@@ -12,7 +12,6 @@ local BiterClass = require 'maps.amap.biter_class'
 local EntityCache = require 'maps.amap.entity_cache'
 local BasicMarkets = require 'maps.amap.basic_markets'
 local TianfuQuality = require 'maps.amap.tianfu_quality'
-local PetSys = require 'modules.pet_system.table'
 local Event = require 'utils.event'
 local P = require 'player_modifiers'
 local Public = {}
@@ -5778,29 +5777,20 @@ local function duoduoyishan(player, q_idx)
     new_print(player, { 'tianfu.duoduoyishan_over', spawned, gold })
 end
 
--- #21 自动贩卖机（法师）：每5秒检测一次，当背包中鱼数量超过「1000 + 宠物数量×2000」时，
--- 超出部分的鱼自动按商店价格贩卖成金币。宠物数量上限3（Y 上限，clamp 0..3）。
+-- #21 自动贩卖机（法师）：每5秒检测一次，当背包中鱼数量超过「1000」时，
+-- 超出部分的鱼自动按商店价格贩卖成金币。
 -- 不应用品质：q_idx 不参与任何数值计算（阈值、售价、超出量均与品质无关）。
 -- 商店收购价取 basic_markets.lua:62 market.caspules['raw-fish'].value = 7（每条鱼7金币）。
--- 复用项目标准加币接口 insert_item_to_player(player, 'coin', n) 发放金币；鱼移除用 player.remove_item（与宠物系统饥饿扣鱼同源）。
--- 错误不可掩盖：鱼不足阈值、宠物数为0、未学会等均正常 return，不 try-catch 兜底。
+-- 复用项目标准加币接口 insert_item_to_player(player, 'coin', n) 发放金币；鱼移除用 player.remove_item。
+-- 错误不可掩盖：鱼不足阈值、未学会等均正常 return，不 try-catch 兜底。
 local FISH_SHOP_PRICE = 4        -- 商店收购价：每条鱼固定 4 金币（用户确认）
-local FISH_BASE_THRESHOLD = 1000 -- 阈值基础值 X = 1000
-local FISH_PER_PET = 2000        -- 每只宠物增加阈值 Y = 2000
-local FISH_PET_MAX = 3           -- 宠物数量上限（Y 上限）
+local FISH_BASE_THRESHOLD = 1000 -- 卖鱼阈值 = 1000
 
 local function zidongfanmai(player, q_idx)
     if not check_tick(player, 'zidongfanmai') then
         return
     end
-    -- 宠物数量（上限 3，clamp 到 0..3）
-    local pet_data = PetSys.get_player_pet_data(player)
-    local pet_count = #pet_data.pets
-    if pet_count > FISH_PET_MAX then
-        pet_count = FISH_PET_MAX
-    end
-    -- 阈值 = X + Y×宠物数量
-    local threshold = FISH_BASE_THRESHOLD + pet_count * FISH_PER_PET
+    local threshold = FISH_BASE_THRESHOLD
     -- 背包鱼数量
     local fish_count = player.get_item_count('raw-fish')
     if fish_count <= threshold then

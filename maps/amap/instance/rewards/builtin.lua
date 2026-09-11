@@ -5,8 +5,8 @@
 --   1. recipe_productivity (common/低档) - 随机 1 个已解锁非太空配方 +3% 产能（固定）
 --   2. force_modifier     (rare/中档)   - 随机 1 项 force modifier 加成（百分比 +0.03 / 绝对值 +1，固定）
 --   3. damage_bonus       (epic/高档)   - 随机 1 种弹药类型 +3% 伤害（固定）
---   4a. shop_pack_low     (common/低档) - 10K × multiplier 金币的随机商店物品，品质按宠物 low 权重
---   4b. shop_pack_mid     (rare/中档)   - 10K × multiplier 金币的随机商店物品，品质按宠物 mid 权重
+--   4a. shop_pack_low     (common/低档) - 10K × multiplier 金币的随机商店物品，品质按 low 档权重
+--   4b. shop_pack_mid     (rare/中档)   - 10K × multiplier 金币的随机商店物品，品质按 mid 档权重
 --
 -- 设计说明：
 --   - 卡片 GUI 显示时通过 roll_preview 滚出具体参数（哪个配方/哪个 modifier/哪个弹药）
@@ -16,14 +16,14 @@
 --   - 商店随机包：物品是发放时才随机（因为玩家表现决定总价值），预抽只显示档位描述
 
 local Rewards = require 'maps.amap.instance.rewards'
-local Pet = require 'modules.pet_system.table'
+local QRoll = require 'utils.quality_roll'
 local WPT = require 'maps.amap.table'
 
 -- 保卫战特殊奖励依赖
 local RPG = require 'modules.rpg.table'
 local Tianfu = require 'maps.amap.tianfu'
 
--- 品质名（Factorio 2.0+ 标准名，下标 1..5 对应宠物系统 roll_quality 返回值）
+-- 品质名（Factorio 2.0+ 标准名，下标 1..5 对应 utils.quality_roll 的 roll_quality 返回值）
 local QUALITY_NAMES = {'normal', 'uncommon', 'rare', 'epic', 'legendary'}
 
 --==============================================================================
@@ -352,7 +352,7 @@ local function grant_shop_pack(player, data, multiplier, quality_tier)
         if price > remaining then goto continue end
 
         -- 滚品质（1..5）
-        local q_idx = Pet.roll_quality(quality_tier)
+        local q_idx = QRoll.roll_quality(quality_tier)
         local quality = QUALITY_NAMES[q_idx]
 
         local item_name = offer.offer.item
@@ -372,37 +372,6 @@ local function grant_shop_pack(player, data, multiplier, quality_tier)
     end
 
     player.print({'amap.reward_shop_pack_granted', total_value, items_granted_count},
-                 {r = 0, g = 1, b = 0})
-end
-
---==============================================================================
--- 保卫战特殊奖励 1：宠物技能书（3 档分别归入 common/rare/epic）
--- 发放方式：pet_data.skill_books[book_type] += 1（玩家之后可在宠物 GUI 使用）
--- 不直接弹 GUI，避免在副本退出瞬间打断玩家
---==============================================================================
-
-local function pet_skill_book_roll_preview(player, difficulty, book_type)
-    return {
-        display_key = 'amap.reward_pet_skill_book_preview',
-        display_args = {{'amap.reward_pet_skill_book_tier_' .. book_type}},
-        params = {book_type = book_type}
-    }
-end
-
-local function grant_pet_skill_book(player, data, multiplier, params)
-    local book_type = params.book_type
-    -- 直接增加技能书计数器（参考 modules/pet_system/main.lua:170-197 的 purchase_skill_book 内部逻辑）
-    -- Pet.get_player_pet_data 在 modules/pet_system/table.lua:353 定义
-    local pet_data = Pet.get_player_pet_data(player)
-    if not pet_data then
-        player.print({'amap.reward_pet_skill_book_no_pet'}, {r = 1, g = 0.5, b = 0})
-        return
-    end
-    if not pet_data.skill_books then
-        pet_data.skill_books = {low = 0, mid = 0, high = 0}
-    end
-    pet_data.skill_books[book_type] = pet_data.skill_books[book_type] + 1
-    player.print({'amap.reward_pet_skill_book_granted', {'amap.reward_pet_skill_book_tier_' .. book_type}},
                  {r = 0, g = 1, b = 0})
 end
 
@@ -562,43 +531,6 @@ Rewards.register('shop_pack_mid', {
     grant_scaled = function(player, data, multiplier, params)
         grant_shop_pack(player, data, multiplier, 'mid')
     end
-})
-
--- 保卫战特殊奖励：宠物技能书（3 档分别归入 common/rare/epic）
-Rewards.register('pet_skill_book_low', {
-    name_key = 'amap.reward_pet_skill_book_name',
-    description_key = 'amap.reward_pet_skill_book_desc',
-    category = 'common',
-    icon = 'item/book',
-    weight = 1,
-    roll_preview = function(player, difficulty)
-        return pet_skill_book_roll_preview(player, difficulty, 'low')
-    end,
-    grant_scaled = grant_pet_skill_book
-})
-
-Rewards.register('pet_skill_book_mid', {
-    name_key = 'amap.reward_pet_skill_book_name',
-    description_key = 'amap.reward_pet_skill_book_desc',
-    category = 'rare',
-    icon = 'item/book',
-    weight = 1,
-    roll_preview = function(player, difficulty)
-        return pet_skill_book_roll_preview(player, difficulty, 'mid')
-    end,
-    grant_scaled = grant_pet_skill_book
-})
-
-Rewards.register('pet_skill_book_high', {
-    name_key = 'amap.reward_pet_skill_book_name',
-    description_key = 'amap.reward_pet_skill_book_desc',
-    category = 'epic',
-    icon = 'item/book',
-    weight = 1,
-    roll_preview = function(player, difficulty)
-        return pet_skill_book_roll_preview(player, difficulty, 'high')
-    end,
-    grant_scaled = grant_pet_skill_book
 })
 
 -- 保卫战特殊奖励：RPG 四属性点（rare/中档，4 选 1 加 20 点）

@@ -18,7 +18,6 @@ config.modules = {
     show_inventory = { enabled = true },   -- 显示背包按钮
     autostash      = { enabled = true },   -- 自动整理物品进箱子
     rpg            = { enabled = true },   -- RPG 系统（属性/法术，与地图数值耦合）
-    pet_system     = { enabled = true },   -- 宠物系统
 }
 
 -- =============================================================================

@@ -1,6 +1,6 @@
 -- 顶栏按钮顺序管理（参考 archive/classic-changes 的 top_button_order.lua）
 -- 玩家加入时按 TOP_BUTTON_ORDER 重排 mod_gui 大框（mod_gui_inner_frame）内的按钮。
--- 目标顺序：折叠开关恒第一，然后 鱼、投票、RPG、宠物、天赋、难度、选图、地图信息、蓄电池。
+-- 目标顺序：折叠开关恒第一，然后 鱼、投票、RPG、天赋、难度、选图、地图信息、蓄电池。
 -- 说明：
 --   - 难度按钮（difficulty_gui）当前隐藏（HIDE_DIFFICULTY_BUTTON=true），不显示也不影响顺序；
 --   - 未列入顺序的按钮（如 minimap_button）排在最后；
@@ -13,7 +13,6 @@ local Event = require 'utils.event'
 local Gui = require 'utils.gui'
 local Poll = require 'comfy_panel.poll'
 local RPG = require 'modules.rpg.table'
-local Pet = require 'modules.pet_system.table'
 local AmapGui = require 'maps.amap.gui'
 
 local Public = {}
@@ -23,7 +22,6 @@ local TOP_BUTTON_ORDER = {
     'comfy_panel_top_button',       -- 鱼
     Poll.main_button_name,          -- 投票
     RPG.draw_main_frame_name,       -- RPG
-    Pet.draw_main_button_name,      -- 宠物
     'tianfu',                       -- 天赋
     'difficulty_gui',               -- 难度（当前隐藏，保留位置）
     'poll_button',                  -- 选图
