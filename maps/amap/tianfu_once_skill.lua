@@ -54,10 +54,6 @@ local function new_print(player, text, q_idx)
     -- }
 end
 
-
-
-Public.once_skills = once_skills
-
 -- 一次性技能函数定义
 -- 帝国战歌（指挥部光环档1，T3-B1 补注册：取消注释并进抽取池）
 local function dgzg(player, q_idx)

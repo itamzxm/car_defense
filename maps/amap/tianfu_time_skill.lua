@@ -24,6 +24,13 @@ local BuilderArm = require 'maps.amap.builder_arm_fx'
 -- 品质系数表（Phase B 方案2）：核心数值 ≤10 用 LOW，>10 用 REG
 local COEFF_LOW = {1, 1.2, 1.4, 1.6, 1.8}
 local COEFF_REG = {1, 1.2, 1.4, 1.6, 1.8}
+
+-- 回复效果系统级加成（泰坦之躯二段/求生本能共用出口）——前向声明
+-- ★ Lua 作用域规则：local 仅在声明行【之后】的文本中生效。chifu/sglz/wolf/hushenfu/
+--   xuexijinjie 五个技能的回复调用都在文件尾（~7160 行）定义之前，本声明必须保持
+--   在文件头部（任何调用点之前），否则声明行之前的引用编译为全局访问 → nil →
+--   "attempt to call global 'get_heal_mult'"（2026-09-12 修复，勿下移此声明）
+local get_heal_mult
 -- 成品类天赋：物品品质名（q_idx 1..5 → normal..legendary），用于 player.insert 的 quality 字段
 local QUALITY_NAMES = {'normal', 'uncommon', 'rare', 'epic', 'legendary'}
 
@@ -2744,6 +2751,18 @@ end
 
 local function wlfs(player, q_idx)
     if check_tick(player, 'wlfs') then
+        -- 召唤消耗表（2026-09-12 排雷修复：原代码引用未定义的全局 t → pairs(nil) 运行时崩溃；
+        -- 数值取本项目既有先例 tianfu_trigger_skill.lua bug_value_map，策划如需调整请改此处）
+        local t = {
+            ['behemoth-biter'] = 128,
+            ['behemoth-spitter'] = 128,
+            ['big-biter'] = 64,
+            ['big-spitter'] = 64,
+            ['medium-biter'] = 16,
+            ['medium-spitter'] = 16,
+            ['small-biter'] = 4,
+            ['small-spitter'] = 4,
+        }
         local main_table = WPT.get()
         if player.physical_surface ~= game.surfaces[main_table.active_surface_index] then
             return false
@@ -3245,6 +3264,18 @@ end
  
 local function hmds(player, q_idx)
     if check_tick(player, 'hmds') then
+        -- 召唤消耗表（2026-09-12 排雷修复：原代码引用未定义的全局 t → pairs(nil) 运行时崩溃；
+        -- 数值取本项目既有先例 tianfu_trigger_skill.lua bug_value_map，策划如需调整请改此处）
+        local t = {
+            ['behemoth-biter'] = 128,
+            ['behemoth-spitter'] = 128,
+            ['big-biter'] = 64,
+            ['big-spitter'] = 64,
+            ['medium-biter'] = 16,
+            ['medium-spitter'] = 16,
+            ['small-biter'] = 4,
+            ['small-spitter'] = 4,
+        }
         local value = upgrade_spell(player, "ch", { 'spells.ch' }, true)
         local main_table = WPT.get()
         if player.physical_surface ~= game.surfaces[main_table.active_surface_index] then
@@ -7064,8 +7095,8 @@ Public.duoduoyishan = duoduoyishan
 -- T3-B 新卡落地（设计真值：策划案-真树设计-v1.md §6 + 策划案-天赋设计v3-B批-新卡设计.md）
 -- ===================================================================
 
--- 回复效果系统级加成（泰坦之躯二段共用出口，实现在下方批2代码块，此处前向声明）
-local get_heal_mult
+-- 回复效果系统级加成（泰坦之躯二段共用出口）：声明已上提到文件头
+-- （require 区之后），此处只留注释；定义见下方批2代码块 ~7160 行
 
 -- 学习进阶（血线档2·受击驱动，先例：荆棘甲受击/水护符充能层）
 -- 受伤时 +1 层「感悟」（受伤事件由 tianfu.lua 调 Public.xuexijinjie_hit）；
