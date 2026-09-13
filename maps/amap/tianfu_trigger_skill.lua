@@ -395,7 +395,11 @@ local function relife(player, q_idx)
 
         if #entities ~= 0 then
             for k, v in pairs(entities) do
-                v.die()
+                -- FIX-TIANFU-1：快照迭代期间前序死亡会连带销毁从属实体（五足虫→腿），
+                -- 后续实体可能已失效；die 前校验有效（迭代中实体生命周期变化是引擎正常行为）。
+                if v.valid then
+                    v.die()
+                end
             end
         end
 

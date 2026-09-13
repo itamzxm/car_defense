@@ -975,6 +975,66 @@ local function on_tick()
     local this = TPT.get()
     local current_tick = game.tick
 
+    -- ===== FIX-TIANFU-1 存量修复（一次性；标志位防重跑；失败不置位、按错误正常暴露）=====
+    -- 背景（2026-09-13 用户裁定）：①8b5ed75 删除「方案 C 旧存档迁移」后，被崩溃中断的技能链
+    -- 无补登记路径（静默失灵不自愈）；②千川归海修复前已把部分玩家四维压到 <10，派生修饰符/
+    -- 法力上限被负值污染。本块对存量数据做一次性修复，完成置 this.fix_tianfu_1_done。
+    if not this.fix_tianfu_1_done then
+        -- ① 属性先行：四维钳回 ≥10，并重算派生状态（修饰符/法力上限），先消除负值来源
+        local rpg_t = rpgtable.get('rpg_t')
+        local clamped_players = 0
+        for player_index, stats in pairs(rpg_t) do
+            local player = game.players[player_index]
+            if player and player.valid then
+                if stats.strength < 10 or stats.dexterity < 10 or stats.magicka < 10 or stats.vitality < 10 then
+                    stats.strength = math.max(10, stats.strength)
+                    stats.dexterity = math.max(10, stats.dexterity)
+                    stats.magicka = math.max(10, stats.magicka)
+                    stats.vitality = math.max(10, stats.vitality)
+                    clamped_players = clamped_players + 1
+                end
+                rpgtable.update_player_stats(player)
+            end
+        end
+
+        -- ② 天赋链重建：清空 due_buckets 后按 player_time_skills 全量登记下一次到期
+        --（含离线玩家；先清空保证每个已学周期技能只有一条链，杜绝重复登记双倍触发）
+        this.due_buckets = {}
+        local rebuilt_skills = 0
+        for player_name, skills in pairs(this.player_time_skills) do
+            local player_index = nil
+            for idx, p in pairs(game.players) do
+                if p.name == player_name then
+                    player_index = idx
+                    break
+                end
+            end
+            if player_index then
+                for skill_name, _ in pairs(skills) do
+                    local cooldown = (time_skills[skill_name] or {}).time or 60
+                    if cooldown <= 0 then cooldown = 1 end
+                    cooldown = get_chaopin_cooldown(player_index, player_name, cooldown)
+                    local next_tick = current_tick + cooldown
+                    local next_bucket = this.due_buckets[next_tick]
+                    if not next_bucket then
+                        next_bucket = {}
+                        this.due_buckets[next_tick] = next_bucket
+                    end
+                    local next_player_skills = next_bucket[player_index]
+                    if not next_player_skills then
+                        next_player_skills = {}
+                        next_bucket[player_index] = next_player_skills
+                    end
+                    next_player_skills[#next_player_skills + 1] = skill_name
+                    rebuilt_skills = rebuilt_skills + 1
+                end
+            end
+        end
+
+        this.fix_tianfu_1_done = true
+        log('[FIX-TIANFU-1] 存量修复完成: 四维钳制=' .. clamped_players .. ' 人, due_buckets 链重建=' .. rebuilt_skills .. ' 条')
+    end
+
     -- ===== 方案 C：tick 分桶调度 =====
     -- 查当前 tick 的到期桶，桶里只放当前 tick 到期的 time_skill
     -- 无桶立即返回（每 tick O(1) 查表，无函数调用开销）
@@ -993,16 +1053,15 @@ local function on_tick()
             if not player or not player.valid then
                 goto next_player
             end
-            -- can_call 控制是否真正调用天赋：断线/副本内/AFK 时仍登记下一次到期，保持桶调度链不断
-            -- character 有效性不在此判断，而是由 tianfu_time_skill.lua 的 check_tick 统一守卫
-            -- （每个 time_skill 入口都是 if check_tick(...) then）。
-            -- ⚠ 历史坑：曾一度把 check_tick 退化为 `return true`，且此处注释写「由各技能函数
-            -- 内部自检兜底」，两边互相甩锅导致 character 检查真空 —— 玩家死亡期间
-            -- player.character == nil 仍被调用，rsrl/tzzj/falibiqu/dutu/wudi 等直接崩溃。
-            -- 修改本段或 check_tick 时务必保证这层守卫始终存在。
+            -- can_call 控制是否真正调用天赋：断线/副本内/AFK/死亡等待重生时仍登记下一次到期，保持桶调度链不断
+            -- FIX-TIANFU-1（2026-09-13）：角色状态守卫回归本层。check_tick 已退化为恒 true，不再承担
+            -- character 检查；历史坑：此处注释与 check_tick 互相甩锅导致检查真空——玩家死亡期间
+            -- character==nil 仍被调用，rsrl/tzzj/falibiqu/dutu/wudi 等 19 个同型技能崩溃并中断整桶
+            -- （断链放大器）。禁止 pcall 吞错等兜底，见 SKILL.md「错误不可掩盖」。
             local can_call = player.connected
                              and player.force.name == 'player'
                              and player.afk_time <= 36000
+                             and player.character and player.character.valid
             local enabled = enabled_all[player_index] or {}
             local q_table = q_all[player.name] or {}
             local p_time_skills = player_time_skills[player.name]
@@ -1275,7 +1334,8 @@ local function on_pre_player_died(event)
         tianfu_trigger_skill.bujiezhiqu(player, q_table.bujiezhiqu or 1)
     end
 
-    if event.cause and event.cause.name == 'character' then
+    -- FIX-TIANFU-1：击杀者实体可能在本事件处理时已失效（同 tick 双死等），.player 前先验 .valid
+    if event.cause and event.cause.valid and event.cause.name == 'character' then
         local attacker = event.cause.player
         if attacker and attacker.valid and attacker.force == player.force then
             if player.character and player.character.valid then

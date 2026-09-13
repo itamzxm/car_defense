@@ -4739,13 +4739,10 @@ local function zishenzhuanjia(player, q_idx)
     local b_force = target_building.force
     
     -- 只保存配方名称（字符串），不保存对象
+    -- FIX-TIANFU-1：仅组装机需要/能够由脚本恢复配方（引擎 2.1 set_recipe 只支持 assembling-machine）；
+    -- furnace 的配方由输入物自动决定，脚本无法设置，故不保存、重建后也不恢复（冶炼随库存还原自动继续）。
     local recipe_name = nil
     if target_building.type == "assembling-machine" then
-        local r = target_building.get_recipe()
-        if r then
-            recipe_name = r.name
-        end
-    elseif target_building.type == "furnace" then
         local r = target_building.get_recipe()
         if r then
             recipe_name = r.name
@@ -4776,8 +4773,8 @@ local function zishenzhuanjia(player, q_idx)
     })
     
     if new_building and new_building.valid then
-        -- 在还原库存前设置配方
-        if recipe_name then
+        -- 在还原库存前设置配方（按类型分支：仅组装机；furnace 无脚本设配方 API，不得调用 set_recipe）
+        if recipe_name and new_building.type == "assembling-machine" then
             new_building.set_recipe(recipe_name)
         end
         
@@ -7300,6 +7297,11 @@ Public.qianchuanguihai = function(player, q_idx)
     end)
     -- 四维严格递增才执行（最低两项/最高一项无歧义）
     if not (attrs[1].value < attrs[2].value and attrs[2].value < attrs[3].value and attrs[3].value < attrs[4].value) then
+        return true
+    end
+    -- FIX-TIANFU-1（2026-09-13 用户裁定）：下限保护——最低两维任一点数 ≤10 直接跳过（不触发），
+    -- 均 ≥11 才执行 -1/+2 转移；保证任何维度不跌破 10，总和守恒不变。
+    if attrs[1].value <= 10 or attrs[2].value <= 10 then
         return true
     end
     stats[attrs[1].name] = attrs[1].value - 1
