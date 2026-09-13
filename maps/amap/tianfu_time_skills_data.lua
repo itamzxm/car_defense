@@ -451,7 +451,7 @@ Data.time_skills = {
         time = 60 * 60 * 5 -- 每5分钟一次性结算击杀金币（+30%×REG）（原误填60*5=5秒）
     },
     ['zhuanyun'] = {
-        time = 60 -- 占位 tick（保底结算在 TianfuQuality.roll 内）
+        time = 60 -- 占位 tick（保底结算在开箱抽奖处：loot.cool/cool_with_quality）
     },
     ['chaopindianwang'] = {
         time = 60 -- 占位 tick（间隔缩短结算在 tianfu.lua 桶调度冷却计算处）

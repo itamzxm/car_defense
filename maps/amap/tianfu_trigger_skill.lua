@@ -422,7 +422,7 @@ local function jika(player, q_idx)
     Loot.cool_with_quality(player.physical_surface, player.physical_surface
         .find_non_colliding_position("steel-chest", player.physical_position, 20, 1, true) or player.physical_position,
         'steel-chest',
-        magic)
+        magic, player)
 
     -- 显示消息
     local msg = { 'amap.whatopen' }
@@ -1421,7 +1421,7 @@ local function hyll(player, q_idx)
         Loot.cool_with_quality(player.physical_surface, player.physical_surface
             .find_non_colliding_position("steel-chest", player.physical_position, 20, 1, true) or
             player.physical_position, 'steel-chest',
-            magic)
+            magic, player)
 
         local msg = { 'amap.whatopen' }
         Alert.alert_player(player, 5, msg)

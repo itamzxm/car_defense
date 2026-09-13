@@ -133,6 +133,7 @@ this.gun_turret={}
   this.tianfu_lengque = {}
   this.tianfu_enabled = {}  -- 存储玩家天赋启用状态：this.tianfu_enabled[player_index][skill_id] = true/false
   this.tianfu_islands = {}  -- 存储海景房天赋的岛屿信息：this.tianfu_islands[player_index] = {island_id = island_id, surface_index = surface_index}
+  this.zhuanyun_pity = {}   -- 转运开箱保底：player.index -> 连续未开出史诗/传说的开箱次数（loot.cool/cool_with_quality 结算）
   --引入结束
   
   -- 玩家手搓经验倍数

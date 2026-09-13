@@ -103,11 +103,11 @@ local function shit_luck(player, q_idx)
                 player.physical_surface, 
                 position, 
                 'steel-chest',
-                magic
+                magic, player
             )
         else
             -- 使用普通开箱函数
-            Loot.cool(player.physical_surface, position, 'steel-chest', magic)
+            Loot.cool(player.physical_surface, position, 'steel-chest', magic, player)
         end
     end
 

@@ -2546,7 +2546,7 @@ local function smlw(player, q_idx)
         Loot.cool_with_quality(player.physical_surface, player.physical_surface
             .find_non_colliding_position("steel-chest", player.physical_position, 20, 1, true) or
             player.physical_position, 'steel-chest',
-            magic)
+            magic, player)
 
         local msg = { 'amap.whatopen' }
         Alert.alert_player(player, 5, msg)
@@ -3575,7 +3575,7 @@ local function dutu(player, q_idx)
             Loot.cool(player.physical_surface, player.physical_surface
                 .find_non_colliding_position("steel-chest", player.physical_position, 20, 1, true) or
                 player.physical_position,
-                'steel-chest', magic)
+                'steel-chest', magic, player)
 
             local msg = { 'amap.whatopen' }
             Alert.alert_player(player, 5, msg)
@@ -7522,7 +7522,7 @@ Public.faxinri = function(player, q_idx)
 end
 
 -- 转运（幸运枝保底档，先例：集卡计数/神秘礼物抽奖源）
--- 效果在 TianfuQuality.roll 内结算（连续未出最高两档→下次必出），此处为 tick 占位
+-- 效果在开箱抽奖处结算（loot.cool/cool_with_quality：连续未出最高两档→下次必出），此处为 tick 占位
 Public.zhuanyun = function(player, q_idx)
     return true
 end

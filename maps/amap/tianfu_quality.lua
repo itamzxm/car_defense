@@ -30,6 +30,9 @@ local QUALITY_COLORS = {
 local COEFF_LOW = {1, 1.2, 1.4, 1.6, 1.8}
 local COEFF_REG = {1, 1.2, 1.4, 1.6, 1.8}
 
+-- 转运（zhuanyun）开箱保底阈值：逐档 {3,3,2,2,2}；天赋卡面展示（DISPLAY）与开箱结算（loot.lua）共用同源
+local ZHUANYUN_THRESHOLD = {3, 3, 2, 2, 2}
+
 -- 取整：直接 math.floor，严格对齐游戏内（应用代码与描述注入共用本函数，保证二者数值一致）
 local function qround(x)
     return math.floor(x)
@@ -243,7 +246,7 @@ local DISPLAY = {
     qianchuanguihai = { arr = {60, 50, 40, 32, 25} },              -- 千川归海：转移间隔 {60..25} 秒
     tianshitouzi = { arr = {20, 30, 50, 80, 120} },                -- 天使投资：每分钟资助 {20..120} 经验
     zhuleishu = { arr = {30, 25, 20, 15, 12} },                    -- 筑垒术：施工间隔 {30..12} 秒
-    zhuanyun = { arr = {3, 3, 2, 2, 2} },                          -- 转运：保底阈值 {3,3,2,2,2} 次
+    zhuanyun = { arr = ZHUANYUN_THRESHOLD },                          -- 转运：开箱保底阈值（与 loot.lua 结算同源）
 
     -- ===== T3-B 新卡（批3） =====
     jixieshi = { coeff = 'LOW', vals = {8} },                      -- 机械师：治疗 8%×LOW
@@ -256,33 +259,14 @@ local DISPLAY = {
     qiushengbenneng = { coeff = 'REG', vals = {100} },             -- 求生本能：低血回复效果+100%×REG
 }
 
--- 学天赋时调用一次：直接返回品质整数 1..5
+-- 学天赋时调用一次：直接返回品质整数 1..5（基础权重；转运保底不在天赋品质域结算）
 -- tier: 'low'(默认,普通购买) / 'mid'(中级购买) / 'high'(高级购买)，对应 quality_weights 三档（utils/quality_roll.lua）
--- player（T3-B 转运）：传入时结算品质保底——学了「转运」的玩家连续 threshold 次未出最高两档，
--- 下一次必出最高两档（史诗/传说）；threshold 逐档 {3,3,2,2,2}
-function Public.roll(tier, player)
-    local q = QRoll.roll_quality(tier or 'low')
-    if player then
-        local this = WPT.get()
-        local learned = this.skill and this.skill[player.name] or nil
-        local threshold = learned and learned.zhuanyun and ({3, 3, 2, 2, 2})[learned.zhuanyun] or nil
-        if threshold then
-            if not this.zhuanyun_pity then
-                this.zhuanyun_pity = {}
-            end
-            local streak = this.zhuanyun_pity[player.index] or 0
-            if streak >= threshold then
-                q = math.random(4, 5)
-                this.zhuanyun_pity[player.index] = 0
-            elseif q < 4 then
-                this.zhuanyun_pity[player.index] = streak + 1
-            else
-                this.zhuanyun_pity[player.index] = 0
-            end
-        end
-    end
-    return q
+function Public.roll(tier)
+    return QRoll.roll_quality(tier or 'low')
 end
+
+-- 转运开箱保底阈值表：loot.lua 的 cool/cool_with_quality 结算读取（与 DISPLAY 同源共用，避免双源漂移）
+Public.zhuanyun_threshold = ZHUANYUN_THRESHOLD
 
 -- 运行时取品质：字典直接 O(1) 取值（方案 D 简化版，无需旧档兼容/遍历）。
 -- 找不到 / 未学 / 已删 → 返回 1（普通），不崩。

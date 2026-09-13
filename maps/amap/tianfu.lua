@@ -588,10 +588,9 @@ end
     cards_flow.style.vertical_align = 'top'
 
     for _, skill_name in ipairs(unique_skills) do
-        -- ★ 天赋品质：每个候选卡片独立 roll 一次，显示与最终学习共用
+        -- ★ 天赋品质：每个候选卡片独立 roll 一次，显示与最终学习共用（基础权重，转运保底不在天赋品质域结算）
         -- tier 决定档位（中级/高级购买传 mid/high，高概率出高品质；默认 low）
-        -- T3-B 转运：传入 player 以结算品质保底（pity）
-        local q_idx = TianfuQuality.roll(tier, player)
+        local q_idx = TianfuQuality.roll(tier)
         local q_color = TianfuQuality.color(q_idx) or {r = 200, g = 200, b = 200}
         local q_color_ui = {r = q_color.r / 255, g = q_color.g / 255, b = q_color.b / 255}
 
