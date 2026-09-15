@@ -3947,7 +3947,9 @@ Public.zhandibilei_check = function(player, event)
                     + (owner.physical_position.y - player.physical_position.y) ^ 2) <= 20 then
                 local q = (q_all[owner.name] or {}).zhandibilei or 1
                 local heal_amount = damage * 0.08 * COEFF_LOW[q]
-                if player.character and player.character.valid then
+                -- 致死一击守卫：引擎对本击致死的伤害会把血量钳在 0，死亡判定推迟到本事件结束后；
+                -- 血量已归零说明本次为致死一击，不得回血起死回生（否则光环内角色永远打不死）。
+                if player.character and player.character.valid and player.character.health > 0 then
                     player.character.health = math.min(player.character.health + heal_amount, player.character.max_health)
                 end
                 return true
